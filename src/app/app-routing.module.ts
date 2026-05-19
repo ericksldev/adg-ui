@@ -38,6 +38,12 @@ const routes: Routes = [
       import('./features/users/user-management.module').then((m) => m.UserManagementModule),
     data: { breadcrumb: 'breadcrumbs.userManagement' }
   },
+  {
+    path: 'configuration',
+    loadChildren: () =>
+      import('./features/configuration/configuration.module').then((m) => m.ConfigurationModule),
+    data: { breadcrumb: 'breadcrumbs.configuration' }
+  },
   { path: '**', redirectTo: 'home' }
 ];
 

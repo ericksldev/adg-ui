@@ -1,4 +1,4 @@
-import { UserRole } from './domain.constants';
+import { normalizeUserRoles, UserRole } from './domain.constants';
 
 export enum Permission {
   /** Listar todas las compañías (solo SaaS). */
@@ -14,6 +14,8 @@ export enum Permission {
   RANCH_READ = 'RANCH_READ',
   /** Crear / editar / eliminar rancho (SaaS y administrador). */
   RANCH_WRITE = 'RANCH_WRITE',
+  PADDOCK_READ = 'PADDOCK_READ',
+  PADDOCK_WRITE = 'PADDOCK_WRITE',
   MEMBERSHIP_READ = 'MEMBERSHIP_READ',
   MEMBERSHIP_WRITE = 'MEMBERSHIP_WRITE',
   ANIMAL_READ = 'ANIMAL_READ',
@@ -31,6 +33,8 @@ const PERMISSION_ROLE_MAP: Record<Permission, UserRole[]> = {
   [Permission.USER_WRITE]: ['administrator', 'saas_owner'],
   [Permission.RANCH_READ]: ['ranch_staff', 'administrator', 'saas_owner'],
   [Permission.RANCH_WRITE]: ['administrator', 'saas_owner'],
+  [Permission.PADDOCK_READ]: ['ranch_staff', 'administrator', 'saas_owner'],
+  [Permission.PADDOCK_WRITE]: ['ranch_staff', 'administrator', 'saas_owner'],
   [Permission.MEMBERSHIP_READ]: ['administrator', 'saas_owner'],
   [Permission.MEMBERSHIP_WRITE]: ['administrator', 'saas_owner'],
   [Permission.ANIMAL_READ]: ['ranch_staff', 'administrator', 'saas_owner'],
@@ -39,7 +43,8 @@ const PERMISSION_ROLE_MAP: Record<Permission, UserRole[]> = {
   [Permission.ANIMAL_WORK_SESSION_WRITE]: ['ranch_staff', 'administrator', 'saas_owner'],
 };
 
-export const hasPermission = (roles: UserRole[], permission: Permission): boolean => {
+export const hasPermission = (roles: UserRole[] | string[], permission: Permission): boolean => {
+  const normalized = normalizeUserRoles(roles);
   const allowedRoles = PERMISSION_ROLE_MAP[permission];
-  return roles.some((role) => allowedRoles.includes(role));
+  return normalized.some((role) => allowedRoles.includes(role));
 };

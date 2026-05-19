@@ -3,6 +3,7 @@ export interface AnimalCreatePayload {
   ranch_uuid: string;
   breed_code: string;
   registration_number: string;
+  chip_number?: string | null;
   mother_registration_number?: string | null;
   father_registration_number?: string | null;
   current_owner_uuid?: string | null;

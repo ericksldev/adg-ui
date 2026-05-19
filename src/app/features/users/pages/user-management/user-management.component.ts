@@ -4,6 +4,7 @@ import { SessionService } from 'src/app/core/services/session.service';
 import { translateUserWriteError } from 'src/app/core/utils/user-write-error.util';
 import { normalizeUserRole, normalizeUserRoles, UserRole } from 'src/app/shared/constants/domain.constants';
 import { UserFormValue } from 'src/app/shared/components/forms/user-form/user-form.component';
+import { SearchableSelectOption } from 'src/app/shared/components/searchable-select/searchable-select.component';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { CompanyOption, RanchOption, UserManagementItem, UserManagementPayload } from '../../models/user-management.model';
 import { UserManagementService } from '../../services/user-management.service';
@@ -21,6 +22,7 @@ export class UserManagementComponent implements OnInit {
   ranches: RanchOption[] = [];
   selectedCompany = '';
   selectedRanch = '';
+  userSearch = '';
   isLoading = false;
   errorMessage = '';
   editUser: UserManagementItem | null = null;
@@ -63,6 +65,32 @@ export class UserManagementComponent implements OnInit {
   /** Tenant admins may assign company roles (aligned with MEMBERSHIP_WRITE). */
   get canManageRanchRoles(): boolean {
     return this.isSaasOwner || this.sessionRoles.includes('administrator');
+  }
+
+  get companySelectOptions(): SearchableSelectOption[] {
+    return this.companies.map((company) => ({
+      value: company.uuid_company,
+      label: company.name
+    }));
+  }
+
+  get filteredUsers(): UserManagementItem[] {
+    const query = this.userSearch.trim().toLowerCase();
+    if (!query) {
+      return this.users;
+    }
+
+    return this.users.filter((user) => {
+      const companyName = this.companyNameForUser(user).toLowerCase();
+      return (
+        user.username?.toLowerCase().includes(query) ||
+        user.email?.toLowerCase().includes(query) ||
+        user.first_name?.toLowerCase().includes(query) ||
+        user.last_name?.toLowerCase().includes(query) ||
+        user.id_card?.toLowerCase().includes(query) ||
+        companyName.includes(query)
+      );
+    });
   }
 
   get selectedCompanyName(): string {
@@ -201,11 +229,21 @@ export class UserManagementComponent implements OnInit {
     });
   }
 
+  canDeactivateUser(user: UserManagementItem): boolean {
+    const selfUuid = this.sessionService.getUuidUser();
+    return !selfUuid || selfUuid !== user.uuid_user;
+  }
+
   deactivateUser(user: UserManagementItem): void {
+    if (!this.canDeactivateUser(user)) {
+      this.errorMessage = this.i18nService.translate('errors.cannotDeactivateSelf');
+      return;
+    }
+
     this.userManagementService.deactivateUser(user.uuid_user).subscribe({
       next: () => this.loadUsers(),
-      error: () => {
-        this.errorMessage = this.i18nService.translate('errors.deactivateUser');
+      error: (err: unknown) => {
+        this.errorMessage = translateUserWriteError(this.i18nService, err, 'errors.deactivateUser');
       }
     });
   }
@@ -215,8 +253,13 @@ export class UserManagementComponent implements OnInit {
     this.formValue = this.buildEmptyForm();
   }
 
+  updateUserSearch(value: string): void {
+    this.userSearch = value;
+  }
+
   onCompanyChange(uuidCompany: string): void {
     this.selectedCompany = uuidCompany;
+    this.userSearch = '';
     this.loadRanchAndUsers();
   }
 

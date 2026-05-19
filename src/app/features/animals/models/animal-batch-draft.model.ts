@@ -6,6 +6,7 @@ import type { AnimalOriginType, AnimalSex } from './animal-api-fields.model';
  */
 export interface AnimalBatchDraftRow {
   registrationNumber: string;
+  chipNumber: string;
   ranchUuid: string;
   breedCode: string;
   motherRegistrationNumber: string;
@@ -21,6 +22,7 @@ export interface AnimalBatchDraftRow {
 
 export const ANIMAL_BATCH_DRAFT_ROW_KEYS: (keyof AnimalBatchDraftRow)[] = [
   'registrationNumber',
+  'chipNumber',
   'ranchUuid',
   'breedCode',
   'motherRegistrationNumber',
@@ -34,7 +36,7 @@ export const ANIMAL_BATCH_DRAFT_ROW_KEYS: (keyof AnimalBatchDraftRow)[] = [
   'description'
 ];
 
-export const ANIMAL_BATCH_DRAFT_VERSION = 5 as const;
+export const ANIMAL_BATCH_DRAFT_VERSION = 6 as const;
 
 export interface AnimalBatchDraftSnapshot {
   version: typeof ANIMAL_BATCH_DRAFT_VERSION;

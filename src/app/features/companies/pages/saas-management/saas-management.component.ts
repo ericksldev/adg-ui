@@ -2,7 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { CompanyManagement } from '../../models/company-management.model';
 import { SaasManagementService } from '../../services/saas-management.service';
+import { CompanyFieldAvailabilityService } from 'src/app/core/services/company-field-availability.service';
 import { I18nService } from 'src/app/core/services/i18n.service';
+import { translateCompanyWriteError } from 'src/app/core/utils/company-write-error.util';
 import { ConfirmDialogComponent } from 'src/app/shared/components/modals/confirm-dialog/confirm-dialog.component';
 import { BillingCycle, CompanyPlanType, MembershipStatus } from 'src/app/shared/constants/domain.constants';
 import {
@@ -32,23 +34,16 @@ export class SaasManagementComponent implements OnInit {
   companyPage = 1;
   readonly companyPageSize = 8;
 
-  private readonly emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  private readonly passwordPolicyRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{9,}$/;
-
   companyForm: Partial<CompanyManagement> = this.buildEmptyCompanyForm();
-  initialOwnerForm: { enabled: boolean; username: string; email: string; password: string } = {
-    enabled: false,
-    username: '',
-    email: '',
-    password: ''
-  };
   showCompanyForm = false;
   companyFormSubmitAttempted = false;
   companyFormTouched: Record<string, boolean> = {};
+  private companyRemoteUniqueness: Partial<Record<'name' | 'tax_id', string>> = {};
 
   constructor(
     private readonly modalService: NgbModal,
     private readonly saasManagementService: SaasManagementService,
+    private readonly companyFieldAvailability: CompanyFieldAvailabilityService,
     private readonly i18nService: I18nService
   ) {}
 
@@ -86,23 +81,13 @@ export class SaasManagementComponent implements OnInit {
     const request$ = this.saasManagementService.createCompany(payload);
 
     request$.subscribe({
-      next: (company) => {
-        if (!this.companyForm.uuid_company && this.initialOwnerForm.enabled && this.initialOwnerForm.username && this.initialOwnerForm.password) {
-          this.saasManagementService
-            .createCompanyUser({
-              username: this.initialOwnerForm.username,
-              email: this.initialOwnerForm.email,
-              password: this.initialOwnerForm.password,
-              uuid_company: company.uuid_company
-            })
-            .subscribe();
-        }
+      next: () => {
         this.resetCompanyForm();
         this.showCompanyForm = false;
         this.loadCompanies();
       },
-      error: () => {
-        this.errorMessage = this.i18nService.translate('errors.saveCompany');
+      error: (err: unknown) => {
+        this.errorMessage = translateCompanyWriteError(this.i18nService, err, 'errors.saveCompany');
       }
     });
   }
@@ -218,6 +203,44 @@ export class SaasManagementComponent implements OnInit {
     this.companyFormTouched[field] = true;
   }
 
+  onCompanyAvailabilityBlur(field: 'name' | 'tax_id'): void {
+    const intrinsic = this.getCompanyFieldErrorKey(field);
+    if (intrinsic !== null) {
+      delete this.companyRemoteUniqueness[field];
+      return;
+    }
+
+    const params: { name?: string; tax_id?: string; exclude_uuid_company?: string } = {};
+    if (this.companyForm.uuid_company) {
+      params.exclude_uuid_company = this.companyForm.uuid_company;
+    }
+    if (field === 'name') {
+      params.name = (this.companyForm.name ?? '').trim();
+    } else {
+      params.tax_id = (this.companyForm.tax_id ?? '').trim();
+    }
+
+    if (field === 'tax_id' && !params.tax_id) {
+      delete this.companyRemoteUniqueness.tax_id;
+      return;
+    }
+
+    this.companyFieldAvailability.check(params).subscribe({
+      next: (result) => {
+        const taken = field === 'name' ? !result.nameAvailable : !result.taxIdAvailable;
+        if (taken) {
+          this.companyRemoteUniqueness[field] =
+            field === 'name' ? 'errors.companyNameInUse' : 'errors.taxIdInUse';
+        } else {
+          delete this.companyRemoteUniqueness[field];
+        }
+      },
+      error: () => {
+        delete this.companyRemoteUniqueness[field];
+      }
+    });
+  }
+
   shouldShowCompanyFieldError(field: string): boolean {
     return this.companyFormSubmitAttempted || !!this.companyFormTouched[field];
   }
@@ -227,7 +250,7 @@ export class SaasManagementComponent implements OnInit {
   }
 
   getCompanyFieldError(field: string): string | null {
-    const errorKey = this.getCompanyFieldErrorKey(field);
+    const errorKey = this.getCombinedCompanyFieldErrorKey(field);
     if (!errorKey) {
       return null;
     }
@@ -266,12 +289,7 @@ export class SaasManagementComponent implements OnInit {
     this.companyForm = this.buildEmptyCompanyForm();
     this.companyFormSubmitAttempted = false;
     this.companyFormTouched = {};
-    this.initialOwnerForm = {
-      enabled: false,
-      username: '',
-      email: '',
-      password: ''
-    };
+    this.companyRemoteUniqueness = {};
   }
 
   openCreateCompanyForm(): void {
@@ -347,57 +365,34 @@ export class SaasManagementComponent implements OnInit {
   }
 
   private getCompanyFormErrors(): string[] {
-    const fields = [
-      'name',
-      'legal_name',
-      'tax_id',
-      'initial_username',
-      'initial_email',
-      'initial_password'
-    ];
+    const fields = ['name', 'legal_name', 'tax_id'];
 
     return fields
-      .map((field) => this.getCompanyFieldErrorKey(field))
+      .map((field) => this.getCombinedCompanyFieldErrorKey(field))
       .filter((key): key is string => key !== null)
       .map((key) => this.i18nService.translate(key));
   }
 
+  private getCombinedCompanyFieldErrorKey(field: string): string | null {
+    const intrinsic = this.getCompanyFieldErrorKey(field);
+    if (intrinsic !== null) {
+      return intrinsic;
+    }
+    if (field === 'name' || field === 'tax_id') {
+      return this.companyRemoteUniqueness[field] ?? null;
+    }
+    return null;
+  }
+
   private getCompanyFieldErrorKey(field: string): string | null {
     const name = (this.companyForm.name ?? '').trim();
-    const legalName = (this.companyForm.legal_name ?? '').trim();
-    const taxId = (this.companyForm.tax_id ?? '').trim();
-    const ownerUsername = this.initialOwnerForm.username.trim();
-    const ownerEmail = this.initialOwnerForm.email.trim();
-    const ownerPassword = this.initialOwnerForm.password.trim();
 
     switch (field) {
       case 'name':
         return !name ? 'saas.validation.tradeNameRequired' : null;
       case 'legal_name':
-        return !legalName ? 'saas.validation.legalNameRequired' : null;
       case 'tax_id':
-        return !taxId ? 'saas.validation.taxIdRequired' : null;
-      case 'initial_username':
-        if (!this.initialOwnerForm.enabled) {
-          return null;
-        }
-        return !ownerUsername ? 'saas.validation.initialUsernameRequired' : null;
-      case 'initial_email':
-        if (!this.initialOwnerForm.enabled) {
-          return null;
-        }
-        if (!ownerEmail) {
-          return 'saas.validation.initialEmailRequired';
-        }
-        return !this.emailRegex.test(ownerEmail) ? 'saas.validation.initialEmailInvalid' : null;
-      case 'initial_password':
-        if (!this.initialOwnerForm.enabled) {
-          return null;
-        }
-        if (!ownerPassword) {
-          return 'saas.validation.initialPasswordRequired';
-        }
-        return !this.passwordPolicyRegex.test(ownerPassword) ? 'saas.validation.passwordPolicy' : null;
+        return null;
       default:
         return null;
     }

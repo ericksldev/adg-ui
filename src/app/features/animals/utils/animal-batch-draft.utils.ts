@@ -8,6 +8,7 @@ export function batchDraftRowHasData(row: AnimalBatchDraftRow): boolean {
 export function emptyBatchDraftRow(): AnimalBatchDraftRow {
   return {
     registrationNumber: '',
+    chipNumber: '',
     ranchUuid: '',
     breedCode: '',
     motherRegistrationNumber: '',

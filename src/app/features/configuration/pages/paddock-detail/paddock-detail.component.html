@@ -1,0 +1,49 @@
+<div class="container-fluid paddock-detail" *ngIf="!isLoading && paddock">
+  <div class="app-page-header d-flex flex-wrap align-items-center gap-2">
+    <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/configuration/paddocks']" [queryParams]="listQueryParams()">
+      {{ 'paddocks.backToList' | t }}
+    </a>
+    <h3 class="app-page-title mb-0">{{ paddock.name }}</h3>
+    <div class="ms-auto d-flex flex-wrap gap-2">
+      <a
+        class="btn btn-sm btn-outline-primary"
+        [routerLink]="['/configuration/paddocks', paddock.paddock_uuid, 'edit']"
+      >{{ 'paddocks.edit' | t }}</a>
+      <button type="button" class="btn btn-sm btn-outline-danger" (click)="deactivate()" [disabled]="isDeleting">
+        {{ 'paddocks.deactivate' | t }}
+      </button>
+    </div>
+  </div>
+
+  <p class="text-danger" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="app-card p-3">
+    <dl class="row mb-0 paddock-detail__grid">
+      <dt class="col-sm-3" *ngIf="isSaasOwner && companyName">{{ 'users.company' | t }}</dt>
+      <dd class="col-sm-9" *ngIf="isSaasOwner && companyName">{{ companyName }}</dd>
+      <dt class="col-sm-3">{{ 'users.ranch' | t }}</dt>
+      <dd class="col-sm-9">{{ ranchName }}</dd>
+      <dt class="col-sm-3">{{ 'paddocks.name' | t }}</dt>
+      <dd class="col-sm-9">{{ paddock.name }}</dd>
+      <dt class="col-sm-3">{{ 'paddocks.sizeHa' | t }}</dt>
+      <dd class="col-sm-9">{{ paddock.size_in_hectares ?? '-' }}</dd>
+      <dt class="col-sm-3">{{ 'paddocks.grassType' | t }}</dt>
+      <dd class="col-sm-9">{{ paddock.grass_type || '-' }}</dd>
+      <dt class="col-sm-3">{{ 'paddocks.waterSource' | t }}</dt>
+      <dd class="col-sm-9">{{ paddock.water_source || '-' }}</dd>
+      <dt class="col-sm-3">{{ 'paddocks.maximumCapacity' | t }}</dt>
+      <dd class="col-sm-9">{{ paddock.maximum_capacity ?? '-' }}</dd>
+      <dt class="col-sm-3">{{ 'paddocks.description' | t }}</dt>
+      <dd class="col-sm-9">{{ paddock.description || '-' }}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="container-fluid paddock-detail" *ngIf="isLoading">
+  <div class="text-muted py-3">{{ 'common.loading' | t }}</div>
+</div>
+
+<div class="container-fluid paddock-detail" *ngIf="!isLoading && !paddock && errorMessage">
+  <p class="text-danger">{{ errorMessage }}</p>
+  <a class="btn btn-sm btn-outline-secondary" routerLink="/configuration/paddocks">{{ 'paddocks.backToList' | t }}</a>
+</div>

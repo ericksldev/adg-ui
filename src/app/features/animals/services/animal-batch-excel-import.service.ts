@@ -70,6 +70,15 @@ function mapObjectRow(record: Record<string, unknown>): AnimalBatchDraftRow {
   return {
     ...base,
     registrationNumber: pickFromKeys(cells, ['registration_number', 'registro', 'numero_registro', 'id_registro']),
+    chipNumber: pickFromKeys(cells, [
+      'chip_number',
+      'chip',
+      'chipnumber',
+      'numero_chip',
+      'no_chip',
+      'arete',
+      'id_chip'
+    ]),
     ranchUuid: pickRanchUuid(cells),
     breedCode: pickBreedCode(cells),
     motherRegistrationNumber: pickFromKeys(cells, [

@@ -41,9 +41,11 @@ export class AnimalComponent implements OnInit {
     return this.animals.filter((animal) => {
       const matchesSex = this.selectedSex === 'ALL' || animal.sex === this.selectedSex;
       const reg = animal.registration_number?.toLowerCase() ?? '';
+      const chip = animal.chip_number?.toLowerCase() ?? '';
       const matchesSearch =
         normalizedSearch.length === 0 ||
         reg.includes(normalizedSearch) ||
+        chip.includes(normalizedSearch) ||
         (animal.breed_code?.toLowerCase().includes(normalizedSearch) ?? false) ||
         (animal.color?.toLowerCase().includes(normalizedSearch) ?? false) ||
         (animal.description?.toLowerCase().includes(normalizedSearch) ?? false);

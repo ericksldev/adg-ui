@@ -1,0 +1,70 @@
+<div class="paddock-form border rounded p-3 mb-3 bg-light">
+  <h6 class="mb-3">{{ mode === 'edit' ? ('paddocks.edit' | t) : ('paddocks.create' | t) }}</h6>
+  <div class="row g-2">
+    <div class="col-md-6">
+      <label class="form-label mb-1" for="paddock-form-name">{{ 'paddocks.name' | t }} *</label>
+      <input
+        id="paddock-form-name"
+        class="form-control"
+        [(ngModel)]="value.name"
+        (blur)="markTouched('name')"
+        [class.is-invalid]="showNameError"
+      />
+      <div class="form-text text-danger mb-0" *ngIf="showNameError">
+        {{ 'paddocks.validation.nameRequired' | t }}
+      </div>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label mb-1" for="paddock-form-size">{{ 'paddocks.sizeHa' | t }}</label>
+      <input
+        id="paddock-form-size"
+        class="form-control"
+        type="number"
+        min="0"
+        step="0.01"
+        [(ngModel)]="value.sizeInHectares"
+        (blur)="markTouched('size')"
+        [class.is-invalid]="showSizeError"
+      />
+      <div class="form-text text-danger mb-0" *ngIf="showSizeError">
+        {{ 'paddocks.validation.sizeInvalid' | t }}
+      </div>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label mb-1" for="paddock-form-grass">{{ 'paddocks.grassType' | t }}</label>
+      <input id="paddock-form-grass" class="form-control" [(ngModel)]="value.grassType" />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label mb-1" for="paddock-form-water">{{ 'paddocks.waterSource' | t }}</label>
+      <input id="paddock-form-water" class="form-control" [(ngModel)]="value.waterSource" />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label mb-1" for="paddock-form-capacity">{{ 'paddocks.maximumCapacity' | t }}</label>
+      <input
+        id="paddock-form-capacity"
+        class="form-control"
+        type="number"
+        min="0"
+        step="1"
+        [(ngModel)]="value.maximumCapacity"
+        (blur)="markTouched('capacity')"
+        [class.is-invalid]="showCapacityError"
+      />
+      <div class="form-text text-danger mb-0" *ngIf="showCapacityError">
+        {{ 'paddocks.validation.capacityInvalid' | t }}
+      </div>
+    </div>
+    <div class="col-12">
+      <label class="form-label mb-1" for="paddock-form-description">{{ 'paddocks.description' | t }}</label>
+      <textarea id="paddock-form-description" class="form-control" rows="3" [(ngModel)]="value.description"></textarea>
+    </div>
+  </div>
+  <div class="mt-3">
+    <button type="button" class="btn btn-primary me-2" (click)="onSubmit()" [disabled]="loading || !isValid">
+      {{ submitLabelKey | t }}
+    </button>
+    <button type="button" class="btn btn-outline-secondary" (click)="onCancel()" [disabled]="loading">
+      {{ cancelLabelKey | t }}
+    </button>
+  </div>
+</div>

@@ -33,6 +33,10 @@ export class SessionService {
     return this.sessionSubject.value?.uuid_company ?? null;
   }
 
+  getUuidUser(): string | null {
+    return this.decodeTokenPayload()?.sub ?? null;
+  }
+
   isAuthenticated(): boolean {
     const payload = this.decodeTokenPayload();
     if (!payload?.exp) {

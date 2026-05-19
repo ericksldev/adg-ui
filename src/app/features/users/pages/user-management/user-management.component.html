@@ -7,14 +7,19 @@
 
   <div class="app-card p-3 mb-3" *ngIf="isSaasOwner || ranches.length > 0">
     <div class="row g-2 align-items-end">
-      <div class="col-md-4" *ngIf="isSaasOwner">
+      <div class="col-12 col-md-6 col-lg-4" *ngIf="isSaasOwner">
         <label class="form-label mb-1" for="users-company">{{ 'users.company' | t }}</label>
-        <select id="users-company" class="form-select" [value]="selectedCompany" (change)="onCompanyChange($any($event.target).value)">
-          <option value="">{{ 'users.allCompanies' | t }}</option>
-          <option *ngFor="let company of companies" [value]="company.uuid_company">{{ company.name }}</option>
-        </select>
+        <app-searchable-select
+          inputId="users-company"
+          [options]="companySelectOptions"
+          [value]="selectedCompany"
+          [allowEmpty]="true"
+          [emptyLabel]="'users.allCompanies' | t"
+          [placeholder]="'users.companySearchPlaceholder' | t"
+          (valueChange)="onCompanyChange($event)"
+        ></app-searchable-select>
       </div>
-      <div class="col-md-4" *ngIf="ranches.length > 0">
+      <div class="col-12 col-md-6 col-lg-4" *ngIf="ranches.length > 0">
         <label class="form-label mb-1" for="users-ranch">{{ 'users.ranch' | t }}</label>
         <select id="users-ranch" class="form-select" [value]="selectedRanch" (change)="onRanchChange($any($event.target).value)">
           <option *ngFor="let ranch of ranches" [value]="ranch.uuid_ranch">{{ ranchSelectLabel(ranch) }}</option>
@@ -53,14 +58,26 @@
   </div>
 
   <div class="app-card p-3 mb-3">
-    <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="user-management__list-header d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
       <h5 class="mb-0">{{ 'users.list' | t }}</h5>
       <a class="btn btn-primary btn-sm" [routerLink]="['/user-management', 'create']" [queryParams]="createQueryParams">
         {{ 'users.create' | t }}
       </a>
     </div>
 
-    <div class="table-responsive app-table">
+    <div class="app-toolbar mb-3">
+      <input
+        class="form-control form-control-sm"
+        type="search"
+        [value]="userSearch"
+        (input)="updateUserSearch($any($event.target).value)"
+        [placeholder]="'users.searchPlaceholder' | t"
+      />
+    </div>
+
+    <div class="text-muted py-3" *ngIf="isLoading">{{ 'common.loading' | t }}</div>
+
+    <div class="table-responsive app-table user-management__table d-none d-lg-block" *ngIf="!isLoading">
       <table class="table table-striped table-hover mb-0">
         <thead>
           <tr>
@@ -75,7 +92,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let user of users">
+          <tr *ngFor="let user of filteredUsers">
             <td *ngIf="isSaasOwner">{{ companyNameForUser(user) }}</td>
             <td>{{ user.username }}</td>
             <td>{{ user.email }}</td>
@@ -89,14 +106,65 @@
             <td>
               <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/user-management', user.uuid_user]">{{ 'common.detail' | t }}</a>
             </td>
-            <td>
-              <button class="btn btn-sm btn-outline-primary me-1" (click)="openEdit(user)">{{ 'users.edit' | t }}</button>
-              <button class="btn btn-sm btn-outline-danger" (click)="deactivateUser(user)">{{ 'users.deactivate' | t }}</button>
+            <td class="user-management__actions">
+              <button class="btn btn-sm btn-outline-primary" (click)="openEdit(user)">{{ 'users.edit' | t }}</button>
+              <button
+                *ngIf="canDeactivateUser(user)"
+                class="btn btn-sm btn-outline-danger"
+                (click)="deactivateUser(user)"
+              >
+                {{ 'users.deactivate' | t }}
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <div class="user-management__cards d-lg-none" *ngIf="!isLoading">
+      <article class="user-management__card" *ngFor="let user of filteredUsers">
+        <div class="user-management__card-head">
+          <div>
+            <div class="user-management__card-title">{{ user.username }}</div>
+            <div class="user-management__card-sub text-muted small" *ngIf="isSaasOwner">{{ companyNameForUser(user) }}</div>
+          </div>
+          <span class="badge text-bg-light user-management__card-role">
+            <ng-container *ngIf="normalizeUserRole(user.role ?? '') as r">{{ ('roles.' + r) | t }}</ng-container>
+            <span *ngIf="user.role && !normalizeUserRole(user.role)" class="text-muted">{{ 'users.unrecognizedRole' | t }}</span>
+            <span *ngIf="!user.role" class="text-muted">—</span>
+          </span>
+        </div>
+        <dl class="user-management__card-meta">
+          <div>
+            <dt>{{ 'common.email' | t }}</dt>
+            <dd>{{ user.email }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'userForm.firstName' | t }}</dt>
+            <dd>{{ user.first_name }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'userForm.lastName' | t }}</dt>
+            <dd>{{ user.last_name }}</dd>
+          </div>
+        </dl>
+        <div class="user-management__card-actions">
+          <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/user-management', user.uuid_user]">{{ 'common.detail' | t }}</a>
+          <button class="btn btn-sm btn-outline-primary" (click)="openEdit(user)">{{ 'users.edit' | t }}</button>
+          <button
+            *ngIf="canDeactivateUser(user)"
+            class="btn btn-sm btn-outline-danger"
+            (click)="deactivateUser(user)"
+          >
+            {{ 'users.deactivate' | t }}
+          </button>
+        </div>
+      </article>
+    </div>
+
     <div class="mt-2 text-muted" *ngIf="!isLoading && users.length === 0">{{ 'users.empty' | t }}</div>
+    <div class="mt-2 text-muted" *ngIf="!isLoading && users.length > 0 && filteredUsers.length === 0">
+      {{ 'users.noSearchResults' | t }}
+    </div>
   </div>
 </div>

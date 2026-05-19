@@ -45,6 +45,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     this.form = this.fb.group({
       ranchUuid: ['', Validators.required],
       registrationNumber: ['', Validators.required],
+      chipNumber: [''],
       breedCode: ['UNKNOWN', Validators.required],
       sex: ['MALE', Validators.required],
       originType: ['UNKNOWN', Validators.required],
@@ -136,6 +137,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     const v = this.form.getRawValue() as {
       ranchUuid: string;
       registrationNumber: string;
+      chipNumber: string;
       breedCode: string;
       sex: string;
       originType: string;
@@ -156,6 +158,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       birth_date: `${String(v.birthYear ?? '').trim()}-01-01`
     };
 
+    const chip = String(v.chipNumber ?? '').trim();
     const mother = String(v.motherRegistrationNumber ?? '').trim();
     const father = String(v.fatherRegistrationNumber ?? '').trim();
     const owner = String(v.currentOwnerUuid ?? '').trim();
@@ -163,6 +166,9 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     const color = String(v.color ?? '').trim();
     const desc = String(v.description ?? '').trim();
 
+    if (chip) {
+      payload.chip_number = chip;
+    }
     if (mother) {
       payload.mother_registration_number = mother;
     }
@@ -207,6 +213,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     this.form.reset({
       ranchUuid: '',
       registrationNumber: '',
+      chipNumber: '',
       breedCode: 'UNKNOWN',
       sex: 'MALE',
       originType: 'UNKNOWN',

@@ -2,6 +2,7 @@
 export interface AnimalListItem {
   animal_uuid: string;
   registration_number: string;
+  chip_number?: string | null;
   breed_code: string;
   sex: string;
   color?: string | null;

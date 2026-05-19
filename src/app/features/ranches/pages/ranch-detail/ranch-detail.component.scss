@@ -38,14 +38,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.75rem;
   margin-bottom: 1rem;
-}
-
-.ranch-detail__back {
-  border-color: var(--border);
-  color: var(--text-primary);
 }
 
 .ranch-detail__status {

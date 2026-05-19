@@ -24,6 +24,15 @@
                     <a routerLink="/ranch-management" routerLinkActive="active" (click)="closeSidebarOnMobile()"><i class="bi bi-pin-map me-2"></i>{{ 'sidebar.ranches' | t }}</a>
                 </li>
             </ng-container>
+            <ng-container *ngIf="hasConfigurationSection">
+                <li class="sidebar-header">{{ 'sidebar.configuration' | t }}</li>
+                <li *ngIf="canAccessOwners">
+                    <a routerLink="/configuration/owners" routerLinkActive="active" (click)="closeSidebarOnMobile()"><i class="bi bi-person-vcard me-2"></i>{{ 'sidebar.owners' | t }}</a>
+                </li>
+                <li *ngIf="canAccessPaddocks">
+                    <a routerLink="/configuration/paddocks" routerLinkActive="active" (click)="closeSidebarOnMobile()"><i class="bi bi-grid-3x3-gap me-2"></i>{{ 'sidebar.paddocks' | t }}</a>
+                </li>
+            </ng-container>
             <li class="sidebar-header">Field Ops</li>
             <li>	
                 <a href="#"><i class="bi bi-droplet me-2"></i>{{ 'sidebar.dairy' | t }}</a>	

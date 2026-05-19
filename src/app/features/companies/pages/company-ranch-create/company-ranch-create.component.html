@@ -1,9 +1,6 @@
 <div class="container-fluid company-ranch-create">
-  <div class="app-page-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <div class="app-page-header">
     <h3 class="app-page-title mb-0">{{ 'saas.createRanch' | t }}</h3>
-    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()">
-      {{ 'common.back' | t }}
-    </button>
   </div>
 
   <p class="text-danger mt-2" *ngIf="errorMessage">{{ errorMessage }}</p>

@@ -39,6 +39,22 @@ export class SidebarComponent {
     return this.hasPermission(Permission.RANCH_READ);
   }
 
+  get canAccessOwners(): boolean {
+    return this.hasPermission(Permission.ANIMAL_READ);
+  }
+
+  get canAccessPaddocks(): boolean {
+    return (
+      this.hasPermission(Permission.PADDOCK_READ) ||
+      this.hasPermission(Permission.RANCH_READ) ||
+      this.hasPermission(Permission.ANIMAL_READ)
+    );
+  }
+
+  get hasConfigurationSection(): boolean {
+    return this.canAccessOwners || this.canAccessPaddocks;
+  }
+
   get hasAdministrationSection(): boolean {
     return this.canAccessCompanies || this.canAccessUsers || this.canAccessTenantCompany || this.canAccessRanches;
   }

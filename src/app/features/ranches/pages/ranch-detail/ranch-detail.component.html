@@ -11,9 +11,6 @@
   <ng-container *ngIf="ranch && !errorMessage">
     <header class="ranch-detail__hero">
       <div class="ranch-detail__hero-top">
-        <a class="btn btn-outline-secondary btn-sm ranch-detail__back" routerLink="/ranch-management">
-          <i class="bi bi-arrow-left me-1"></i>{{ 'ranches.backToList' | t }}
-        </a>
         <span
           class="ranch-detail__status"
           [class.ranch-detail__status--active]="ranch.is_active !== false"

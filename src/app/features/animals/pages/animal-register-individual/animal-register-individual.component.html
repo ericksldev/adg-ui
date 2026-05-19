@@ -1,10 +1,7 @@
 <div class="container-fluid animal-individual">
   <div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
     <h2 class="app-page-title mb-0">{{ 'animal.individualRegisterTitle' | t }}</h2>
-    <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-outline-secondary btn-sm" routerLink="/animal/register/batch">{{ 'animal.batchRegisterTitle' | t }}</a>
-      <a class="btn btn-outline-secondary btn-sm" routerLink="/animal">{{ 'common.back' | t }}</a>
-    </div>
+    <a class="btn btn-outline-secondary btn-sm" routerLink="/animal/register/batch">{{ 'animal.batchRegisterTitle' | t }}</a>
   </div>
 
   <p class="text-muted small mb-1">{{ 'animal.individualRegisterSubtitle' | t }}</p>
@@ -37,8 +34,8 @@
         <div class="col-md-6">
           <label class="form-label small mb-1" for="sex">{{ 'animal.fieldSex' | t }} *</label>
           <select id="sex" class="form-select form-select-sm" formControlName="sex">
-            <option value="MALE">{{ 'animal.sexMaleApi' | t }}</option>
-            <option value="FEMALE">{{ 'animal.sexFemaleApi' | t }}</option>
+            <option value="MALE">{{ 'animal.male' | t }}</option>
+            <option value="FEMALE">{{ 'animal.female' | t }}</option>
           </select>
         </div>
         <div class="col-md-6">
@@ -49,6 +46,37 @@
             <option value="PURCHASE">{{ 'animal.originPurchase' | t }}</option>
             <option value="TRANSFER">{{ 'animal.originTransfer' | t }}</option>
           </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="birthYear">{{ 'animal.fieldBirthYear' | t }} *</label>
+          <input
+            id="birthYear"
+            class="form-control form-control-sm"
+            type="number"
+            formControlName="birthYear"
+            autocomplete="bday-year"
+            inputmode="numeric"
+            [min]="1900"
+            [max]="maxBirthYear"
+            placeholder="YYYY"
+          />
+        </div>
+
+        <div class="col-12"><hr class="animal-individual-optional-divider my-1" /></div>
+
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="chipNumber">
+            {{ 'animal.fieldChipNumber' | t }}
+            <span class="text-muted fw-normal animal-optional-mark">{{ 'animal.optionalParen' | t }}</span>
+          </label>
+          <input
+            id="chipNumber"
+            class="form-control form-control-sm"
+            type="text"
+            formControlName="chipNumber"
+            autocomplete="off"
+            [attr.placeholder]="'animal.fieldChipNumberPlaceholder' | t"
+          />
         </div>
         <div class="col-md-6">
           <label class="form-label small mb-1" for="motherRegistrationNumber">
@@ -96,20 +124,6 @@
             <span class="text-muted fw-normal animal-optional-mark">{{ 'animal.optionalParen' | t }}</span>
           </label>
           <input id="color" class="form-control form-control-sm" type="text" formControlName="color" autocomplete="off" />
-        </div>
-        <div class="col-md-6">
-          <label class="form-label small mb-1" for="birthYear">{{ 'animal.fieldBirthYear' | t }} *</label>
-          <input
-            id="birthYear"
-            class="form-control form-control-sm"
-            type="number"
-            formControlName="birthYear"
-            autocomplete="bday-year"
-            inputmode="numeric"
-            [min]="1900"
-            [max]="maxBirthYear"
-            placeholder="YYYY"
-          />
         </div>
         <div class="col-12">
           <label class="form-label small mb-1" for="description">

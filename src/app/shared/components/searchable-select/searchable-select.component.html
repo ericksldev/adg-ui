@@ -1,0 +1,40 @@
+<div class="searchable-select" [class.searchable-select--open]="isOpen">
+  <input
+    [id]="inputId"
+    type="text"
+    class="form-control"
+    role="combobox"
+    aria-autocomplete="list"
+    [attr.aria-expanded]="isOpen"
+    [placeholder]="placeholder"
+    [disabled]="disabled"
+    [value]="searchQuery"
+    (input)="onInput($event)"
+    (focus)="onFocus()"
+    (keydown)="onKeydown($event)"
+    autocomplete="off"
+  />
+  <ul class="searchable-select__list" *ngIf="showDropdown" role="listbox">
+    <li
+      *ngIf="allowEmpty"
+      role="option"
+      class="searchable-select__option"
+      [class.searchable-select__option--active]="isHighlighted(0)"
+      (mousedown)="$event.preventDefault(); selectValue('')"
+    >
+      {{ emptyLabel }}
+    </li>
+    <li
+      *ngFor="let option of filteredOptions; let i = index"
+      role="option"
+      class="searchable-select__option"
+      [class.searchable-select__option--active]="isHighlighted(allowEmpty ? i + 1 : i)"
+      (mousedown)="$event.preventDefault(); selectValue(option.value)"
+    >
+      {{ option.label }}
+    </li>
+    <li *ngIf="!allowEmpty && filteredOptions.length === 0" class="searchable-select__empty text-muted">
+      —
+    </li>
+  </ul>
+</div>

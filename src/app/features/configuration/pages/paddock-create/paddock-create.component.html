@@ -1,0 +1,51 @@
+<div class="container-fluid paddock-create">
+  <div class="app-page-header">
+    <h3 class="app-page-title mb-0">{{ 'paddocks.createTitle' | t }}</h3>
+  </div>
+
+  <p class="text-danger" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <div class="text-muted py-3" *ngIf="isLoading">{{ 'common.loading' | t }}</div>
+
+  <div class="app-card p-3 mb-3" *ngIf="!isLoading && (isSaasOwner || ranches.length > 0)">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4" *ngIf="isSaasOwner">
+        <label class="form-label mb-1" for="paddock-create-company">{{ 'users.company' | t }}</label>
+        <select
+          id="paddock-create-company"
+          class="form-select"
+          [(ngModel)]="selectedCompany"
+          (ngModelChange)="onCompanyChange($event)"
+        >
+          <option value="">{{ 'paddocks.pickCompany' | t }}</option>
+          <option *ngFor="let c of companies" [value]="c.uuid_company">{{ c.name }}</option>
+        </select>
+      </div>
+      <div class="col-md-4" *ngIf="ranches.length > 0">
+        <label class="form-label mb-1" for="paddock-create-ranch">{{ 'users.ranch' | t }}</label>
+        <select
+          id="paddock-create-ranch"
+          class="form-select"
+          [(ngModel)]="selectedRanch"
+          (ngModelChange)="onRanchChange($event)"
+        >
+          <option value="">{{ 'paddocks.pickRanch' | t }}</option>
+          <option *ngFor="let ranch of ranches" [value]="ranch.uuid_ranch">{{ ranch.name }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <app-paddock-form
+    *ngIf="!isLoading && selectedRanch"
+    mode="create"
+    [loading]="isSaving"
+    [value]="formValue"
+    [submitLabelKey]="'paddocks.create'"
+    (submitForm)="save($event)"
+    (cancelForm)="cancel()"
+  ></app-paddock-form>
+
+  <div class="app-card p-3 text-muted" *ngIf="!isLoading && !selectedRanch">
+    {{ 'paddocks.selectRanchHint' | t }}
+  </div>
+</div>

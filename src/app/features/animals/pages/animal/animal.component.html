@@ -13,8 +13,8 @@
         (input)="updateSearch($any($event.target).value)" [placeholder]="'common.search' | t">
       <select class="form-select form-select-sm" [value]="selectedSex" (change)="updateSexFilter($any($event.target).value)">
         <option value="ALL">{{ 'common.all' | t }}</option>
-        <option value="MALE">{{ 'animal.sexMaleApi' | t }}</option>
-        <option value="FEMALE">{{ 'animal.sexFemaleApi' | t }}</option>
+        <option value="MALE">{{ 'animal.male' | t }}</option>
+        <option value="FEMALE">{{ 'animal.female' | t }}</option>
       </select>
     </div>
 
@@ -23,6 +23,7 @@
         <thead>
         <tr>
           <th scope="col" class="text-center">{{ 'animal.fieldRegistrationNumber' | t }}</th>
+          <th scope="col" class="text-center">{{ 'animal.fieldChipNumber' | t }}</th>
           <th scope="col" class="text-center">{{ 'animal.fieldBreed' | t }}</th>
           <th scope="col" class="text-center">{{ 'animal.sex' | t }}</th>
           <th scope="col" class="text-center">{{ 'animal.fieldColor' | t }}</th>
@@ -34,6 +35,7 @@
         <tbody>
         <tr *ngFor="let item of paginatedAnimals">
           <td class="text-center">{{ item.registration_number }}</td>
+          <td class="text-center">{{ item.chip_number || '—' }}</td>
           <td class="text-center">{{ item.breed_code }}</td>
           <td class="text-center">{{ item.sex }}</td>
           <td class="text-center">{{ item.color }}</td>

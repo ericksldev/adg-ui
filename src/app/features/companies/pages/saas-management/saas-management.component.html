@@ -25,12 +25,13 @@
       <div class="row g-2">
         <div class="col-md-3">
           <label class="form-label mb-1" for="company-name">{{ 'saas.tradeName' | t }}</label>
-          <input id="company-name" class="form-control" [(ngModel)]="companyForm.name" (blur)="markCompanyFieldTouched('name')"
+          <input id="company-name" class="form-control" [(ngModel)]="companyForm.name"
+            (blur)="markCompanyFieldTouched('name'); onCompanyAvailabilityBlur('name')"
             [class.is-invalid]="isCompanyFieldInvalid('name')" [placeholder]="'saas.tradeName' | t" />
           <div class="invalid-feedback d-block" *ngIf="isCompanyFieldInvalid('name')">{{ getCompanyFieldError('name') }}</div>
         </div>
         <div class="col-md-3">
-          <label class="form-label mb-1" for="company-legal-name">{{ 'saas.legalName' | t }}</label>
+          <label class="form-label mb-1" for="company-legal-name">{{ 'saas.legalName' | t }} ({{ 'saas.optional' | t }})</label>
           <input id="company-legal-name" class="form-control" [(ngModel)]="companyForm.legal_name" (blur)="markCompanyFieldTouched('legal_name')"
             [class.is-invalid]="isCompanyFieldInvalid('legal_name')" [placeholder]="'saas.legalName' | t" />
           <div class="invalid-feedback d-block" *ngIf="isCompanyFieldInvalid('legal_name')">{{ getCompanyFieldError('legal_name') }}</div>
@@ -38,42 +39,15 @@
       </div>
       <div class="row g-2 mt-2">
         <div class="col-md-3">
-          <label class="form-label mb-1" for="company-tax-id">{{ 'saas.taxId' | t }}</label>
-          <input id="company-tax-id" class="form-control" [(ngModel)]="companyForm.tax_id" (blur)="markCompanyFieldTouched('tax_id')"
+          <label class="form-label mb-1" for="company-tax-id">{{ 'saas.taxId' | t }} ({{ 'saas.optional' | t }})</label>
+          <input id="company-tax-id" class="form-control" [(ngModel)]="companyForm.tax_id"
+            (blur)="markCompanyFieldTouched('tax_id'); onCompanyAvailabilityBlur('tax_id')"
             [class.is-invalid]="isCompanyFieldInvalid('tax_id')" [placeholder]="'saas.taxId' | t" />
           <div class="invalid-feedback d-block" *ngIf="isCompanyFieldInvalid('tax_id')">{{ getCompanyFieldError('tax_id') }}</div>
         </div>
         <div class="col-md-9 d-flex align-items-end">
           <button class="btn btn-primary me-2" (click)="saveCompany()" [disabled]="!canSaveCompany">{{ 'common.save' | t }}</button>
           <button class="btn btn-outline-secondary" (click)="cancelCompanyForm()">{{ 'common.cancel' | t }}</button>
-        </div>
-      </div>
-      <div class="row g-2 mt-2">
-        <div class="col-md-12">
-          <label class="form-check-label me-2">
-            <input type="checkbox" class="form-check-input me-1" [(ngModel)]="initialOwnerForm.enabled" />
-            {{ 'saas.createInitialUser' | t }}
-          </label>
-        </div>
-      </div>
-      <div class="row g-2 mt-2" *ngIf="initialOwnerForm.enabled">
-        <div class="col-md-4">
-          <label class="form-label mb-1" for="initial-owner-username">{{ 'common.username' | t }}</label>
-          <input id="initial-owner-username" class="form-control" [(ngModel)]="initialOwnerForm.username" (blur)="markCompanyFieldTouched('initial_username')"
-            [class.is-invalid]="isCompanyFieldInvalid('initial_username')" [placeholder]="'saas.initialUsername' | t" />
-          <div class="invalid-feedback d-block" *ngIf="isCompanyFieldInvalid('initial_username')">{{ getCompanyFieldError('initial_username') }}</div>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label mb-1" for="initial-owner-email">{{ 'common.email' | t }}</label>
-          <input id="initial-owner-email" class="form-control" [(ngModel)]="initialOwnerForm.email" (blur)="markCompanyFieldTouched('initial_email')"
-            [class.is-invalid]="isCompanyFieldInvalid('initial_email')" [placeholder]="'saas.initialEmail' | t" />
-          <div class="invalid-feedback d-block" *ngIf="isCompanyFieldInvalid('initial_email')">{{ getCompanyFieldError('initial_email') }}</div>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label mb-1" for="initial-owner-password">{{ 'common.password' | t }}</label>
-          <input id="initial-owner-password" class="form-control" type="password" [(ngModel)]="initialOwnerForm.password" (blur)="markCompanyFieldTouched('initial_password')"
-            [class.is-invalid]="isCompanyFieldInvalid('initial_password')" [placeholder]="'saas.initialPassword' | t" />
-          <div class="invalid-feedback d-block" *ngIf="isCompanyFieldInvalid('initial_password')">{{ getCompanyFieldError('initial_password') }}</div>
         </div>
       </div>
     </div>

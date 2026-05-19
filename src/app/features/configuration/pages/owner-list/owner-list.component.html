@@ -1,0 +1,53 @@
+<div class="container-fluid owner-list">
+  <div class="app-page-header">
+    <h3 class="app-page-title">{{ 'owners.title' | t }}</h3>
+  </div>
+
+  <p class="text-danger" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="app-card p-3">
+    <div class="owner-list__list-header d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+      <h5 class="mb-0">{{ 'owners.list' | t }}</h5>
+    </div>
+
+    <div class="app-toolbar mb-3">
+      <input
+        class="form-control form-control-sm"
+        type="search"
+        [value]="search"
+        (input)="updateSearch($any($event.target).value)"
+        [placeholder]="'owners.searchPlaceholder' | t"
+      />
+    </div>
+
+    <div class="text-muted py-3" *ngIf="isLoading">{{ 'common.loading' | t }}</div>
+
+    <div class="table-responsive app-table" *ngIf="!isLoading">
+      <table class="table table-striped table-hover mb-0">
+        <thead>
+          <tr>
+            <th>{{ 'owners.fullName' | t }}</th>
+            <th>{{ 'owners.documentNumber' | t }}</th>
+            <th>{{ 'owners.phone' | t }}</th>
+            <th>{{ 'owners.email' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let owner of filteredOwners">
+            <td>{{ owner.full_name }}</td>
+            <td>{{ owner.document_number || '-' }}</td>
+            <td>{{ owner.phone_number || '-' }}</td>
+            <td>{{ owner.email || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-2 text-muted" *ngIf="!isLoading && filteredOwners.length === 0 && !search.trim()">
+      {{ 'owners.empty' | t }}
+    </div>
+    <div class="mt-2 text-muted" *ngIf="!isLoading && filteredOwners.length === 0 && search.trim()">
+      {{ 'owners.noSearchResults' | t }}
+    </div>
+  </div>
+</div>

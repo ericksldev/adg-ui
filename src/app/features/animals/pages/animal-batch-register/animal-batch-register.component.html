@@ -1,15 +1,19 @@
 <div class="container-fluid">
   <div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
     <h2 class="app-page-title mb-0">{{ 'animal.batchRegisterTitle' | t }}</h2>
-    <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-outline-secondary btn-sm" routerLink="/animal/register/individual">{{ 'animal.individualRegisterTitle' | t }}</a>
-      <a class="btn btn-outline-secondary btn-sm" routerLink="/animal">{{ 'common.back' | t }}</a>
-    </div>
+    <a class="btn btn-outline-secondary btn-sm" routerLink="/animal/register/individual">{{ 'animal.individualRegisterTitle' | t }}</a>
   </div>
 
-  <p class="text-muted small mb-2">{{ 'animal.batchRegisterSubtitle' | t }}</p>
-  <p class="text-muted small mb-1 animal-form-fields-legend">{{ 'animal.formFieldsLegend' | t }}</p>
-  <p class="text-muted small mb-3 animal-batch-excel-hint">{{ 'animal.batchExcelHint' | t }}</p>
+  <div class="animal-batch-hints app-card p-2 mb-3" role="note">
+    <ul class="animal-batch-hints-list mb-0 small text-muted">
+      <li>{{ 'animal.batchHintDraft' | t }}</li>
+      <li>{{ 'animal.batchHintRequired' | t }}</li>
+    </ul>
+    <details class="animal-batch-excel-details small text-muted">
+      <summary class="animal-batch-excel-summary"> {{ 'animal.batchExcelDetailsTitle' | t }}</summary>
+      <p class="mb-0 mt-1 animal-batch-excel-hint">{{ 'animal.batchExcelHint' | t }}</p>
+    </details>
+  </div>
 
   <div *ngIf="feedback" class="alert" [ngClass]="feedback.type === 'success' ? 'alert-success' : 'alert-danger'" role="status">
     {{ feedback.message }}
@@ -74,41 +78,106 @@
         </button>
       </div>
     </div>
+
+    <details class="animal-batch-columns-details small mt-2">
+      <summary class="animal-batch-columns-summary"> {{ 'animal.batchOptionalColumnsTitle' | t }}</summary>
+      <div class="animal-batch-columns-panel mt-2">
+        <div class="animal-batch-columns-actions mb-2">
+          <button type="button" class="animal-batch-columns-action" (click)="setAllOptionalColumns(true)">
+            {{ 'animal.batchOptionalColumnsShowAll' | t }}
+          </button>
+          <span class="animal-batch-columns-actions-sep" aria-hidden="true">·</span>
+          <button type="button" class="animal-batch-columns-action" (click)="setAllOptionalColumns(false)">
+            {{ 'animal.batchOptionalColumnsHideAll' | t }}
+          </button>
+        </div>
+        <div class="animal-batch-columns-checks d-flex flex-wrap gap-2">
+          <div *ngFor="let col of optionalColumns" class="form-check form-check-inline mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              [id]="'batchOptionalCol_' + col.key"
+              [checked]="isOptionalColumnVisible(col.key)"
+              (change)="onOptionalColumnToggle(col.key, $any($event.target).checked)"
+            />
+            <label class="form-check-label" [for]="'batchOptionalCol_' + col.key">{{ col.labelKey | t }}</label>
+          </div>
+        </div>
+      </div>
+    </details>
   </div>
 
   <div class="app-card p-0 animal-batch-table-card">
     <form [formGroup]="form">
       <div class="table-responsive animal-batch-scroll">
-        <table class="table table-sm table-striped mb-0 animal-batch-table">
+        <table
+          class="table table-sm table-striped mb-0 animal-batch-table"
+          [class.animal-batch-table--wide-optional]="anyOptionalColumnVisible"
+        >
           <thead class="table-light">
             <tr>
               <th scope="col" class="text-center animal-batch-col-idx">#</th>
               <th scope="col">{{ 'animal.fieldRegistrationNumber' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></th>
               <th scope="col">{{ 'animal.fieldRanch' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></th>
               <th scope="col">{{ 'animal.fieldBreed' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></th>
-              <th scope="col">
-                {{ 'animal.fieldMotherRegistration' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
-              </th>
-              <th scope="col">
-                {{ 'animal.fieldFatherRegistration' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
-              </th>
-              <th scope="col">
-                {{ 'animal.fieldOwner' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
-              </th>
-              <th scope="col">
-                {{ 'animal.fieldPaddock' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
-              </th>
               <th scope="col">{{ 'animal.fieldSex' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></th>
-              <th scope="col">
-                {{ 'animal.fieldColor' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
-              </th>
               <th scope="col">
                 {{ 'animal.fieldBirthDate' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span>
               </th>
-              <th scope="col">
+              <th
+                *ngIf="isOptionalColumnVisible('chipNumber')"
+                scope="col"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('chipNumber')"
+              >
+                {{ 'animal.fieldChipNumber' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+              </th>
+              <th
+                *ngIf="isOptionalColumnVisible('motherRegistrationNumber')"
+                scope="col"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('motherRegistrationNumber')"
+              >
+                {{ 'animal.fieldMotherRegistration' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+              </th>
+              <th
+                *ngIf="isOptionalColumnVisible('fatherRegistrationNumber')"
+                scope="col"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('fatherRegistrationNumber')"
+              >
+                {{ 'animal.fieldFatherRegistration' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+              </th>
+              <th
+                *ngIf="isOptionalColumnVisible('currentOwnerUuid')"
+                scope="col"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentOwnerUuid')"
+              >
+                {{ 'animal.fieldOwner' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+              </th>
+              <th
+                *ngIf="isOptionalColumnVisible('currentPaddockUuid')"
+                scope="col"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentPaddockUuid')"
+              >
+                {{ 'animal.fieldPaddock' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+              </th>
+              <th
+                *ngIf="isOptionalColumnVisible('color')"
+                scope="col"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('color')"
+              >
+                {{ 'animal.fieldColor' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+              </th>
+              <th
+                *ngIf="isOptionalColumnVisible('originType')"
+                scope="col"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('originType')"
+              >
                 {{ 'animal.fieldOriginType' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
               </th>
-              <th scope="col">
+              <th
+                *ngIf="isOptionalColumnVisible('description')"
+                scope="col"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('description')"
+              >
                 {{ 'animal.fieldDescription' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
               </th>
             </tr>
@@ -128,29 +197,59 @@
                   <option *ngFor="let c of breedCodes" [value]="c">{{ breedLabel(c) }}</option>
                 </select>
               </td>
-              <td><input class="form-control animal-batch-control" type="text" formControlName="motherRegistrationNumber" autocomplete="off" /></td>
-              <td><input class="form-control animal-batch-control" type="text" formControlName="fatherRegistrationNumber" autocomplete="off" /></td>
               <td>
+                <select class="form-select animal-batch-control" formControlName="sex">
+                  <option value="MALE">{{ 'animal.male' | t }}</option>
+                  <option value="FEMALE">{{ 'animal.female' | t }}</option>
+                </select>
+              </td>
+              <td><input class="form-control animal-batch-control" type="date" formControlName="birthDate" autocomplete="off" /></td>
+              <td
+                *ngIf="isOptionalColumnVisible('chipNumber')"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('chipNumber')"
+              >
+                <input class="form-control animal-batch-control" type="text" formControlName="chipNumber" autocomplete="off" [attr.placeholder]="'animal.fieldChipNumberPlaceholder' | t" />
+              </td>
+              <td
+                *ngIf="isOptionalColumnVisible('motherRegistrationNumber')"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('motherRegistrationNumber')"
+              >
+                <input class="form-control animal-batch-control" type="text" formControlName="motherRegistrationNumber" autocomplete="off" />
+              </td>
+              <td
+                *ngIf="isOptionalColumnVisible('fatherRegistrationNumber')"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('fatherRegistrationNumber')"
+              >
+                <input class="form-control animal-batch-control" type="text" formControlName="fatherRegistrationNumber" autocomplete="off" />
+              </td>
+              <td
+                *ngIf="isOptionalColumnVisible('currentOwnerUuid')"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentOwnerUuid')"
+              >
                 <select class="form-select animal-batch-control" formControlName="currentOwnerUuid">
                   <option value="">{{ 'animal.optionNone' | t }}</option>
                   <option *ngFor="let o of ownerRows" [value]="o.owner_uuid">{{ o.full_name }}</option>
                 </select>
               </td>
-              <td>
+              <td
+                *ngIf="isOptionalColumnVisible('currentPaddockUuid')"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentPaddockUuid')"
+              >
                 <select class="form-select animal-batch-control" formControlName="currentPaddockUuid">
                   <option value="">{{ ctrl.get('ranchUuid')?.value ? ('animal.optionNone' | t) : ('animal.selectRanchFirst' | t) }}</option>
                   <option *ngFor="let p of paddockOptionsForRow(i)" [value]="p.paddock_uuid">{{ p.name }}</option>
                 </select>
               </td>
-              <td>
-                <select class="form-select animal-batch-control" formControlName="sex">
-                  <option value="MALE">{{ 'animal.sexMaleApi' | t }}</option>
-                  <option value="FEMALE">{{ 'animal.sexFemaleApi' | t }}</option>
-                </select>
+              <td
+                *ngIf="isOptionalColumnVisible('color')"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('color')"
+              >
+                <input class="form-control animal-batch-control" type="text" formControlName="color" autocomplete="off" />
               </td>
-              <td><input class="form-control animal-batch-control" type="text" formControlName="color" autocomplete="off" /></td>
-              <td><input class="form-control animal-batch-control" type="date" formControlName="birthDate" autocomplete="off" /></td>
-              <td>
+              <td
+                *ngIf="isOptionalColumnVisible('originType')"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('originType')"
+              >
                 <select class="form-select animal-batch-control" formControlName="originType">
                   <option value="UNKNOWN">{{ 'animal.originUnknown' | t }}</option>
                   <option value="BIRTH">{{ 'animal.originBirth' | t }}</option>
@@ -158,7 +257,12 @@
                   <option value="TRANSFER">{{ 'animal.originTransfer' | t }}</option>
                 </select>
               </td>
-              <td><input class="form-control animal-batch-control" type="text" formControlName="description" autocomplete="off" /></td>
+              <td
+                *ngIf="isOptionalColumnVisible('description')"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('description')"
+              >
+                <input class="form-control animal-batch-control" type="text" formControlName="description" autocomplete="off" />
+              </td>
             </tr>
           </tbody>
         </table>

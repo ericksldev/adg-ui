@@ -7,10 +7,14 @@ import { SessionService } from 'src/app/core/services/session.service';
 import { RanchOption } from 'src/app/features/users/models/user-management.model';
 import { UserManagementService } from 'src/app/features/users/services/user-management.service';
 import {
+  ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX,
+  ANIMAL_BATCH_DEFAULT_OPTIONAL_COLUMN_VISIBILITY,
   ANIMAL_BATCH_DEFAULT_ROW_SLOTS,
   ANIMAL_BATCH_MAX_ROW_SLOTS,
   ANIMAL_BATCH_MIN_ROW_SLOTS,
-  ANIMAL_BATCH_PERSIST_DEBOUNCE_MS
+  ANIMAL_BATCH_OPTIONAL_COLUMNS,
+  ANIMAL_BATCH_PERSIST_DEBOUNCE_MS,
+  AnimalBatchOptionalColumnKey
 } from '../../constants/animal-batch.constants';
 import { CATTLE_BREED_CODES } from '../../constants/cattle-breeds';
 import {
@@ -32,6 +36,11 @@ export class AnimalBatchRegisterComponent implements OnInit, OnDestroy {
   readonly minSlots = ANIMAL_BATCH_MIN_ROW_SLOTS;
   readonly maxSlots = ANIMAL_BATCH_MAX_ROW_SLOTS;
   readonly breedCodes = [...CATTLE_BREED_CODES];
+  readonly optionalColumns = ANIMAL_BATCH_OPTIONAL_COLUMNS;
+
+  visibleOptionalColumns: Record<AnimalBatchOptionalColumnKey, boolean> = {
+    ...ANIMAL_BATCH_DEFAULT_OPTIONAL_COLUMN_VISIBILITY
+  };
 
   @ViewChild('excelFileInput') excelFileInput?: ElementRef<HTMLInputElement>;
 
@@ -74,6 +83,33 @@ export class AnimalBatchRegisterComponent implements OnInit, OnDestroy {
     return this.i18n.translate(`animal.breed.${code}`);
   }
 
+  get anyOptionalColumnVisible(): boolean {
+    return this.optionalColumns.some((col) => this.isOptionalColumnVisible(col.key));
+  }
+
+  isOptionalColumnVisible(key: AnimalBatchOptionalColumnKey): boolean {
+    return this.visibleOptionalColumns[key] ?? false;
+  }
+
+  isFirstVisibleOptionalColumn(key: AnimalBatchOptionalColumnKey): boolean {
+    const first = this.optionalColumns.find((col) => this.isOptionalColumnVisible(col.key));
+    return first?.key === key;
+  }
+
+  onOptionalColumnToggle(key: AnimalBatchOptionalColumnKey, checked: boolean): void {
+    this.visibleOptionalColumns = { ...this.visibleOptionalColumns, [key]: checked };
+    this.persistColumnVisibility();
+  }
+
+  setAllOptionalColumns(visible: boolean): void {
+    const next = { ...this.visibleOptionalColumns };
+    for (const col of this.optionalColumns) {
+      next[col.key] = visible;
+    }
+    this.visibleOptionalColumns = next;
+    this.persistColumnVisibility();
+  }
+
   paddockOptionsForRow(index: number): PaddockOptionDto[] {
     const g = this.rows.at(index) as FormGroup | null;
     const ranch = g?.get('ranchUuid')?.value;
@@ -100,7 +136,7 @@ export class AnimalBatchRegisterComponent implements OnInit, OnDestroy {
     const src = Math.min(Math.max(1, Math.floor(this.modelRowNumber)), n) - 1;
     const sourceGroup = this.rows.at(src) as FormGroup;
     const full = sourceGroup.getRawValue() as AnimalBatchDraftRow;
-    const { registrationNumber: _reg, ...template } = full;
+    const { registrationNumber: _reg, chipNumber: _chip, ...template } = full;
 
     if (!this.copyOnlyEmptyTargets) {
       const wouldOverwrite = [...Array(n).keys()].some(
@@ -164,6 +200,8 @@ export class AnimalBatchRegisterComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadColumnVisibility();
+
     const company = this.sessionService.getUuidCompany();
     forkJoin({
       ranches: this.userManagementService.getRanches(company ?? undefined).pipe(catchError(() => of([]))),
@@ -318,9 +356,47 @@ export class AnimalBatchRegisterComponent implements OnInit, OnDestroy {
     this.preloadPaddocksForAllRanches();
   }
 
+  private columnsStorageKey(): string | null {
+    const company = this.sessionService.getUuidCompany();
+    const username = this.sessionService.getUsername();
+    if (!company?.trim() || !username?.trim()) {
+      return null;
+    }
+    return `${ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX}_${company}_${username}`;
+  }
+
+  private loadColumnVisibility(): void {
+    const key = this.columnsStorageKey();
+    if (!key) {
+      return;
+    }
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as Partial<Record<AnimalBatchOptionalColumnKey, boolean>>;
+      this.visibleOptionalColumns = {
+        ...ANIMAL_BATCH_DEFAULT_OPTIONAL_COLUMN_VISIBILITY,
+        ...parsed
+      };
+    } catch {
+      // ignore invalid saved preferences
+    }
+  }
+
+  private persistColumnVisibility(): void {
+    const key = this.columnsStorageKey();
+    if (!key) {
+      return;
+    }
+    localStorage.setItem(key, JSON.stringify(this.visibleOptionalColumns));
+  }
+
   private createRowGroup(seed: AnimalBatchDraftRow): FormGroup {
     return this.fb.group({
       registrationNumber: [seed.registrationNumber],
+      chipNumber: [seed.chipNumber],
       ranchUuid: [seed.ranchUuid],
       breedCode: [seed.breedCode || 'UNKNOWN'],
       motherRegistrationNumber: [seed.motherRegistrationNumber],
