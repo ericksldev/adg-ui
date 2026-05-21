@@ -1,0 +1,66 @@
+<div class="container-fluid company-tenant-overview">
+  <div class="app-page-header">
+    <h3 class="app-page-title mb-0">{{ 'saas.myCompanyTitle' | t }}</h3>
+  </div>
+
+  <p class="text-danger mt-2" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="app-card p-3 mt-3" *ngIf="company">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saas.company' | t }}</div>
+        <div class="app-detail-value">{{ company.name }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saas.legalName' | t }}</div>
+        <div class="app-detail-value">{{ company.legal_name || '-' }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saas.taxId' | t }}</div>
+        <div class="app-detail-value">{{ company.tax_id || '-' }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saas.plan' | t }}</div>
+        <div class="app-detail-value">{{ ('saas.planType.' + planTypeI18nSuffix(company.plan_type)) | t }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saas.cycle' | t }}</div>
+        <div class="app-detail-value">{{ ('saas.billingCycle.' + billingCycleI18nSuffix(company.billing_cycle)) | t }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saas.headLimitColumn' | t }}</div>
+        <div class="app-detail-value">{{ getAnimalHeadLimit(company.plan_type) }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saas.membership' | t }}</div>
+        <div class="app-detail-value">{{ ('saas.membershipStatus.' + company.membership_status.toLowerCase()) | t }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saas.membershipStartDate' | t }}</div>
+        <div class="app-detail-value">{{ (company.membership_started_at | date:'yyyy-MM-dd') || '-' }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'common.status' | t }}</div>
+        <div class="app-detail-value">{{ company.is_active ? ('users.active' | t) : ('users.inactive' | t) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-card p-3 mt-3" *ngIf="company && canListRanches">
+    <h5 class="mb-3">{{ 'saas.ranchesTitle' | t }}</h5>
+    <app-company-ranch-list
+      [ranches]="ranches"
+      [companyUuid]="company.uuid_company"
+      [readOnly]="true"
+    ></app-company-ranch-list>
+  </div>
+
+  <div class="app-card p-3 mt-3" *ngIf="company && canListCompanyUsers">
+    <h5 class="mb-3">{{ 'users.list' | t }}</h5>
+    <app-company-user-list [users]="users"></app-company-user-list>
+  </div>
+
+  <div class="app-card p-3 mt-3 text-muted" *ngIf="!isLoading && !company && !errorMessage">
+    {{ 'saas.companyNotFound' | t }}
+  </div>
+</div>

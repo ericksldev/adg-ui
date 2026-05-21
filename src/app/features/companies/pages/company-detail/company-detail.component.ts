@@ -57,6 +57,21 @@ export class CompanyDetailComponent implements OnInit, OnDestroy {
     private readonly sessionService: SessionService
   ) {}
 
+  get canManageCompanyAsSaas(): boolean {
+    return hasPermission(this.sessionService.getRoles(), Permission.COMPANY_WRITE);
+  }
+
+  get canAccessUsers(): boolean {
+    return hasPermission(this.sessionService.getRoles(), Permission.USER_READ);
+  }
+
+  get canViewSubscriptionHistory(): boolean {
+    return (
+      this.canManageCompanyAsSaas ||
+      hasPermission(this.sessionService.getRoles(), Permission.COMPANY_TENANT_WRITE)
+    );
+  }
+
   get canManageRanches(): boolean {
     return hasPermission(this.sessionService.getRoles(), Permission.RANCH_WRITE);
   }
@@ -70,18 +85,22 @@ export class CompanyDetailComponent implements OnInit, OnDestroy {
   }
 
   get canEndSubscriptionOnDetail(): boolean {
-    return this.company ? companyCanEndSubscription(this.company) : false;
+    return this.canManageCompanyAsSaas && this.company ? companyCanEndSubscription(this.company) : false;
   }
 
   get canArchiveCompanyOnDetail(): boolean {
-    return this.company ? companyCanArchive(this.company) : false;
+    return this.canManageCompanyAsSaas && this.company ? companyCanArchive(this.company) : false;
   }
 
   get canReactivateCompanyOnDetail(): boolean {
-    return this.company ? companyCanReactivate(this.company) : false;
+    return this.canManageCompanyAsSaas && this.company ? companyCanReactivate(this.company) : false;
   }
 
   ngOnInit(): void {
+    if (!this.canManageCompanyAsSaas) {
+      void this.router.navigateByUrl('/saas-management/my-company', { replaceUrl: true });
+      return;
+    }
     const uuidCompany = this.route.snapshot.paramMap.get('uuidCompany');
     if (!uuidCompany) {
       this.errorMessage = this.i18nService.translate('errors.loadCompanies');
@@ -101,21 +120,23 @@ export class CompanyDetailComponent implements OnInit, OnDestroy {
   private loadCompanyDetail(uuidCompany: string): void {
     this.isLoading = true;
     this.errorMessage = '';
-    this.saasManagementService.getCompanies().subscribe({
-      next: (companies) => {
-        this.company = companies.find((item) => item.uuid_company === uuidCompany) ?? null;
-        if (!this.company) {
-          this.errorMessage = this.i18nService.translate('saas.companyNotFound');
-          this.isLoading = false;
-          return;
+    this.saasManagementService.getCompany(uuidCompany).subscribe({
+      next: (company) => {
+        this.company = company;
+        if (this.canAccessUsers) {
+          this.loadCompanyUsers(uuidCompany);
+        } else {
+          this.users = [];
         }
-
-        this.loadCompanyUsers(uuidCompany);
-        this.loadSubscriptionHistory(uuidCompany);
+        if (this.canViewSubscriptionHistory) {
+          this.loadSubscriptionHistory(uuidCompany);
+        } else {
+          this.subscriptions = [];
+        }
         this.loadRanches(uuidCompany);
       },
       error: () => {
-        this.errorMessage = this.i18nService.translate('errors.loadCompanies');
+        this.errorMessage = this.i18nService.translate('saas.companyNotFound');
         this.isLoading = false;
       }
     });
@@ -360,19 +381,28 @@ export class CompanyDetailComponent implements OnInit, OnDestroy {
     if (!this.canReadRanches) {
       this.ranches = [];
       this.applyRanchFocusFromQuery();
+      this.finishPageLoading();
       return;
     }
     this.saasManagementService.getRanchesByCompany(uuidCompany).subscribe({
       next: (list) => {
         this.ranches = list;
         this.applyRanchFocusFromQuery();
+        this.finishPageLoading();
       },
       error: () => {
         this.ranches = [];
         this.errorMessage = this.i18nService.translate('errors.loadRanches');
         this.applyRanchFocusFromQuery();
+        this.finishPageLoading();
       }
     });
+  }
+
+  private finishPageLoading(): void {
+    if (!this.canViewSubscriptionHistory) {
+      this.isLoading = false;
+    }
   }
 
   private loadSubscriptionHistory(uuidCompany: string): void {

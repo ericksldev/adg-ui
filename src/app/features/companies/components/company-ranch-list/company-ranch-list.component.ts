@@ -13,6 +13,7 @@ export class CompanyRanchListComponent {
   @Input() highlightedRanchUuid: string | null = null;
   @Input() canManageRanchUsers = false;
   @Input() canManageRanches = false;
+  @Input() readOnly = false;
 
   @Output() readonly editRanch = new EventEmitter<RanchSummary>();
   @Output() readonly archiveRanch = new EventEmitter<RanchSummary>();

@@ -14,21 +14,22 @@ export class SidebarComponent {
   @Input() classApplied = false;
   @Output() sidebarLinkClicked = new EventEmitter<void>();
 
+  /** SaaS owner: listado global de compañías. */
   get canAccessCompanies(): boolean {
     return this.hasPermission(Permission.COMPANY_READ);
   }
 
+  /** Administrador u operador: detalle de su compañía (no listado global). */
   get canAccessTenantCompany(): boolean {
     return (
+      !this.canAccessCompanies &&
       this.hasPermission(Permission.COMPANY_TENANT_READ) &&
-      !this.hasPermission(Permission.COMPANY_READ) &&
       Boolean(this.sessionService.getUuidCompany())
     );
   }
 
   get tenantCompanyRouterLink(): string | null {
-    const id = this.sessionService.getUuidCompany();
-    return id ? `/saas-management/${id}` : null;
+    return this.canAccessTenantCompany ? '/saas-management/my-company' : null;
   }
 
   get canAccessUsers(): boolean {
