@@ -202,21 +202,16 @@ export class CompanyActivationComponent implements OnInit {
 
   private loadCompany(uuidCompany: string): void {
     this.isLoading = true;
-    this.saasManagementService.getCompanies().subscribe({
-      next: (companies) => {
-        this.company = companies.find((item) => item.uuid_company === uuidCompany) ?? null;
-        if (!this.company) {
-          this.errorMessage = this.i18nService.translate('saas.companyNotFound');
-          this.isLoading = false;
-          return;
-        }
+    this.saasManagementService.getCompany(uuidCompany).subscribe({
+      next: (company) => {
+        this.company = company;
         this.paymentForm.plan_type = normalizeCompanyPlanType(this.company.plan_type);
         this.paymentForm.billing_cycle = normalizeBillingCycle(this.company.billing_cycle);
         this.paymentForm.amount = this.estimatedPeriodChargeUsd;
         this.loadPayments(uuidCompany);
       },
       error: () => {
-        this.errorMessage = this.i18nService.translate('errors.loadCompanies');
+        this.errorMessage = this.i18nService.translate('saas.companyNotFound');
         this.isLoading = false;
       }
     });

@@ -30,6 +30,13 @@ export class SaasManagementService {
       .pipe(map((response) => response.data ?? []));
   }
 
+  getCompany(uuidCompany: string): Observable<CompanyManagement> {
+    const params = new HttpParams().set('includeInactive', 'true');
+    return this.http
+      .get<ApiItemResponse<CompanyManagement>>(`${this.companyUrl}/${uuidCompany}`, { params })
+      .pipe(map((response) => response.data as CompanyManagement));
+  }
+
   createCompany(payload: Partial<CompanyManagement>): Observable<CompanyManagement> {
     return this.http.post<ApiItemResponse<CompanyManagement>>(this.companyUrl, payload).pipe(
       map((response) => response.data)

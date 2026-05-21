@@ -11,7 +11,7 @@
         {{ 'saas.reactivateCompany' | t }}
       </button>
       <a
-        *ngIf="company.is_active"
+        *ngIf="canManageCompanyAsSaas && company.is_active"
         class="btn btn-primary btn-sm"
         [routerLink]="['/saas-management', company.uuid_company, 'subscription']"
       >
@@ -113,7 +113,7 @@
     ></app-company-ranch-list>
   </div>
 
-  <div class="app-card p-3 mt-3" *ngIf="company">
+  <div class="app-card p-3 mt-3" *ngIf="company && canAccessUsers">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 class="mb-0">{{ 'users.list' | t }}</h5>
       <button class="btn btn-primary btn-sm" (click)="toggleCreateUserForm()">
@@ -140,7 +140,7 @@
     <app-company-user-list [users]="users"></app-company-user-list>
   </div>
 
-  <div class="app-card p-3 mt-3" *ngIf="company">
+  <div class="app-card p-3 mt-3" *ngIf="company && canViewSubscriptionHistory">
     <h5 class="mb-3">{{ 'saas.subscriptionHistory' | t }}</h5>
     <app-company-subscription-list [subscriptions]="subscriptions"></app-company-subscription-list>
   </div>

@@ -41,16 +41,13 @@ export class CompanyRanchCreateComponent implements OnInit {
       void this.router.navigate(['/saas-management', uuidCompany]);
       return;
     }
-    this.saasManagementService.getCompanies().subscribe({
-      next: (list) => {
-        this.company = list.find((c) => c.uuid_company === uuidCompany) ?? null;
-        if (!this.company) {
-          this.errorMessage = this.i18nService.translate('saas.companyNotFound');
-        }
+    this.saasManagementService.getCompany(uuidCompany).subscribe({
+      next: (company) => {
+        this.company = company;
         this.isLoading = false;
       },
       error: () => {
-        this.errorMessage = this.i18nService.translate('errors.loadCompanies');
+        this.errorMessage = this.i18nService.translate('saas.companyNotFound');
         this.isLoading = false;
       }
     });

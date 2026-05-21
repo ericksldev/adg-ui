@@ -27,7 +27,7 @@ export enum Permission {
 const PERMISSION_ROLE_MAP: Record<Permission, UserRole[]> = {
   [Permission.COMPANY_READ]: ['saas_owner'],
   [Permission.COMPANY_WRITE]: ['saas_owner'],
-  [Permission.COMPANY_TENANT_READ]: ['administrator', 'saas_owner'],
+  [Permission.COMPANY_TENANT_READ]: ['administrator', 'ranch_staff', 'saas_owner'],
   [Permission.COMPANY_TENANT_WRITE]: ['administrator', 'saas_owner'],
   [Permission.USER_READ]: ['administrator', 'saas_owner'],
   [Permission.USER_WRITE]: ['administrator', 'saas_owner'],
