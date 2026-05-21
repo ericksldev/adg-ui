@@ -78,7 +78,7 @@
         <div class="alert alert-light border ranch-detail__hint mb-3" *ngIf="!canReadUsers">
           <i class="bi bi-shield-lock me-2"></i>{{ 'ranches.membershipOnlyHint' | t }}
         </div>
-        <div class="table-responsive app-table" *ngIf="members.length > 0 || isLoading">
+        <div class="app-table" *ngIf="members.length > 0 || isLoading">
           <table class="table table-striped table-hover mb-0">
             <thead>
               <tr>

@@ -73,12 +73,16 @@ body {
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: .4rem;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-table .table {
   margin-bottom: 0;
   color: var(--text-primary);
+  width: max-content;
+  min-width: 100%;
 }
 
 .app-table .table thead th {
@@ -96,10 +100,15 @@ body {
   vertical-align: middle;
   font-size: .85rem;
   padding: .58rem .75rem;
+  white-space: nowrap;
 }
 
 .app-table .table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.app-table__cell-actions {
+  white-space: nowrap;
 }
 
 .app-page-header {

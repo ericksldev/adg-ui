@@ -66,7 +66,9 @@
 
 .animal-batch-scroll {
   max-height: min(70vh, 42rem);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .animal-batch-columns-details {

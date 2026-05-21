@@ -39,7 +39,7 @@
     <p class="text-muted small mb-2" *ngIf="isSaasOwner && selectedCompanyName">
       {{ 'ranches.filteredByCompany' | t }}: <strong>{{ selectedCompanyName }}</strong>
     </p>
-    <div class="table-responsive app-table">
+    <div class="app-table">
       <table class="table table-striped table-hover mb-0">
         <thead>
           <tr>
@@ -56,7 +56,7 @@
             <td>{{ ranch.name }}</td>
             <td>{{ ranch.location || '-' }}</td>
             <td>{{ ranch.area || '-' }}</td>
-            <td>
+            <td class="app-table__cell-actions">
               <a
                 class="btn btn-sm btn-outline-primary me-1"
                 [routerLink]="['/user-management']"
