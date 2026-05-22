@@ -1,5 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { I18nService } from 'src/app/core/services/i18n.service';
+import { ApiPagination } from 'src/app/shared/models/paginated-list.model';
+import { pageNumbers } from 'src/app/shared/utils/list-query.util';
 import { OwnerListItem } from '../../models/owner-list-item.model';
 import { OwnerManagementService } from '../../services/owner-management.service';
 
@@ -8,12 +12,23 @@ import { OwnerManagementService } from '../../services/owner-management.service'
   templateUrl: './owner-list.component.html',
   styleUrls: ['./owner-list.component.scss']
 })
-export class OwnerListComponent implements OnInit {
+export class OwnerListComponent implements OnInit, OnDestroy {
   owners: OwnerListItem[] = [];
-  filteredOwners: OwnerListItem[] = [];
   search = '';
+  page = 1;
+  readonly pageSize = 10;
+  listPagination: ApiPagination = {
+    totalItems: 0,
+    totalPages: 1,
+    currentPage: 1,
+    order: 'ASC',
+    pageSize: 10,
+  };
   isLoading = false;
   errorMessage = '';
+
+  private readonly searchChanges$ = new Subject<string>();
+  private searchSub?: Subscription;
 
   constructor(
     private readonly ownerManagementService: OwnerManagementService,
@@ -21,49 +36,59 @@ export class OwnerListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.searchSub = this.searchChanges$
+      .pipe(debounceTime(300), distinctUntilChanged())
+      .subscribe(() => this.loadOwners());
     this.loadOwners();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
+  }
+
+  get totalPages(): number {
+    return this.listPagination.totalPages;
+  }
+
+  get pageNumbersList(): number[] {
+    return pageNumbers(this.totalPages);
   }
 
   updateSearch(value: string): void {
     this.search = value;
-    this.applyFilter();
+    this.page = 1;
+    this.searchChanges$.next(value);
+  }
+
+  goToPage(nextPage: number): void {
+    if (nextPage < 1 || nextPage > this.totalPages) {
+      return;
+    }
+    this.page = nextPage;
+    this.loadOwners();
   }
 
   private loadOwners(): void {
     this.isLoading = true;
     this.errorMessage = '';
-    this.ownerManagementService.getOwners().subscribe({
-      next: (rows) => {
-        this.owners = rows;
-        this.applyFilter();
-        this.isLoading = false;
-      },
-      error: () => {
-        this.owners = [];
-        this.filteredOwners = [];
-        this.errorMessage = this.i18nService.translate('errors.loadOwners');
-        this.isLoading = false;
-      }
-    });
-  }
-
-  private applyFilter(): void {
-    const term = this.search.trim().toLowerCase();
-    if (!term) {
-      this.filteredOwners = [...this.owners];
-      return;
-    }
-    this.filteredOwners = this.owners.filter((owner) => {
-      const haystack = [
-        owner.full_name,
-        owner.document_number,
-        owner.phone_number,
-        owner.email
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(term);
-    });
+    this.ownerManagementService
+      .getOwners({
+        page: this.page,
+        size: this.pageSize,
+        search: this.search,
+      })
+      .subscribe({
+        next: (result) => {
+          this.owners = result.items;
+          this.listPagination = result.pagination;
+          this.page = result.pagination.currentPage;
+          this.isLoading = false;
+        },
+        error: () => {
+          this.owners = [];
+          this.errorMessage = this.i18nService.translate('errors.loadOwners');
+          this.isLoading = false;
+        },
+      });
   }
 }

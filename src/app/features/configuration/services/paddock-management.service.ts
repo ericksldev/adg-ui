@@ -2,11 +2,18 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from 'src/environments/environment';
+import { ListQueryParams, PaginatedListResponse, PaginatedListResult } from 'src/app/shared/models/paginated-list.model';
+import { mapPaginatedResponse, toHttpParams } from 'src/app/shared/utils/list-query.util';
 import { Paddock, PaddockListItem, PaddockPayload } from '../models/paddock.model';
 
 interface ApiItemResponse<T> {
   success: boolean;
   data: T;
+}
+
+export interface PaddockListQuery extends ListQueryParams {
+  ranch_uuid?: string;
+  uuid_ranch_in?: string[];
 }
 
 @Injectable({
@@ -23,6 +30,24 @@ export class PaddockManagementService {
     return this.http
       .get<ApiItemResponse<PaddockListItem[]>>(this.paddockUrl, { params })
       .pipe(map((r) => r.data ?? []));
+  }
+
+  listPaddocks(query: PaddockListQuery): Observable<PaginatedListResult<PaddockListItem>> {
+    let params = toHttpParams({
+      sortBy: 'name',
+      order: 'ASC',
+      status: 'active',
+      ...query,
+    });
+    if (query.ranch_uuid) {
+      params = params.set('ranch_uuid', query.ranch_uuid);
+    }
+    if (query.uuid_ranch_in?.length) {
+      params = params.set('uuid_ranch_in', query.uuid_ranch_in.join(','));
+    }
+    return this.http
+      .get<PaginatedListResponse<PaddockListItem>>(this.paddockUrl, { params })
+      .pipe(map((response) => mapPaginatedResponse(response)));
   }
 
   /** Kept for animal registration flows that still use the nested ranch route. */

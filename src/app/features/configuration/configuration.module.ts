@@ -4,6 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { SharedModule } from 'src/app/shared/shared.module';
 import { ConfigurationRoutingModule } from './configuration-routing.module';
 import { OwnerListComponent } from './pages/owner-list/owner-list.component';
+import { OwnerCreateComponent } from './pages/owner-create/owner-create.component';
+import { OwnerDetailComponent } from './pages/owner-detail/owner-detail.component';
+import { OwnerEditComponent } from './pages/owner-edit/owner-edit.component';
+import { OwnerFormComponent } from './components/owner-form/owner-form.component';
 import { PaddockListComponent } from './pages/paddock-list/paddock-list.component';
 import { PaddockCreateComponent } from './pages/paddock-create/paddock-create.component';
 import { PaddockDetailComponent } from './pages/paddock-detail/paddock-detail.component';
@@ -13,6 +17,10 @@ import { PaddockFormComponent } from './components/paddock-form/paddock-form.com
 @NgModule({
   declarations: [
     OwnerListComponent,
+    OwnerCreateComponent,
+    OwnerDetailComponent,
+    OwnerEditComponent,
+    OwnerFormComponent,
     PaddockListComponent,
     PaddockCreateComponent,
     PaddockDetailComponent,

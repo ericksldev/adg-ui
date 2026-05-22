@@ -1,5 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { ApiPagination } from 'src/app/shared/models/paginated-list.model';
+import { pageNumbers } from 'src/app/shared/utils/list-query.util';
 import { SessionService } from 'src/app/core/services/session.service';
 import { translateUserWriteError } from 'src/app/core/utils/user-write-error.util';
 import { normalizeUserRole, normalizeUserRoles, UserRole } from 'src/app/shared/constants/domain.constants';
@@ -14,7 +18,7 @@ import { UserManagementService } from '../../services/user-management.service';
   templateUrl: './user-management.component.html',
   styleUrls: ['./user-management.component.scss']
 })
-export class UserManagementComponent implements OnInit {
+export class UserManagementComponent implements OnInit, OnDestroy {
   readonly normalizeUserRole = normalizeUserRole;
 
   users: UserManagementItem[] = [];
@@ -23,10 +27,21 @@ export class UserManagementComponent implements OnInit {
   selectedCompany = '';
   selectedRanch = '';
   userSearch = '';
+  userPage = 1;
+  readonly userPageSize = 10;
+  listPagination: ApiPagination = {
+    totalItems: 0,
+    totalPages: 1,
+    currentPage: 1,
+    order: 'ASC',
+    pageSize: 10,
+  };
   isLoading = false;
   errorMessage = '';
   editUser: UserManagementItem | null = null;
   formValue: UserFormValue = this.buildEmptyForm();
+  private readonly searchChanges$ = new Subject<string>();
+  private searchSub?: Subscription;
 
   get assignableRoles(): UserRole[] {
     if (this.isSaasOwner) {
@@ -46,12 +61,19 @@ export class UserManagementComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.searchSub = this.searchChanges$
+      .pipe(debounceTime(300), distinctUntilChanged())
+      .subscribe(() => this.loadUsers());
     if (this.isSaasOwner) {
       this.loadCompanies();
       return;
     }
 
     this.loadRanchAndUsers();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
   }
 
   get sessionRoles(): UserRole[] {
@@ -74,23 +96,12 @@ export class UserManagementComponent implements OnInit {
     }));
   }
 
-  get filteredUsers(): UserManagementItem[] {
-    const query = this.userSearch.trim().toLowerCase();
-    if (!query) {
-      return this.users;
-    }
+  get userTotalPages(): number {
+    return this.listPagination.totalPages;
+  }
 
-    return this.users.filter((user) => {
-      const companyName = this.companyNameForUser(user).toLowerCase();
-      return (
-        user.username?.toLowerCase().includes(query) ||
-        user.email?.toLowerCase().includes(query) ||
-        user.first_name?.toLowerCase().includes(query) ||
-        user.last_name?.toLowerCase().includes(query) ||
-        user.id_card?.toLowerCase().includes(query) ||
-        companyName.includes(query)
-      );
-    });
+  get userPageNumbers(): number[] {
+    return pageNumbers(this.userTotalPages);
   }
 
   get selectedCompanyName(): string {
@@ -255,16 +266,28 @@ export class UserManagementComponent implements OnInit {
 
   updateUserSearch(value: string): void {
     this.userSearch = value;
+    this.userPage = 1;
+    this.searchChanges$.next(value);
+  }
+
+  goToUserPage(page: number): void {
+    if (page < 1 || page > this.userTotalPages) {
+      return;
+    }
+    this.userPage = page;
+    this.loadUsers();
   }
 
   onCompanyChange(uuidCompany: string): void {
     this.selectedCompany = uuidCompany;
     this.userSearch = '';
+    this.userPage = 1;
     this.loadRanchAndUsers();
   }
 
   onRanchChange(uuidRanch: string): void {
     this.selectedRanch = uuidRanch;
+    this.userPage = 1;
     this.loadUsers();
   }
 
@@ -285,17 +308,26 @@ export class UserManagementComponent implements OnInit {
 
   private loadUsers(): void {
     this.isLoading = true;
-    this.userManagementService.getUsers(this.isSaasOwner ? (this.selectedCompany.trim() || undefined) : undefined).subscribe({
-      next: (users) => {
-        this.users = users;
-        this.isLoading = false;
-      },
-      error: () => {
-        this.users = [];
-        this.errorMessage = this.i18nService.translate('errors.loadUsers');
-        this.isLoading = false;
-      }
-    });
+    this.userManagementService
+      .getUsers({
+        page: this.userPage,
+        size: this.userPageSize,
+        search: this.userSearch,
+        uuid_company: this.isSaasOwner ? (this.selectedCompany.trim() || undefined) : undefined,
+      })
+      .subscribe({
+        next: (result) => {
+          this.users = result.items;
+          this.listPagination = result.pagination;
+          this.userPage = result.pagination.currentPage;
+          this.isLoading = false;
+        },
+        error: () => {
+          this.users = [];
+          this.errorMessage = this.i18nService.translate('errors.loadUsers');
+          this.isLoading = false;
+        },
+      });
   }
 
   private buildEmptyForm(): UserFormValue {

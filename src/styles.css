@@ -13,6 +13,9 @@
   --warning: #5c581f;
   --error: #68702f;
   --header-height: 64px;
+  --breadcrumb-bar-bg: color-mix(in srgb, var(--surface-secondary) 62%, var(--background));
+  --breadcrumb-bar-border: var(--border);
+  --breadcrumb-page-gap: 1rem;
 }
 
 .theme-dark {
@@ -29,6 +32,8 @@
   --success: #6f8e25;
   --warning: #5c581f;
   --error: #68702f;
+  --breadcrumb-bar-bg: color-mix(in srgb, var(--surface-secondary) 72%, var(--background));
+  --breadcrumb-bar-border: color-mix(in srgb, var(--border) 85%, transparent);
 }
 
 html, body {
@@ -118,6 +123,10 @@ body {
   gap: .75rem;
   margin-bottom: .75rem;
   margin-top: .75rem;
+}
+
+.app-page-body .container-fluid > .app-page-header:first-child {
+  margin-top: 0;
 }
 
 .app-page-title {

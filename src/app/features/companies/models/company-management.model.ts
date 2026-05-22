@@ -79,6 +79,13 @@ export interface CompanyTrialActivationPayload {
 export interface ApiListResponse<T> {
   success: boolean;
   data: T[];
+  pagination?: {
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+    order: string;
+    pageSize: number;
+  };
 }
 
 export interface ApiItemResponse<T> {

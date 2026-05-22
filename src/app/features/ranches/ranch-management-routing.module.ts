@@ -22,7 +22,8 @@ const routes: Routes = [
     canActivate: [AutenticacionGuard, PermissionGuard],
     data: {
       permissions: [Permission.RANCH_READ],
-      breadcrumb: 'breadcrumbs.ranchDetail'
+      breadcrumb: 'breadcrumbs.ranchDetail',
+      hideBackButton: true
     }
   }
 ];

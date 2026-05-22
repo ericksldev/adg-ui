@@ -12,6 +12,16 @@
 .app-main {
   flex: 1;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-page-body {
+  flex: 1;
+  min-height: 0;
+  background: var(--background);
+  padding: var(--breadcrumb-page-gap) 1rem 1.25rem;
 }
 
 .app-main-guest {

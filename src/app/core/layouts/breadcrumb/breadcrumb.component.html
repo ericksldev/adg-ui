@@ -1,7 +1,11 @@
-<div class="app-content-header" *ngIf="showBreadcrumb">
-  <div class="container-fluid">
-    <div class="breadcrumb-wrapper">
-      <ol class="breadcrumb mb-0">
+<nav
+  class="app-breadcrumb-bar"
+  *ngIf="showBreadcrumb"
+  aria-label="Breadcrumb"
+>
+  <div class="container-fluid app-breadcrumb-bar__inner">
+    <div class="app-breadcrumb-bar__row">
+      <ol class="breadcrumb app-breadcrumb mb-0">
         <li class="breadcrumb-item" *ngFor="let breadcrumbItem of breadcrumbItems">
           <a *ngIf="!breadcrumbItem.active" [routerLink]="breadcrumbItem.url">
             {{ breadcrumbItem.label }}
@@ -12,9 +16,14 @@
         </li>
       </ol>
 
-      <button type="button" class="btn btn-outline-secondary btn-sm breadcrumb-back-btn" (click)="goBack()">
+      <button
+        *ngIf="showBackButton"
+        type="button"
+        class="btn btn-outline-secondary btn-sm app-breadcrumb-bar__back"
+        (click)="goBack()"
+      >
         {{ 'common.back' | t }}
       </button>
     </div>
   </div>
-</div>
+</nav>

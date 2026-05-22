@@ -18,6 +18,7 @@ interface BreadcrumbItem {
 export class BreadcrumbComponent implements OnInit, OnDestroy {
   breadcrumbItems: BreadcrumbItem[] = [];
   showBreadcrumb = false;
+  showBackButton = true;
 
   private readonly subscriptions = new Subscription();
 
@@ -61,6 +62,18 @@ export class BreadcrumbComponent implements OnInit, OnDestroy {
       active: index === items.length - 1
     }));
     this.showBreadcrumb = this.breadcrumbItems.length > 0;
+    this.showBackButton = !this.routeHidesBackButton(this.activatedRoute.root);
+  }
+
+  private routeHidesBackButton(route: ActivatedRoute): boolean {
+    const currentRoute = route.children.find((child: ActivatedRoute) => child.outlet === PRIMARY_OUTLET);
+    if (!currentRoute) {
+      return false;
+    }
+    if (currentRoute.snapshot.data['hideBackButton'] === true) {
+      return true;
+    }
+    return this.routeHidesBackButton(currentRoute);
   }
 
   private collectBreadcrumbs(route: ActivatedRoute, parentUrl = ''): Omit<BreadcrumbItem, 'active'>[] {

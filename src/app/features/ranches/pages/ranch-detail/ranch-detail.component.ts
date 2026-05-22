@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of, Subject } from 'rxjs';
-import { catchError, takeUntil } from 'rxjs/operators';
+import { catchError, map, takeUntil } from 'rxjs/operators';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
 import { RanchSummary } from 'src/app/features/companies/models/company-management.model';
@@ -127,9 +127,17 @@ export class RanchDetailComponent implements OnInit, OnDestroy {
 
     forkJoin({
       memberships: memberships$,
-      users: this.userManagementService.getUsers(this.isSaasOwner ? uuidCompany : undefined).pipe(
-        catchError(() => of([] as UserManagementItem[]))
-      )
+      users: this.userManagementService
+        .getUsers({
+          page: 1,
+          size: 500,
+          status: 'all',
+          uuid_company: this.isSaasOwner ? uuidCompany : undefined,
+        })
+        .pipe(
+          map((result) => result.items),
+          catchError(() => of([] as UserManagementItem[]))
+        )
     }).subscribe({
       next: ({ memberships, users }) => {
         const userMap = new Map(users.map((u) => [u.uuid_user, u]));

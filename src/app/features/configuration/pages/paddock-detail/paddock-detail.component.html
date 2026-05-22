@@ -1,10 +1,7 @@
 <div class="container-fluid paddock-detail" *ngIf="!isLoading && paddock">
-  <div class="app-page-header d-flex flex-wrap align-items-center gap-2">
-    <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/configuration/paddocks']" [queryParams]="listQueryParams()">
-      {{ 'paddocks.backToList' | t }}
-    </a>
+  <div class="app-page-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <h3 class="app-page-title mb-0">{{ paddock.name }}</h3>
-    <div class="ms-auto d-flex flex-wrap gap-2">
+    <div class="d-flex flex-wrap gap-2">
       <a
         class="btn btn-sm btn-outline-primary"
         [routerLink]="['/configuration/paddocks', paddock.paddock_uuid, 'edit']"
@@ -45,5 +42,4 @@
 
 <div class="container-fluid paddock-detail" *ngIf="!isLoading && !paddock && errorMessage">
   <p class="text-danger">{{ errorMessage }}</p>
-  <a class="btn btn-sm btn-outline-secondary" routerLink="/configuration/paddocks">{{ 'paddocks.backToList' | t }}</a>
 </div>

@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CompanyManagement } from '../../models/company-management.model';
 import { SaasManagementService } from '../../services/saas-management.service';
 import { CompanyFieldAvailabilityService } from 'src/app/core/services/company-field-availability.service';
@@ -12,6 +14,8 @@ import {
   normalizeCompanyPlanType,
   PLAN_HEAD_LIMIT
 } from 'src/app/shared/constants/subscription.constants';
+import { ApiPagination } from 'src/app/shared/models/paginated-list.model';
+import { pageNumbers } from 'src/app/shared/utils/list-query.util';
 import {
   companyCanArchive,
   companyCanEndSubscription,
@@ -25,7 +29,7 @@ import {
   templateUrl: './saas-management.component.html',
   styleUrls: ['./saas-management.component.scss']
 })
-export class SaasManagementComponent implements OnInit {
+export class SaasManagementComponent implements OnInit, OnDestroy {
   companies: CompanyManagement[] = [];
   isLoading = false;
   errorMessage = '';
@@ -33,12 +37,21 @@ export class SaasManagementComponent implements OnInit {
   companyArchiveFilter: 'all' | 'active' | 'archived' = 'all';
   companyPage = 1;
   readonly companyPageSize = 8;
+  listPagination: ApiPagination = {
+    totalItems: 0,
+    totalPages: 1,
+    currentPage: 1,
+    order: 'ASC',
+    pageSize: 8,
+  };
 
   companyForm: Partial<CompanyManagement> = this.buildEmptyCompanyForm();
   showCompanyForm = false;
   companyFormSubmitAttempted = false;
   companyFormTouched: Record<string, boolean> = {};
   private companyRemoteUniqueness: Partial<Record<'name' | 'tax_id', string>> = {};
+  private readonly searchChanges$ = new Subject<string>();
+  private searchSub?: Subscription;
 
   constructor(
     private readonly modalService: NgbModal,
@@ -48,22 +61,39 @@ export class SaasManagementComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.searchSub = this.searchChanges$
+      .pipe(debounceTime(300), distinctUntilChanged())
+      .subscribe(() => this.loadCompanies());
     this.loadCompanies();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
   }
 
   loadCompanies(): void {
     this.isLoading = true;
     this.errorMessage = '';
-    this.saasManagementService.getCompanies().subscribe({
-      next: (companies) => {
-        this.companies = companies;
-        this.isLoading = false;
-      },
-      error: () => {
-        this.errorMessage = this.i18nService.translate('errors.loadCompanies');
-        this.isLoading = false;
-      }
-    });
+    this.saasManagementService
+      .getCompanies({
+        page: this.companyPage,
+        size: this.companyPageSize,
+        status: this.mapArchiveFilterToStatus(this.companyArchiveFilter),
+        search: this.companySearch,
+      })
+      .subscribe({
+        next: (result) => {
+          this.companies = result.items;
+          this.listPagination = result.pagination;
+          this.companyPage = result.pagination.currentPage;
+          this.isLoading = false;
+        },
+        error: () => {
+          this.errorMessage = this.i18nService.translate('errors.loadCompanies');
+          this.companies = [];
+          this.isLoading = false;
+        },
+      });
   }
 
   saveCompany(): void {
@@ -116,6 +146,7 @@ export class SaasManagementComponent implements OnInit {
     if (value === 'all' || value === 'active' || value === 'archived') {
       this.companyArchiveFilter = value;
       this.companyPage = 1;
+      this.loadCompanies();
     }
   }
 
@@ -284,7 +315,6 @@ export class SaasManagementComponent implements OnInit {
     return this.i18nService.translate(`saas.membershipStatus.${status.toLowerCase()}`);
   }
 
-
   resetCompanyForm(): void {
     this.companyForm = this.buildEmptyCompanyForm();
     this.companyFormSubmitAttempted = false;
@@ -310,42 +340,18 @@ export class SaasManagementComponent implements OnInit {
     this.showCompanyForm = false;
   }
 
-  get filteredCompanies(): CompanyManagement[] {
-    let list = this.companies;
-    if (this.companyArchiveFilter === 'active') {
-      list = list.filter((company) => company.is_active);
-    } else if (this.companyArchiveFilter === 'archived') {
-      list = list.filter((company) => !company.is_active);
-    }
-
-    const query = this.companySearch.trim().toLowerCase();
-    if (!query) {
-      return list;
-    }
-    return list.filter((company) =>
-      company.name?.toLowerCase().includes(query) ||
-      company.legal_name?.toLowerCase().includes(query) ||
-      company.tax_id?.toLowerCase().includes(query)
-    );
-  }
-
-  get paginatedCompanies(): CompanyManagement[] {
-    const start = (this.companyPage - 1) * this.companyPageSize;
-    return this.filteredCompanies.slice(start, start + this.companyPageSize);
-  }
-
   get companyTotalPages(): number {
-    const pages = Math.ceil(this.filteredCompanies.length / this.companyPageSize);
-    return pages > 0 ? pages : 1;
+    return this.listPagination.totalPages;
   }
 
   get companyPageNumbers(): number[] {
-    return Array.from({ length: this.companyTotalPages }, (_, index) => index + 1);
+    return pageNumbers(this.companyTotalPages);
   }
 
   updateCompanySearch(value: string): void {
     this.companySearch = value;
     this.companyPage = 1;
+    this.searchChanges$.next(value);
   }
 
   goToCompanyPage(page: number): void {
@@ -353,6 +359,17 @@ export class SaasManagementComponent implements OnInit {
       return;
     }
     this.companyPage = page;
+    this.loadCompanies();
+  }
+
+  private mapArchiveFilterToStatus(filter: 'all' | 'active' | 'archived'): 'all' | 'active' | 'inactive' {
+    if (filter === 'archived') {
+      return 'inactive';
+    }
+    if (filter === 'active') {
+      return 'active';
+    }
+    return 'all';
   }
 
   private buildEmptyCompanyForm(): Partial<CompanyManagement> {

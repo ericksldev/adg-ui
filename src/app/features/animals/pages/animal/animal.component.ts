@@ -1,6 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { SessionService } from 'src/app/core/services/session.service';
 import { hasPermission, Permission } from 'src/app/shared/constants/permissions';
+import { ApiPagination } from 'src/app/shared/models/paginated-list.model';
+import { pageNumbers } from 'src/app/shared/utils/list-query.util';
 import { AnimalListItem } from '../../models/animal.model';
 import { AnimalService } from '../../services/animal.service';
 
@@ -9,12 +13,23 @@ import { AnimalService } from '../../services/animal.service';
   templateUrl: './animal.component.html',
   styleUrls: ['./animal.component.scss']
 })
-export class AnimalComponent implements OnInit {
+export class AnimalComponent implements OnInit, OnDestroy {
   animals: AnimalListItem[] = [];
   searchTerm = '';
   selectedSex = 'ALL';
   page = 1;
   readonly pageSize = 10;
+  isLoading = false;
+  listPagination: ApiPagination = {
+    totalItems: 0,
+    totalPages: 1,
+    currentPage: 1,
+    order: 'DESC',
+    pageSize: 10,
+  };
+
+  private readonly searchChanges$ = new Subject<string>();
+  private searchSub?: Subscription;
 
   constructor(
     private readonly animalService: AnimalService,
@@ -26,55 +41,34 @@ export class AnimalComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.animalService.getAnimals().subscribe({
-      next: (animals) => {
-        this.animals = animals;
-      },
-      error: () => {
-        this.animals = [];
-      }
-    });
+    this.searchSub = this.searchChanges$
+      .pipe(debounceTime(300), distinctUntilChanged())
+      .subscribe(() => this.loadAnimals());
+    this.loadAnimals();
   }
 
-  get filteredAnimals(): AnimalListItem[] {
-    const normalizedSearch = this.searchTerm.trim().toLowerCase();
-    return this.animals.filter((animal) => {
-      const matchesSex = this.selectedSex === 'ALL' || animal.sex === this.selectedSex;
-      const reg = animal.registration_number?.toLowerCase() ?? '';
-      const chip = animal.chip_number?.toLowerCase() ?? '';
-      const matchesSearch =
-        normalizedSearch.length === 0 ||
-        reg.includes(normalizedSearch) ||
-        chip.includes(normalizedSearch) ||
-        (animal.breed_code?.toLowerCase().includes(normalizedSearch) ?? false) ||
-        (animal.color?.toLowerCase().includes(normalizedSearch) ?? false) ||
-        (animal.description?.toLowerCase().includes(normalizedSearch) ?? false);
-      return matchesSex && matchesSearch;
-    });
-  }
-
-  get paginatedAnimals(): AnimalListItem[] {
-    const start = (this.page - 1) * this.pageSize;
-    return this.filteredAnimals.slice(start, start + this.pageSize);
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
   }
 
   get totalPages(): number {
-    const pages = Math.ceil(this.filteredAnimals.length / this.pageSize);
-    return pages > 0 ? pages : 1;
+    return this.listPagination.totalPages;
   }
 
-  get pageNumbers(): number[] {
-    return Array.from({ length: this.totalPages }, (_, index) => index + 1);
+  get pageNumbersList(): number[] {
+    return pageNumbers(this.totalPages);
   }
 
   updateSearch(term: string): void {
     this.searchTerm = term;
     this.page = 1;
+    this.searchChanges$.next(term);
   }
 
   updateSexFilter(value: string): void {
     this.selectedSex = value;
     this.page = 1;
+    this.loadAnimals();
   }
 
   goToPage(nextPage: number): void {
@@ -82,5 +76,32 @@ export class AnimalComponent implements OnInit {
       return;
     }
     this.page = nextPage;
+    this.loadAnimals();
+  }
+
+  private loadAnimals(): void {
+    this.isLoading = true;
+    this.animalService
+      .getAnimals({
+        page: this.page,
+        size: this.pageSize,
+        search: this.searchTerm,
+        sex: this.selectedSex,
+        status: 'active',
+        sortBy: 'createdAt',
+        order: 'DESC',
+      })
+      .subscribe({
+        next: (result) => {
+          this.animals = result.items;
+          this.listPagination = result.pagination;
+          this.page = result.pagination.currentPage;
+          this.isLoading = false;
+        },
+        error: () => {
+          this.animals = [];
+          this.isLoading = false;
+        },
+      });
   }
 }

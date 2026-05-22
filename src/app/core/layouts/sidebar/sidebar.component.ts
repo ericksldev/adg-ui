@@ -41,7 +41,10 @@ export class SidebarComponent {
   }
 
   get canAccessOwners(): boolean {
-    return this.hasPermission(Permission.ANIMAL_READ);
+    return (
+      this.hasPermission(Permission.OWNER_READ) ||
+      this.hasPermission(Permission.ANIMAL_READ)
+    );
   }
 
   get canAccessPaddocks(): boolean {

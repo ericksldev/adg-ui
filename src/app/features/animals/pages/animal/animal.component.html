@@ -33,7 +33,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr *ngFor="let item of paginatedAnimals">
+        <tr *ngFor="let item of animals">
           <td class="text-center">{{ item.registration_number }}</td>
           <td class="text-center">{{ item.chip_number || '—' }}</td>
           <td class="text-center">{{ item.breed_code }}</td>
@@ -46,14 +46,14 @@
         </tbody>
       </table>
     </div>
-    <div *ngIf="filteredAnimals.length === 0" class="empty-table-message mt-2 text-muted">{{ 'animal.empty' | t }}</div>
+    <div *ngIf="!isLoading && animals.length === 0" class="empty-table-message mt-2 text-muted">{{ 'animal.empty' | t }}</div>
 
-    <div class="d-flex justify-content-end mt-2" *ngIf="filteredAnimals.length > 0">
+    <div class="d-flex justify-content-end mt-2" *ngIf="!isLoading && listPagination.totalPages > 1">
       <ul class="pagination pagination-sm app-pagination mb-0">
         <li class="page-item" [class.disabled]="page === 1">
           <button type="button" class="page-link" (click)="goToPage(page - 1)">&laquo;</button>
         </li>
-        <li class="page-item" *ngFor="let pageNumber of pageNumbers" [class.active]="page === pageNumber">
+        <li class="page-item" *ngFor="let pageNumber of pageNumbersList" [class.active]="page === pageNumber">
           <button type="button" class="page-link" (click)="goToPage(pageNumber)">{{ pageNumber }}</button>
         </li>
         <li class="page-item" [class.disabled]="page === totalPages">

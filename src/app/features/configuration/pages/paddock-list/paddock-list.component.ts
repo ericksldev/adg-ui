@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { SessionService } from 'src/app/core/services/session.service';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { normalizeUserRoles } from 'src/app/shared/constants/domain.constants';
@@ -7,16 +7,18 @@ import { UserManagementService } from 'src/app/features/users/services/user-mana
 import { PaddockListItem } from '../../models/paddock.model';
 import { PaddockManagementService } from '../../services/paddock-management.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { PADDOCK_LIST_ALL_RANCHES } from '../../constants/paddock-list.constants';
+import { ApiPagination } from 'src/app/shared/models/paginated-list.model';
+import { pageNumbers } from 'src/app/shared/utils/list-query.util';
 
 @Component({
   selector: 'app-paddock-list',
   templateUrl: './paddock-list.component.html',
   styleUrls: ['./paddock-list.component.scss']
 })
-export class PaddockListComponent implements OnInit {
+export class PaddockListComponent implements OnInit, OnDestroy {
   readonly allRanchesValue = PADDOCK_LIST_ALL_RANCHES;
 
   companies: CompanyOption[] = [];
@@ -25,9 +27,20 @@ export class PaddockListComponent implements OnInit {
   selectedCompany = '';
   selectedRanch = '';
   search = '';
+  page = 1;
+  readonly pageSize = 10;
+  listPagination: ApiPagination = {
+    totalItems: 0,
+    totalPages: 1,
+    currentPage: 1,
+    order: 'ASC',
+    pageSize: 10,
+  };
   isLoading = false;
   errorMessage = '';
   private pendingRanchFromQuery = '';
+  private readonly searchChanges$ = new Subject<string>();
+  private searchSub?: Subscription;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -39,6 +52,9 @@ export class PaddockListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.searchSub = this.searchChanges$
+      .pipe(debounceTime(300), distinctUntilChanged())
+      .subscribe(() => this.loadPaddocks());
     const companyFromQuery = this.route.snapshot.queryParamMap.get('company') ?? '';
     this.pendingRanchFromQuery = this.route.snapshot.queryParamMap.get('ranch') ?? '';
     if (this.isSaasOwner) {
@@ -46,6 +62,10 @@ export class PaddockListComponent implements OnInit {
       return;
     }
     this.loadRanchesForTenant();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
   }
 
   get isSaasOwner(): boolean {
@@ -56,18 +76,12 @@ export class PaddockListComponent implements OnInit {
     return this.selectedRanch === this.allRanchesValue;
   }
 
-  get filteredPaddocks(): PaddockListItem[] {
-    const term = this.search.trim().toLowerCase();
-    if (!term) {
-      return this.paddocks;
-    }
-    return this.paddocks.filter((paddock) => {
-      const haystack = [paddock.name, paddock.grass_type, paddock.water_source, paddock.ranch_name]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(term);
-    });
+  get totalPages(): number {
+    return this.listPagination.totalPages;
+  }
+
+  get pageNumbersList(): number[] {
+    return pageNumbers(this.totalPages);
   }
 
   onCompanyChange(uuid: string): void {
@@ -75,6 +89,7 @@ export class PaddockListComponent implements OnInit {
     this.selectedRanch = '';
     this.pendingRanchFromQuery = '';
     this.paddocks = [];
+    this.page = 1;
     this.syncListQueryParams();
     this.loadRanchesForSelection();
   }
@@ -82,6 +97,7 @@ export class PaddockListComponent implements OnInit {
   onRanchChange(uuid: string): void {
     this.selectedRanch = uuid;
     this.paddocks = [];
+    this.page = 1;
     this.syncListQueryParams();
     if (uuid?.trim()) {
       this.loadPaddocks();
@@ -98,6 +114,16 @@ export class PaddockListComponent implements OnInit {
 
   updateSearch(value: string): void {
     this.search = value;
+    this.page = 1;
+    this.searchChanges$.next(value);
+  }
+
+  goToPage(nextPage: number): void {
+    if (nextPage < 1 || nextPage > this.totalPages) {
+      return;
+    }
+    this.page = nextPage;
+    this.loadPaddocks();
   }
 
   createQueryParams(): Record<string, string> {
@@ -215,61 +241,59 @@ export class PaddockListComponent implements OnInit {
       this.paddocks = [];
       return;
     }
-    if (this.showAllPaddocks) {
-      this.loadAllPaddocks();
-      return;
-    }
+
     this.isLoading = true;
     this.errorMessage = '';
-    this.paddockManagementService.getPaddocksForRanch(this.selectedRanch).subscribe({
-      next: (rows) => {
-        this.paddocks = rows;
-        this.isLoading = false;
-      },
-      error: () => {
-        this.paddocks = [];
-        this.errorMessage = this.i18nService.translate('errors.loadPaddocks');
-        this.isLoading = false;
-      }
-    });
+
+    const query = {
+      page: this.page,
+      size: this.pageSize,
+      search: this.search,
+      sortBy: this.showAllPaddocks ? 'ranch_name' : 'name',
+      order: 'ASC' as const,
+    };
+
+    if (this.showAllPaddocks) {
+      const companyUuid = this.isSaasOwner
+        ? this.selectedCompany.trim()
+        : (this.sessionService.getUuidCompany() ?? '');
+      this.paddockManagementService
+        .listPaddocks({
+          ...query,
+          uuid_company: companyUuid || undefined,
+          uuid_ranch_in: !companyUuid ? this.ranches.map((r) => r.uuid_ranch) : undefined,
+        })
+        .subscribe({
+          next: (result) => this.applyPaddockResult(result),
+          error: () => this.onPaddockLoadError(),
+        });
+      return;
+    }
+
+    this.paddockManagementService
+      .listPaddocks({
+        ...query,
+        ranch_uuid: this.selectedRanch,
+      })
+      .subscribe({
+        next: (result) => this.applyPaddockResult(result),
+        error: () => this.onPaddockLoadError(),
+      });
   }
 
-  private loadAllPaddocks(): void {
-    if (!this.ranches.length) {
-      this.paddocks = [];
-      this.isLoading = false;
-      return;
-    }
-    this.isLoading = true;
-    this.errorMessage = '';
-    const requests = this.ranches.map((ranch) =>
-      this.paddockManagementService.getPaddocksForRanch(ranch.uuid_ranch).pipe(
-        map((rows) =>
-          rows.map((paddock) => ({
-            ...paddock,
-            ranch_uuid: ranch.uuid_ranch,
-            ranch_name: ranch.name
-          }))
-        ),
-        catchError(() => of([] as PaddockListItem[]))
-      )
-    );
-    forkJoin(requests).subscribe({
-      next: (groups) => {
-        this.paddocks = groups
-          .flat()
-          .sort(
-            (a, b) =>
-              (a.ranch_name ?? '').localeCompare(b.ranch_name ?? '', undefined, { sensitivity: 'base' }) ||
-              a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-          );
-        this.isLoading = false;
-      },
-      error: () => {
-        this.paddocks = [];
-        this.errorMessage = this.i18nService.translate('errors.loadPaddocks');
-        this.isLoading = false;
-      }
-    });
+  private applyPaddockResult(result: {
+    items: PaddockListItem[];
+    pagination: ApiPagination;
+  }): void {
+    this.paddocks = result.items;
+    this.listPagination = result.pagination;
+    this.page = result.pagination.currentPage;
+    this.isLoading = false;
+  }
+
+  private onPaddockLoadError(): void {
+    this.paddocks = [];
+    this.errorMessage = this.i18nService.translate('errors.loadPaddocks');
+    this.isLoading = false;
   }
 }

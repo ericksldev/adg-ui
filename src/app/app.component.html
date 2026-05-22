@@ -11,7 +11,9 @@
     <app-sidebar [classApplied]="openSidebar" (sidebarLinkClicked)="openSidebar = false"></app-sidebar>
     <main class="app-main">
       <app-breadcrumb></app-breadcrumb>
-      <router-outlet></router-outlet>
+      <div class="app-page-body">
+        <router-outlet></router-outlet>
+      </div>
     </main>
   </div>
 

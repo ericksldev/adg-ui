@@ -2,6 +2,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from 'src/environments/environment';
+import { ListQueryParams } from 'src/app/shared/models/paginated-list.model';
+import { mapPaginatedResponse, toHttpParams } from 'src/app/shared/utils/list-query.util';
+import { PaginatedListResult } from 'src/app/shared/models/paginated-list.model';
 import {
   ApiItemResponse,
   ApiListResponse,
@@ -23,11 +26,16 @@ export class SaasManagementService {
 
   constructor(private readonly http: HttpClient) {}
 
-  getCompanies(): Observable<CompanyManagement[]> {
-    const params = new HttpParams().set('status', 'all').set('page', '1').set('size', '500');
+  getCompanies(query: ListQueryParams): Observable<PaginatedListResult<CompanyManagement>> {
+    const params = toHttpParams({
+      status: 'all',
+      sortBy: 'name',
+      order: 'ASC',
+      ...query,
+    });
     return this.http
       .get<ApiListResponse<CompanyManagement>>(this.companyUrl, { params })
-      .pipe(map((response) => response.data ?? []));
+      .pipe(map((response) => mapPaginatedResponse(response)));
   }
 
   getCompany(uuidCompany: string): Observable<CompanyManagement> {
