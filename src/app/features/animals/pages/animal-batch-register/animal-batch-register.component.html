@@ -1,7 +1,12 @@
 <div class="container-fluid">
   <div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
     <h2 class="app-page-title mb-0">{{ 'animal.batchRegisterTitle' | t }}</h2>
-    <a class="btn btn-outline-secondary btn-sm" routerLink="/animal/register/individual">{{ 'animal.individualRegisterTitle' | t }}</a>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-secondary btn-sm" routerLink="/animal/register/individual">{{ 'animal.individualRegisterTitle' | t }}</a>
+      <button type="button" class="btn btn-success btn-sm" (click)="saveBatch()" [disabled]="savingBatch">
+        {{ (savingBatch ? 'common.loading' : 'animal.batchSaveBatch') | t }}
+      </button>
+    </div>
   </div>
 
   <div class="animal-batch-hints app-card p-2 mb-3" role="note">
@@ -27,88 +32,84 @@
     (change)="onExcelFileChange($event)"
   />
 
-  <div class="app-card p-3 mb-3">
-    <div class="row g-2 align-items-end animal-batch-toolbar flex-wrap">
-      <div class="col-auto">
-        <label class="form-label mb-0 animal-batch-label" for="batchRowSlots">{{ 'animal.batchRowSlotsLabel' | t }}</label>
-        <input
-          id="batchRowSlots"
-          class="form-control form-control-sm animal-batch-control"
-          type="number"
-          [min]="minSlots"
-          [max]="maxSlots"
-          [(ngModel)]="requestedSlotCount"
-          [ngModelOptions]="{ standalone: true }"
-        />
-      </div>
-      <div class="col-auto">
-        <button type="button" class="btn btn-primary btn-sm" (click)="applyRequestedSlotCount()">
-          {{ 'animal.batchApplySlots' | t }}
-        </button>
-      </div>
-      <div class="col-auto">
-        <button type="button" class="btn btn-outline-primary btn-sm" (click)="openExcelPicker()">
-          {{ 'animal.batchImportExcel' | t }}
-        </button>
-      </div>
-      <div class="col-auto border-start ps-3 ms-1 d-flex flex-wrap align-items-end gap-2">
-        <div>
-          <label class="form-label mb-0 animal-batch-label" for="batchModelRow">{{ 'animal.batchModelRowLabel' | t }}</label>
+  <div class="app-card p-0 animal-batch-table-card mb-3">
+    <div class="animal-batch-table-head">
+      <div class="animal-batch-bar">
+        <div class="animal-batch-bar__zone animal-batch-bar__zone--start">
+          <label class="form-label mb-0 small text-nowrap" for="batchRowSlots">{{ 'animal.batchRowSlotsLabel' | t }}</label>
+          <input
+            id="batchRowSlots"
+            class="form-control form-control-sm animal-batch-bar__num"
+            type="number"
+            [min]="minSlots"
+            [max]="maxSlots"
+            [(ngModel)]="requestedSlotCount"
+            [ngModelOptions]="{ standalone: true }"
+          />
+          <button type="button" class="btn btn-primary btn-sm" (click)="applyRequestedSlotCount()">
+            {{ 'animal.batchApplySlots' | t }}
+          </button>
+        </div>
+
+        <div class="animal-batch-bar__zone animal-batch-bar__zone--center">
+          <label class="form-label mb-0 small text-nowrap" for="batchModelRow">{{ 'animal.batchModelRowLabel' | t }}</label>
           <input
             id="batchModelRow"
-            class="form-control form-control-sm animal-batch-control"
+            class="form-control form-control-sm animal-batch-bar__num"
             type="number"
             [min]="1"
             [max]="rows.length"
             [(ngModel)]="modelRowNumber"
             [ngModelOptions]="{ standalone: true }"
           />
-        </div>
-        <div class="form-check mb-1">
-          <input id="batchCopyOnlyEmpty" class="form-check-input" type="checkbox" [(ngModel)]="copyOnlyEmptyTargets" [ngModelOptions]="{ standalone: true }" />
-          <label class="form-check-label small" for="batchCopyOnlyEmpty">{{ 'animal.batchCopyOnlyEmpty' | t }}</label>
-        </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="applyModelRowToOthers()">
-          {{ 'animal.batchApplyModelRow' | t }}
-        </button>
-      </div>
-      <div class="col-auto ms-auto">
-        <button type="button" class="btn btn-success btn-sm" (click)="saveBatch()">
-          {{ 'animal.batchSaveBatch' | t }}
-        </button>
-      </div>
-    </div>
-
-    <details class="animal-batch-columns-details small mt-2">
-      <summary class="animal-batch-columns-summary"> {{ 'animal.batchOptionalColumnsTitle' | t }}</summary>
-      <div class="animal-batch-columns-panel mt-2">
-        <div class="animal-batch-columns-actions mb-2">
-          <button type="button" class="animal-batch-columns-action" (click)="setAllOptionalColumns(true)">
-            {{ 'animal.batchOptionalColumnsShowAll' | t }}
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="applyModelRowToOthers()">
+            {{ 'animal.batchApplyModelRow' | t }}
           </button>
-          <span class="animal-batch-columns-actions-sep" aria-hidden="true">·</span>
-          <button type="button" class="animal-batch-columns-action" (click)="setAllOptionalColumns(false)">
-            {{ 'animal.batchOptionalColumnsHideAll' | t }}
-          </button>
-        </div>
-        <div class="animal-batch-columns-checks d-flex flex-wrap gap-2">
-          <div *ngFor="let col of optionalColumns" class="form-check form-check-inline mb-0">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              [id]="'batchOptionalCol_' + col.key"
-              [checked]="isOptionalColumnVisible(col.key)"
-              (change)="onOptionalColumnToggle(col.key, $any($event.target).checked)"
-            />
-            <label class="form-check-label" [for]="'batchOptionalCol_' + col.key">{{ col.labelKey | t }}</label>
+          <div class="form-check mb-0 animal-batch-bar__check">
+            <input id="batchCopyOnlyEmpty" class="form-check-input" type="checkbox" [(ngModel)]="copyOnlyEmptyTargets" [ngModelOptions]="{ standalone: true }" />
+            <label class="form-check-label small" for="batchCopyOnlyEmpty">{{ 'animal.batchCopyOnlyEmpty' | t }}</label>
           </div>
         </div>
-      </div>
-    </details>
-  </div>
 
-  <div class="app-card p-0 animal-batch-table-card">
-    <form [formGroup]="form">
+        <div class="animal-batch-bar__zone animal-batch-bar__zone--end">
+          <button type="button" class="btn btn-outline-primary btn-sm" (click)="openExcelPicker()">
+            {{ 'animal.batchImportExcel' | t }}
+          </button>
+          <button type="button" class="btn btn-outline-danger btn-sm" (click)="clearBatchTable()" [disabled]="savingBatch">
+            {{ 'animal.batchClearTable' | t }}
+          </button>
+        </div>
+      </div>
+
+      <details class="animal-batch-columns-details small">
+        <summary class="animal-batch-columns-summary"> {{ 'animal.batchOptionalColumnsTitle' | t }}</summary>
+        <div class="animal-batch-columns-panel mt-2">
+          <div class="animal-batch-columns-actions mb-2">
+            <button type="button" class="animal-batch-columns-action" (click)="setAllOptionalColumns(true)">
+              {{ 'animal.batchOptionalColumnsShowAll' | t }}
+            </button>
+            <span class="animal-batch-columns-actions-sep" aria-hidden="true">·</span>
+            <button type="button" class="animal-batch-columns-action" (click)="setAllOptionalColumns(false)">
+              {{ 'animal.batchOptionalColumnsHideAll' | t }}
+            </button>
+          </div>
+          <div class="animal-batch-columns-checks d-flex flex-wrap gap-2">
+            <div *ngFor="let col of optionalColumns" class="form-check form-check-inline mb-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'batchOptionalCol_' + col.key"
+                [checked]="isOptionalColumnVisible(col.key)"
+                (change)="onOptionalColumnToggle(col.key, $any($event.target).checked)"
+              />
+              <label class="form-check-label" [for]="'batchOptionalCol_' + col.key">{{ col.labelKey | t }}</label>
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <form *ngIf="batchTableAlive" [formGroup]="form">
       <div class="animal-batch-scroll">
         <table
           class="table table-sm table-striped mb-0 animal-batch-table"
@@ -183,8 +184,20 @@
             </tr>
           </thead>
           <tbody formArrayName="rows">
-            <tr *ngFor="let ctrl of rows.controls; let i = index; trackBy: trackByIndex" [formGroupName]="i">
-              <td class="text-center text-muted animal-batch-col-idx">{{ i + 1 }}</td>
+            <tr *ngFor="let ctrl of rows.controls; let i = index; trackBy: trackByRow" [formGroupName]="i">
+              <td class="text-center animal-batch-col-idx">
+                <span class="animal-batch-row-num text-muted">{{ i + 1 }}</span>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-row-clear"
+                  [attr.title]="'animal.batchClearRow' | t"
+                  [attr.aria-label]="('animal.batchClearRow' | t) + ' ' + (i + 1)"
+                  [disabled]="!rowHasData(i) || savingBatch"
+                  (click)="clearBatchRow(i)"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
+              </td>
               <td><input class="form-control animal-batch-control" type="text" formControlName="registrationNumber" autocomplete="off" /></td>
               <td>
                 <select class="form-select animal-batch-control" formControlName="ranchUuid" (change)="onRanchChange(i)">

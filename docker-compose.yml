@@ -10,7 +10,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: adg-ui
-    restart: unless-stopped
+    restart: "no"
     ports:
       - "${ADG_UI_PORT:-4730}:${ADG_UI_PORT:-4730}"
     environment:

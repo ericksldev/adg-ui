@@ -9,6 +9,7 @@ import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 export class ConfirmDialogComponent {
   @Input() titleKey = '';
   @Input() messageKey = '';
+  @Input() messageParams?: Record<string, string | number>;
   @Input() confirmKey = 'common.confirm';
   @Input() cancelKey = 'common.cancel';
   @Input() confirmButtonClass = 'btn-danger';

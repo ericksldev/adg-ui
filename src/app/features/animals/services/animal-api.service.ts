@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from 'src/environments/environment';
+import { AnimalBatchCreateRequestBody, AnimalBatchCreateResultDto } from '../models/animal-batch-create.model';
 import { AnimalCreatePayload } from '../models/animal-create-payload.model';
 import { CattleBreedCode } from '../constants/cattle-breeds';
 
@@ -64,5 +65,11 @@ export class AnimalApiService {
 
   createAnimal(payload: AnimalCreatePayload): Observable<unknown> {
     return this.http.post<ApiItemResponse<unknown>>(this.animalUrl, payload).pipe(map((r) => r.data));
+  }
+
+  createAnimalsBatch(body: AnimalBatchCreateRequestBody): Observable<AnimalBatchCreateResultDto> {
+    return this.http
+      .post<ApiItemResponse<AnimalBatchCreateResultDto>>(`${this.animalUrl}/batch`, body)
+      .pipe(map((r) => r.data as AnimalBatchCreateResultDto));
   }
 }

@@ -4,6 +4,10 @@ import { forkJoin, of, Subject } from 'rxjs';
 import { catchError, filter, switchMap, takeUntil } from 'rxjs/operators';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
+import {
+  isDuplicateRegistrationError,
+  translateAnimalWriteError
+} from 'src/app/core/utils/animal-write-error.util';
 import { RanchOption } from 'src/app/features/users/models/user-management.model';
 import { UserManagementService } from 'src/app/features/users/services/user-management.service';
 import { AnimalCreatePayload } from '../../models/animal-create-payload.model';
@@ -22,7 +26,8 @@ import {
 })
 export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
   readonly form: FormGroup;
-  readonly maxBirthYear = new Date().getFullYear() + 1;
+  readonly minBirthDate = '1900-01-01';
+  readonly maxBirthDate = `${new Date().getFullYear() + 1}-12-31`;
   feedback: { type: 'success' | 'error'; message: string } | null = null;
   saving = false;
 
@@ -54,23 +59,31 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       currentOwnerUuid: [''],
       currentPaddockUuid: [''],
       color: [''],
-      birthYear: ['', [Validators.required, AnimalRegisterIndividualComponent.birthYearValidator]],
+      birthDate: ['', [Validators.required, AnimalRegisterIndividualComponent.birthDateValidator]],
       description: ['']
     });
   }
 
-  private static birthYearValidator(control: AbstractControl): ValidationErrors | null {
+  private static birthDateValidator(control: AbstractControl): ValidationErrors | null {
     const s = String(control.value ?? '').trim();
     if (!s) {
       return null;
     }
-    if (!/^\d{4}$/.test(s)) {
-      return { birthYearFormat: true };
+    const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/;
+    const m = isoDate.exec(s);
+    if (!m) {
+      return { birthDateFormat: true };
     }
-    const n = Number(s);
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const da = Number(m[3]);
+    const utc = new Date(Date.UTC(y, mo - 1, da));
+    if (utc.getUTCFullYear() !== y || utc.getUTCMonth() !== mo - 1 || utc.getUTCDate() !== da) {
+      return { birthDateFormat: true };
+    }
     const maxY = new Date().getFullYear() + 1;
-    if (n < 1900 || n > maxY) {
-      return { birthYearRange: true };
+    if (y < 1900 || y > maxY) {
+      return { birthDateRange: true };
     }
     return null;
   }
@@ -115,6 +128,20 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
           { emitEvent: false }
         );
       });
+
+    this.form
+      .get('registrationNumber')
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.clearRegistrationDuplicateError());
+  }
+
+  private clearRegistrationDuplicateError(): void {
+    const ctrl = this.form.get('registrationNumber');
+    if (!ctrl?.hasError('duplicate')) {
+      return;
+    }
+    const { duplicate: _duplicate, ...rest } = ctrl.errors ?? {};
+    ctrl.setErrors(Object.keys(rest).length ? rest : null);
   }
 
   ngOnDestroy(): void {
@@ -146,7 +173,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       currentOwnerUuid: string;
       currentPaddockUuid: string;
       color: string;
-      birthYear: string;
+      birthDate: string;
       description: string;
     };
     const payload: AnimalCreatePayload = {
@@ -155,7 +182,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       registration_number: v.registrationNumber.trim(),
       sex: v.sex as 'MALE' | 'FEMALE',
       origin_type: v.originType as AnimalCreatePayload['origin_type'],
-      birth_date: `${String(v.birthYear ?? '').trim()}-01-01`
+      birth_date: String(v.birthDate ?? '').trim()
     };
 
     const chip = String(v.chipNumber ?? '').trim();
@@ -197,11 +224,15 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.saving = false;
-        const msg =
-          err?.error?.description ??
-          err?.error?.message ??
-          this.i18n.translate('animal.individualSaveError');
-        this.feedback = { type: 'error', message: String(msg) };
+        const msg = translateAnimalWriteError(this.i18n, err, 'animal.individualSaveError');
+        if (isDuplicateRegistrationError(err)) {
+          const ctrl = this.form.get('registrationNumber');
+          if (ctrl) {
+            ctrl.setErrors({ ...(ctrl.errors ?? {}), duplicate: true });
+            ctrl.markAsTouched();
+          }
+        }
+        this.feedback = { type: 'error', message: msg };
       }
     });
   }
@@ -222,7 +253,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       currentOwnerUuid: '',
       currentPaddockUuid: '',
       color: '',
-      birthYear: '',
+      birthDate: '',
       description: ''
     });
   }

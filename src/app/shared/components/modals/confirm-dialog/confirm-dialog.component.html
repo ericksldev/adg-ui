@@ -3,7 +3,7 @@
   <button type="button" class="btn-close" [attr.aria-label]="'common.closeForm' | t" (click)="activeModal.dismiss()"></button>
 </div>
 <div class="modal-body">
-  <p class="mb-0">{{ messageKey | t }}</p>
+  <p class="mb-0">{{ messageKey | t:messageParams }}</p>
 </div>
 <div class="modal-footer">
   <button type="button" class="btn btn-outline-secondary" (click)="activeModal.dismiss()">{{ cancelKey | t }}</button>

@@ -1,7 +1,31 @@
 import { Injectable } from '@angular/core';
 import * as XLSX from 'xlsx';
+import { AnimalBatchOptionalColumnKey } from '../constants/animal-batch.constants';
+import { AnimalBatchExcelParseResult } from '../models/animal-batch-excel-parse.model';
 import { AnimalBatchDraftRow } from '../models/animal-batch-draft.model';
 import { batchDraftRowHasData, emptyBatchDraftRow } from '../utils/animal-batch-draft.utils';
+import { pickBirthDateFromRecord } from '../utils/animal-batch-excel-date.util';
+
+const EXCEL_OPTIONAL_COLUMN_HEADERS: Record<AnimalBatchOptionalColumnKey, readonly string[]> = {
+  chipNumber: ['chip_number', 'chip', 'chipnumber', 'numero_chip', 'no_chip', 'arete', 'id_chip'],
+  motherRegistrationNumber: [
+    'mother_registration_number',
+    'mother_reg',
+    'madre_registro',
+    'registro_madre'
+  ],
+  fatherRegistrationNumber: [
+    'father_registration_number',
+    'father_reg',
+    'padre_registro',
+    'registro_padre'
+  ],
+  currentOwnerUuid: ['current_owner_uuid', 'owner_uuid', 'uuid_propietario'],
+  currentPaddockUuid: ['current_paddock_uuid', 'paddock_uuid', 'uuid_potrero', 'uuid_piquete'],
+  color: ['color'],
+  originType: ['origin_type', 'origen', 'tipo_origen'],
+  description: ['description', 'descripcion', 'detalle', 'notas']
+};
 
 function normalizeHeaderKey(key: string): string {
   return key.toLowerCase().trim().replace(/\s+/g, '_');
@@ -15,7 +39,7 @@ function normalizedCells(record: Record<string, unknown>): Record<string, string
   return out;
 }
 
-function pickFromKeys(cells: Record<string, string>, keys: string[]): string {
+function pickFromKeys(cells: Record<string, string>, keys: readonly string[]): string {
   for (const key of keys) {
     if (cells[key]) {
       return cells[key];
@@ -64,42 +88,42 @@ function pickSexRaw(cells: Record<string, string>): string {
   return pickFromKeys(cells, ['sex', 'sexo', 'gender']);
 }
 
+function extractNormalizedHeaders(worksheet: XLSX.WorkSheet): string[] {
+  const matrix = XLSX.utils.sheet_to_json<(string | number | null | undefined)[]>(worksheet, {
+    header: 1,
+    defval: ''
+  }) as unknown[][];
+  if (!matrix.length || !Array.isArray(matrix[0])) {
+    return [];
+  }
+  return matrix[0].map((cell) => normalizeHeaderKey(String(cell ?? ''))).filter(Boolean);
+}
+
+function detectOptionalColumnsInHeaders(normalizedHeaders: string[]): AnimalBatchOptionalColumnKey[] {
+  const headerSet = new Set(normalizedHeaders);
+  return (Object.entries(EXCEL_OPTIONAL_COLUMN_HEADERS) as [AnimalBatchOptionalColumnKey, readonly string[]][])
+    .filter(([, aliases]) => aliases.some((alias) => headerSet.has(alias)))
+    .map(([key]) => key);
+}
+
 function mapObjectRow(record: Record<string, unknown>): AnimalBatchDraftRow {
   const cells = normalizedCells(record);
   const base = emptyBatchDraftRow();
   return {
     ...base,
     registrationNumber: pickFromKeys(cells, ['registration_number', 'registro', 'numero_registro', 'id_registro']),
-    chipNumber: pickFromKeys(cells, [
-      'chip_number',
-      'chip',
-      'chipnumber',
-      'numero_chip',
-      'no_chip',
-      'arete',
-      'id_chip'
-    ]),
+    chipNumber: pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.chipNumber),
     ranchUuid: pickRanchUuid(cells),
     breedCode: pickBreedCode(cells),
-    motherRegistrationNumber: pickFromKeys(cells, [
-      'mother_registration_number',
-      'mother_reg',
-      'madre_registro',
-      'registro_madre'
-    ]),
-    fatherRegistrationNumber: pickFromKeys(cells, [
-      'father_registration_number',
-      'father_reg',
-      'padre_registro',
-      'registro_padre'
-    ]),
-    currentOwnerUuid: pickFromKeys(cells, ['current_owner_uuid', 'owner_uuid', 'uuid_propietario']),
-    currentPaddockUuid: pickFromKeys(cells, ['current_paddock_uuid', 'paddock_uuid', 'uuid_potrero', 'uuid_piquete']),
+    motherRegistrationNumber: pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.motherRegistrationNumber),
+    fatherRegistrationNumber: pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.fatherRegistrationNumber),
+    currentOwnerUuid: pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.currentOwnerUuid),
+    currentPaddockUuid: pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.currentPaddockUuid),
     sex: normalizeSexCell(pickSexRaw(cells)),
-    color: pickFromKeys(cells, ['color']),
-    birthDate: pickFromKeys(cells, ['birth_date', 'birthdate', 'fecha_nacimiento', 'nacimiento']),
-    originType: normalizeOriginCell(pickFromKeys(cells, ['origin_type', 'origen', 'tipo_origen'])),
-    description: pickFromKeys(cells, ['description', 'descripcion', 'detalle', 'notas'])
+    color: pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.color),
+    birthDate: pickBirthDateFromRecord(record, normalizeHeaderKey),
+    originType: normalizeOriginCell(pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.originType)),
+    description: pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.description)
   };
 }
 
@@ -135,23 +159,24 @@ function parseFromGridRows(worksheet: XLSX.WorkSheet): AnimalBatchDraftRow[] {
   providedIn: 'root'
 })
 export class AnimalBatchExcelImportService {
-  parseFirstSheet(buffer: ArrayBuffer): AnimalBatchDraftRow[] {
-    const workbook = XLSX.read(buffer, { type: 'array', cellDates: false });
+  parseFirstSheet(buffer: ArrayBuffer): AnimalBatchExcelParseResult {
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
     const firstName = workbook.SheetNames[0];
     if (!firstName) {
-      return [];
+      return { rows: [], optionalColumnsInFile: [] };
     }
     const worksheet = workbook.Sheets[firstName];
     if (!worksheet) {
-      return [];
+      return { rows: [], optionalColumnsInFile: [] };
     }
 
+    const optionalColumnsInFile = detectOptionalColumnsInHeaders(extractNormalizedHeaders(worksheet));
     const fromObjects = parseFromObjectRows(worksheet);
     if (fromObjects.length > 0) {
-      return fromObjects;
+      return { rows: fromObjects, optionalColumnsInFile };
     }
 
-    return parseFromGridRows(worksheet);
+    return { rows: parseFromGridRows(worksheet), optionalColumnsInFile: [] };
   }
 
   mergeIntoSlotCount(imported: AnimalBatchDraftRow[], slotCount: number): AnimalBatchDraftRow[] {

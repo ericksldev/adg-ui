@@ -1,10 +1,107 @@
-.animal-batch-toolbar .animal-batch-label {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: var(--text-secondary, #6c757d);
+.animal-batch-table-head {
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 0.85rem;
+}
+
+.animal-batch-bar {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: 1fr;
+  align-items: center;
+
+  &__zone {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.45rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  &__zone--end {
+    gap: 0.45rem;
+  }
+
+  &__zone--center {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  &__num {
+    width: 3.75rem;
+    flex: 0 0 3.75rem;
+    text-align: center;
+  }
+
+  &__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+
+    .form-check-label {
+      line-height: 1.25;
+      white-space: normal;
+    }
+  }
+
+  @media (min-width: 992px) {
+    grid-template-columns: 1fr auto 1fr;
+
+    &__zone--start {
+      justify-self: start;
+    }
+
+    &__zone--center {
+      justify-self: center;
+      flex-wrap: nowrap;
+    }
+
+    &__zone--end {
+      justify-self: end;
+      flex-wrap: nowrap;
+    }
+  }
+
+  @media (min-width: 576px) and (max-width: 991.98px) {
+    grid-template-columns: 1fr 1fr;
+
+    &__zone--start {
+      justify-self: start;
+    }
+
+    &__zone--end {
+      justify-self: end;
+    }
+
+    &__zone--center {
+      grid-column: 1 / -1;
+      justify-self: center;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    &__zone {
+      width: 100%;
+    }
+
+    &__zone--start,
+    &__zone--center {
+      justify-content: flex-start;
+    }
+
+    &__zone--end {
+      justify-content: stretch;
+
+      .btn {
+        flex: 1 1 calc(50% - 0.25rem);
+      }
+    }
+
+    &__zone--center .form-check {
+      flex: 1 1 100%;
+    }
+  }
 }
 
 .animal-batch-hints-list {
@@ -73,6 +170,9 @@
 
 .animal-batch-columns-details {
   font-size: 0.78rem;
+  margin: 0.55rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 
 .animal-batch-columns-summary {
@@ -163,8 +263,33 @@
 }
 
 .animal-batch-col-idx {
-  width: 2rem;
+  width: 2.5rem;
   font-size: 0.68rem;
+}
+
+.animal-batch-row-num {
+  display: block;
+  line-height: 1;
+}
+
+.animal-batch-row-clear {
+  display: block;
+  margin: 0.1rem auto 0;
+  padding: 0 !important;
+  line-height: 1;
+  font-size: 0.75rem;
+  color: var(--bs-secondary, #6c757d);
+  text-decoration: none;
+
+  &:hover:not(:disabled),
+  &:focus:not(:disabled) {
+    color: var(--bs-danger, #dc3545);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
 }
 
 .animal-batch-col-optional-start {
@@ -175,7 +300,7 @@
 .animal-batch-control {
   font-size: 0.72rem !important;
   line-height: 1.2 !important;
-  min-height: 1.45rem !important;
+  min-height: 1.75rem !important;
   padding: 0.1rem 0.35rem !important;
 }
 

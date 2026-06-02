@@ -5,6 +5,7 @@ import { AnimalRoutingModule } from './animal-routing.module';
 import { AnimalComponent } from './pages/animal/animal.component';
 import { AnimalBatchRegisterComponent } from './pages/animal-batch-register/animal-batch-register.component';
 import { AnimalRegisterIndividualComponent } from './pages/animal-register-individual/animal-register-individual.component';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { SharedModule } from 'src/app/shared/shared.module';
 
 @NgModule({
@@ -13,6 +14,7 @@ import { SharedModule } from 'src/app/shared/shared.module';
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
+    NgbModule,
     AnimalRoutingModule,
     SharedModule
   ]
