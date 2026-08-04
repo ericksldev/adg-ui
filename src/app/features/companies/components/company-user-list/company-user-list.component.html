@@ -13,9 +13,9 @@
     <tbody>
       <tr *ngFor="let user of users">
         <td>{{ user.username }}</td>
-        <td>{{ user.email || '-' }}</td>
-        <td>{{ user.first_name || '-' }}</td>
-        <td>{{ user.last_name || '-' }}</td>
+        <td>{{ user.email || ('common.notAvailable' | t) }}</td>
+        <td>{{ user.first_name || ('common.notAvailable' | t) }}</td>
+        <td>{{ user.last_name || ('common.notAvailable' | t) }}</td>
         <td>
           <ng-container *ngIf="normalizeUserRole(user.role ?? '') as r">{{ ('roles.' + r) | t }}</ng-container>
           <span *ngIf="user.role && !normalizeUserRole(user.role)" class="text-muted">{{ 'users.unrecognizedRole' | t }}</span>

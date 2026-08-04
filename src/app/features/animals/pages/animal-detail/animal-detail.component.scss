@@ -1,0 +1,52 @@
+.animal-detail__grid dt {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.animal-detail__grid dd {
+  font-size: 0.85rem;
+}
+
+.animal-detail__records {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.animal-detail__record-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.animal-detail__lifecycle-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.animal-detail__lifecycle-badge--active {
+  background: color-mix(in srgb, var(--success) 22%, var(--surface));
+  color: var(--success);
+}
+
+.animal-detail__lifecycle-badge--inactive {
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+}
+
+.animal-detail__soon-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}

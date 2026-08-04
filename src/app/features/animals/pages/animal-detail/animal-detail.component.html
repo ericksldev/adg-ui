@@ -1,0 +1,107 @@
+<div *ngIf="isLoading" class="text-muted py-3">{{ 'common.loading' | t }}</div>
+
+<div *ngIf="!isLoading && animal">
+  <div class="app-page-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div>
+      <h2 class="app-page-title mb-0">{{ animal.registration_number }}</h2>
+      <p class="text-muted small mb-0" *ngIf="animal.chip_number">{{ 'animal.fieldChipNumber' | t }}: {{ animal.chip_number }}</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-sm btn-outline-secondary" routerLink="/animal">{{ 'animal.backToList' | t }}</a>
+      <a
+        *ngIf="canAnimalWrite && isActive"
+        class="btn btn-sm btn-outline-primary"
+        [routerLink]="['/animal', animal.animal_uuid, 'edit']"
+      >{{ 'common.manage' | t }}</a>
+      <button
+        *ngIf="canAnimalWrite && isActive"
+        type="button"
+        class="btn btn-sm btn-outline-danger"
+        (click)="openDeactivateDialog()"
+      >{{ 'animal.deactivate' | t }}</button>
+    </div>
+  </div>
+
+  <p class="text-danger" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <section class="app-card p-3">
+        <h3 class="h6 mb-3">{{ 'animal.detail.basicInfo' | t }}</h3>
+        <dl class="row mb-0 animal-detail__grid">
+          <dt class="col-sm-5">{{ 'animal.fieldRegistrationNumber' | t }}</dt>
+          <dd class="col-sm-7">{{ animal.registration_number }}</dd>
+          <dt class="col-sm-5">{{ 'animal.fieldChipNumber' | t }}</dt>
+          <dd class="col-sm-7">{{ animal.chip_number || ('common.notAvailable' | t) }}</dd>
+          <dt class="col-sm-5">{{ 'animal.fieldBreed' | t }}</dt>
+          <dd class="col-sm-7">{{ breedLabel(animal.breed_code) }}</dd>
+          <dt class="col-sm-5">{{ 'animal.fieldSex' | t }}</dt>
+          <dd class="col-sm-7">{{ animal.sex === 'MALE' ? ('animal.male' | t) : ('animal.female' | t) }}</dd>
+          <dt class="col-sm-5">{{ 'animal.fieldColor' | t }}</dt>
+          <dd class="col-sm-7">{{ animal.color || ('common.notAvailable' | t) }}</dd>
+          <dt class="col-sm-5">{{ 'animal.fieldBirthDate' | t }}</dt>
+          <dd class="col-sm-7">{{ animal.birth_date ? (animal.birth_date | date:'yyyy-MM-dd':'UTC') : '—' }}</dd>
+          <dt class="col-sm-5">{{ 'animal.fieldOriginType' | t }}</dt>
+          <dd class="col-sm-7">{{ originLabel(animal.origin_type) }}</dd>
+          <dt class="col-sm-5">{{ 'animal.fieldCurrentStatus' | t }}</dt>
+          <dd class="col-sm-7">{{ statusLabel(animal.current_status) }}</dd>
+          <dt class="col-sm-5">{{ 'animal.fieldDescription' | t }}</dt>
+          <dd class="col-sm-7">{{ animal.description || ('common.notAvailable' | t) }}</dd>
+          <dt class="col-sm-5">{{ 'animal.detail.lifecycle' | t }}</dt>
+          <dd class="col-sm-7">
+            <span
+              class="animal-detail__lifecycle-badge"
+              [class.animal-detail__lifecycle-badge--active]="isActive"
+              [class.animal-detail__lifecycle-badge--inactive]="!isActive"
+            >
+              {{ (isActive ? 'animal.detail.activeBadge' : 'animal.detail.inactiveBadge') | t }}
+            </span>
+          </dd>
+        </dl>
+      </section>
+    </div>
+
+    <div class="col-lg-7">
+      <section class="app-card p-3 mb-3" *ngIf="animal.last_exit">
+        <h3 class="h6 mb-3">{{ 'animal.detail.exitRecordTitle' | t }}</h3>
+        <dl class="row mb-0 animal-detail__grid">
+          <dt class="col-sm-4">{{ 'animal.exitType' | t }}</dt>
+          <dd class="col-sm-8">{{ exitTypeLabel(animal.last_exit?.exit_type) }}</dd>
+          <dt class="col-sm-4">{{ 'animal.exitDate' | t }}</dt>
+          <dd class="col-sm-8">{{ animal.last_exit?.exit_date | date:'yyyy-MM-dd':'UTC' }}</dd>
+          <dt class="col-sm-4">{{ 'animal.exitReason' | t }}</dt>
+          <dd class="col-sm-8">{{ animal.last_exit?.reason || ('common.notAvailable' | t) }}</dd>
+          <dt class="col-sm-4">{{ 'animal.exitDescription' | t }}</dt>
+          <dd class="col-sm-8">{{ animal.last_exit?.description || ('common.notAvailable' | t) }}</dd>
+        </dl>
+      </section>
+
+      <section class="app-card p-3 mb-3">
+        <h3 class="h6 mb-2">{{ 'animal.detail.recordsTitle' | t }}</h3>
+        <p class="text-muted small mb-3">{{ 'animal.detail.recordsSubtitle' | t }}</p>
+        <ul class="list-unstyled mb-0 animal-detail__records">
+          <li class="animal-detail__record-item">
+            <i class="bi bi-speedometer2 me-2" aria-hidden="true"></i>
+            <span>{{ 'animal.detail.recordWeight' | t }}</span>
+            <span class="animal-detail__soon-badge ms-auto">{{ 'animal.detail.comingSoon' | t }}</span>
+          </li>
+          <li class="animal-detail__record-item">
+            <i class="bi bi-heart-pulse me-2" aria-hidden="true"></i>
+            <span>{{ 'animal.detail.recordHealth' | t }}</span>
+            <span class="animal-detail__soon-badge ms-auto">{{ 'animal.detail.comingSoon' | t }}</span>
+          </li>
+          <li class="animal-detail__record-item">
+            <i class="bi bi-clipboard2-pulse me-2" aria-hidden="true"></i>
+            <span>{{ 'animal.detail.recordWorkSessions' | t }}</span>
+            <span class="animal-detail__soon-badge ms-auto">{{ 'animal.detail.comingSoon' | t }}</span>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="!isLoading && !animal && errorMessage">
+  <p class="text-danger">{{ errorMessage }}</p>
+  <a class="btn btn-sm btn-outline-secondary" routerLink="/animal">{{ 'animal.backToList' | t }}</a>
+</div>

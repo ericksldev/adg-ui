@@ -48,12 +48,12 @@
           <div class="ranch-detail__stat">
             <span class="ranch-detail__stat-icon"><i class="bi bi-geo-alt"></i></span>
             <span class="ranch-detail__stat-label">{{ 'saas.ranchLocation' | t }}</span>
-            <span class="ranch-detail__stat-value">{{ ranch.location || '—' }}</span>
+            <span class="ranch-detail__stat-value">{{ ranch.location || ('common.notAvailable' | t) }}</span>
           </div>
           <div class="ranch-detail__stat">
             <span class="ranch-detail__stat-icon"><i class="bi bi-grid-3x3-gap"></i></span>
             <span class="ranch-detail__stat-label">{{ 'saas.ranchArea' | t }} (ha)</span>
-            <span class="ranch-detail__stat-value">{{ ranch.area || '—' }}</span>
+            <span class="ranch-detail__stat-value">{{ ranch.area || ('common.notAvailable' | t) }}</span>
           </div>
         </div>
         <div class="ranch-detail__actions">
@@ -94,9 +94,9 @@
                 <td>
                   <span class="ranch-detail__username">{{ row.username || row.uuid_user }}</span>
                 </td>
-                <td>{{ row.email || '—' }}</td>
-                <td>{{ row.first_name || '—' }}</td>
-                <td>{{ row.last_name || '—' }}</td>
+                <td>{{ row.email || ('common.notAvailable' | t) }}</td>
+                <td>{{ row.first_name || ('common.notAvailable' | t) }}</td>
+                <td>{{ row.last_name || ('common.notAvailable' | t) }}</td>
                 <td>
                   <span class="ranch-detail__role-pill">{{ ('roles.' + row.role) | t }}</span>
                 </td>

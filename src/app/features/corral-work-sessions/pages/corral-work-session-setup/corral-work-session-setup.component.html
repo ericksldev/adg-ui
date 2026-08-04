@@ -1,0 +1,67 @@
+<div class="corral-session-setup" *ngIf="!loading && session">
+  <div class="app-page-header d-flex flex-wrap align-items-start justify-content-between gap-2">
+    <div>
+      <h2 class="app-page-title mb-1">{{ 'corralWorkSession.setupTitle' | t }}</h2>
+      <p class="text-muted small mb-0 d-inline-flex align-items-center gap-1 flex-wrap">
+        {{ ranchName }} · {{ session.work_date | date: 'yyyy-MM-dd' }}
+        <span *ngIf="session.responsible_person"> · {{ session.responsible_person }}</span>
+        <app-info-hint [text]="'corralWorkSession.setupActivitiesSubtitle' | t"></app-info-hint>
+        <app-info-hint *ngIf="isDuringWork" [text]="'corralActivityShortcut.extendWorkHint' | t"></app-info-hint>
+      </p>
+    </div>
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="backToList()">
+      {{ 'corralWorkSession.backToList' | t }}
+    </button>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger py-2">{{ errorMessage }}</div>
+
+  <div class="app-card p-3 mb-3">
+    <div class="d-flex justify-content-end mb-2">
+      <app-info-hint [text]="'corralWorkSession.activitiesAssignHint' | t"></app-info-hint>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 corral-activity-setup-table">
+        <thead>
+          <tr>
+            <th>{{ 'corralWorkSession.activityColumn' | t }}</th>
+            <th class="text-center" style="width: 4rem">{{ 'corralWorkSession.includeActivity' | t }}</th>
+            <th style="width: 8rem">{{ 'corralWorkSession.stepColumn' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of activityRows">
+            <td>{{ activityLabel(row.activity_code) }}</td>
+            <td class="text-center">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                [checked]="row.enabled"
+                (change)="onActivityToggle(row, $any($event.target).checked)"
+                [disabled]="saving || isActivityLocked(row)"
+              />
+            </td>
+            <td>
+              <input
+                type="number"
+                class="form-control form-control-sm"
+                min="1"
+                [(ngModel)]="row.step_order"
+                [disabled]="!row.enabled || saving"
+                [placeholder]="'corralWorkSession.stepColumn' | t"
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 justify-content-end sticky-actions">
+    <button type="button" class="btn btn-primary" (click)="submit()" [disabled]="saving">
+      {{ saving ? ('common.saving' | t) : (isDuringWork ? ('corralActivityShortcut.saveActivitiesButton' | t) : ('corralWorkSession.startWorkButton' | t)) }}
+    </button>
+  </div>
+</div>
+
+<div *ngIf="loading" class="text-muted small py-4">{{ 'common.loading' | t }}</div>

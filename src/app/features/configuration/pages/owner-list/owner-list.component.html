@@ -39,9 +39,9 @@
         <tbody>
           <tr *ngFor="let owner of owners">
             <td>{{ owner.full_name }}</td>
-            <td>{{ owner.document_number || '-' }}</td>
-            <td>{{ owner.phone_number || '-' }}</td>
-            <td>{{ owner.email || '-' }}</td>
+            <td>{{ owner.document_number || ('common.notAvailable' | t) }}</td>
+            <td>{{ owner.phone_number || ('common.notAvailable' | t) }}</td>
+            <td>{{ owner.email || ('common.notAvailable' | t) }}</td>
             <td class="app-table__cell-actions">
               <a
                 class="btn btn-sm btn-outline-primary me-1"

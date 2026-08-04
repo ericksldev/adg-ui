@@ -34,6 +34,13 @@
     text-align: center;
   }
 
+  &__targets {
+    width: 7.5rem;
+    flex: 1 1 7.5rem;
+    min-width: 5.5rem;
+    max-width: 11rem;
+  }
+
   &__check {
     display: inline-flex;
     align-items: center;
@@ -104,6 +111,10 @@
   }
 }
 
+.animal-batch-hints-details + .animal-batch-excel-details {
+  margin-top: 0.5rem;
+}
+
 .animal-batch-hints-list {
   padding-left: 1.1rem;
   font-size: 0.78rem;
@@ -115,7 +126,6 @@
 }
 
 .animal-batch-excel-details {
-  margin-top: 0.5rem;
   font-size: 0.72rem;
 }
 
@@ -166,6 +176,38 @@
   overflow-x: auto;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  outline: none;
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bs-primary) 35%, transparent);
+  }
+
+  &--selecting {
+    user-select: none;
+    cursor: cell;
+  }
+}
+
+.animal-batch-table--selecting {
+  user-select: none;
+
+  .animal-batch-cell input,
+  .animal-batch-cell select {
+    pointer-events: none;
+  }
+}
+
+.animal-batch-cell {
+  position: relative;
+
+  &--selected {
+    background: color-mix(in srgb, var(--bs-primary) 14%, var(--bs-table-bg, #fff)) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bs-primary) 55%, transparent);
+  }
+
+  &--active {
+    box-shadow: inset 0 0 0 2px var(--bs-primary, #0d6efd);
+  }
 }
 
 .animal-batch-columns-details {
@@ -246,6 +288,38 @@
 
 .animal-batch-table--wide-optional {
   min-width: 80rem;
+}
+
+.animal-batch-th-with-action {
+  vertical-align: middle;
+}
+
+.animal-batch-th-label {
+  display: inline;
+  margin-right: 0.15rem;
+}
+
+.animal-batch-col-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  margin: 0;
+  line-height: 1;
+  font-size: 0.68rem;
+  color: var(--bs-secondary, #6c757d);
+  text-decoration: none;
+  vertical-align: middle;
+
+  &:hover:not(:disabled),
+  &:focus:not(:disabled) {
+    color: var(--bs-danger, #dc3545);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
 }
 
 .animal-batch-table thead th {

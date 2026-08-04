@@ -13,7 +13,7 @@ import { filter } from 'rxjs/operators';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit, OnDestroy {
-  title = 'adg-ui';
+  title = 'Vrete';
   user: string | null = null;
   openSidebar = false;
   currentTheme: 'light' | 'dark' = 'light';

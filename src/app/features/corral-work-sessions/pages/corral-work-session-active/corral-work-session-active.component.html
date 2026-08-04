@@ -1,0 +1,123 @@
+<div class="corral-session-active" *ngIf="!loading && session">
+  <div class="app-page-header d-flex flex-wrap align-items-start justify-content-between gap-2">
+    <div>
+      <h2 class="app-page-title mb-1">{{ 'corralWorkSession.workTitle' | t }}</h2>
+      <p class="text-muted small mb-0">
+        {{ ranchName }} · {{ paddockName }} · {{ session.work_date | date: 'yyyy-MM-dd' }}
+        · {{ statusLabel(session.status) }}
+      </p>
+      <div class="mt-1">
+        <span *ngFor="let a of session.planned_activities" class="badge bg-light text-dark border me-1">
+          {{ activityLabel(a) }}
+        </span>
+      </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="backToList()">
+        {{ 'corralWorkSession.backToList' | t }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-danger btn-sm"
+        (click)="closeSession()"
+        [disabled]="closing || session.status === 'CLOSED'"
+      >
+        {{ closing ? ('common.saving' | t) : ('corralWorkSession.closeSession' | t) }}
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger py-2" role="alert">{{ errorMessage }}</div>
+  <div *ngIf="successMessage" class="alert alert-success py-2" role="status">{{ successMessage }}</div>
+
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <div class="app-card p-3">
+        <h3 class="h6 mb-3">{{ 'corralWorkSession.chuteTitle' | t }}</h3>
+        <label class="form-label small mb-1" for="animalId">{{ 'corralWorkSession.fieldAnimalNumber' | t }}</label>
+        <div class="input-group input-group-sm mb-2">
+          <input
+            id="animalId"
+            class="form-control"
+            type="text"
+            [(ngModel)]="animalIdentifier"
+            (keydown)="onIdentifierKeydown($event)"
+            [placeholder]="'corralWorkSession.animalNumberPlaceholder' | t"
+            [disabled]="session.status === 'CLOSED' || saving"
+            autocomplete="off"
+          />
+          <button type="button" class="btn btn-outline-primary" (click)="lookupAnimal()" [disabled]="session.status === 'CLOSED'">
+            {{ 'corralWorkSession.lookupButton' | t }}
+          </button>
+        </div>
+
+        <div *ngIf="currentAnimal" class="border rounded p-2 mb-3 bg-light">
+          <div class="small fw-semibold">{{ currentAnimal.registration_number }}</div>
+          <div class="small text-muted" *ngIf="currentAnimal.chip_number">{{ currentAnimal.chip_number }}</div>
+          <div class="small text-muted">{{ currentAnimal.breed_code }} · {{ currentAnimal.sex }}</div>
+        </div>
+
+        <div *ngIf="currentAnimal && session.status !== 'CLOSED'">
+          <div class="form-check mb-2">
+            <input id="attended" class="form-check-input" type="checkbox" [(ngModel)]="formAttended" [disabled]="saving" />
+            <label class="form-check-label small" for="attended">{{ 'corralWorkSession.fieldAttended' | t }}</label>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-1" for="condition">{{ 'corralWorkSession.fieldCondition' | t }}</label>
+            <input id="condition" class="form-control form-control-sm" [(ngModel)]="formCondition" [disabled]="saving" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-1" for="observation">{{ 'corralWorkSession.fieldObservation' | t }}</label>
+            <textarea id="observation" class="form-control form-control-sm" rows="2" [(ngModel)]="formObservation" [disabled]="saving"></textarea>
+          </div>
+          <div class="form-check mb-3" *ngIf="session.planned_activities.includes('HEALTH')">
+            <input id="medical" class="form-check-input" type="checkbox" [(ngModel)]="formReceivedMedical" [disabled]="saving" />
+            <label class="form-check-label small" for="medical">{{ 'corralWorkSession.fieldReceivedMedical' | t }}</label>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm w-100" (click)="saveRecord()" [disabled]="saving">
+            {{ saving ? ('common.saving' | t) : ('corralWorkSession.saveRecord' | t) }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="app-card p-0 overflow-hidden">
+        <div class="p-3 border-bottom">
+          <h3 class="h6 mb-0">{{ 'corralWorkSession.recordsTitle' | t }} ({{ records.length }})</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead>
+              <tr>
+                <th>{{ 'animal.fieldRegistrationNumber' | t }}</th>
+                <th>{{ 'corralWorkSession.fieldAttended' | t }}</th>
+                <th>{{ 'corralWorkSession.fieldCondition' | t }}</th>
+                <th>{{ 'corralWorkSession.fieldObservation' | t }}</th>
+                <th *ngIf="session.planned_activities.includes('HEALTH')">{{ 'corralWorkSession.fieldReceivedMedical' | t }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="records.length === 0">
+                <td [attr.colspan]="session.planned_activities.includes('HEALTH') ? 5 : 4" class="text-muted text-center py-4">
+                  {{ 'corralWorkSession.emptyRecords' | t }}
+                </td>
+              </tr>
+              <tr *ngFor="let r of records">
+                <td>{{ r.registration_number || r.uuid_animal }}</td>
+                <td>{{ r.attended ? ('common.yes' | t) : ('common.no' | t) }}</td>
+                <td>{{ r.condition }}</td>
+                <td>{{ r.observation }}</td>
+                <td *ngIf="session.planned_activities.includes('HEALTH')">
+                  {{ r.received_medical ? ('common.yes' | t) : ('common.no' | t) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="loading" class="text-muted small py-4">{{ 'common.loading' | t }}</div>

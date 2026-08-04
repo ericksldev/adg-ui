@@ -1,0 +1,373 @@
+<div class="corral-step-grid">
+  <ng-container *ngIf="!isQueueMode">
+    <div class="table-responsive corral-step-grid__scroll">
+      <table class="table table-sm table-bordered corral-step-grid__table mb-0">
+        <thead>
+          <ng-container *ngTemplateOutlet="headTemplate"></ng-container>
+        </thead>
+        <tbody>
+          <ng-container *ngIf="showSequentialSkeleton">
+            <tr *ngFor="let slot of sequentialSkeletonSlots" class="corral-step-grid__skeleton-row">
+              <th scope="row" class="corral-step-grid__sticky-col corral-step-grid__reg text-muted">—</th>
+              <td *ngFor="let col of grid.columns">
+                <input class="form-control form-control-sm corral-step-grid__cell-input" disabled />
+              </td>
+              <td *ngFor="let _ of findingColumnSkeletonSlots">
+                <input class="form-control form-control-sm corral-step-grid__cell-input" disabled />
+              </td>
+            </tr>
+          </ng-container>
+          <ng-container *ngTemplateOutlet="rowsTemplate; context: { rows: editableRows }"></ng-container>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+
+  <div class="corral-step-grid__queue-sections" *ngIf="isQueueMode">
+    <div class="corral-step-grid__queue-section">
+      <div class="corral-step-grid__section-header">
+        <button
+          type="button"
+          class="corral-step-grid__section-toggle"
+          (click)="toggleScannedSection()"
+          [attr.aria-expanded]="scannedSectionExpanded"
+          [attr.aria-label]="scannedSectionExpanded ? ('corralWorkSession.queueSectionCollapse' | t) : ('corralWorkSession.queueSectionExpand' | t)"
+        >
+          <i class="bi" [class.bi-chevron-down]="scannedSectionExpanded" [class.bi-chevron-right]="!scannedSectionExpanded"></i>
+        </button>
+        <span class="corral-step-grid__section-title">{{ 'corralWorkSession.queueSectionScanned' | t }}</span>
+        <app-info-hint
+          *ngIf="queueScannedRows.length === 0"
+          [text]="'corralWorkSession.queueSectionScannedEmpty' | t"
+        ></app-info-hint>
+        <span class="corral-step-grid__section-count">{{ queueScannedRows.length }}</span>
+      </div>
+      <div class="corral-step-grid__section-body" *ngIf="scannedSectionExpanded">
+        <div class="table-responsive corral-step-grid__scroll corral-step-grid__scroll--section">
+          <table class="table table-sm table-bordered corral-step-grid__table mb-0">
+            <thead>
+              <ng-container *ngTemplateOutlet="headTemplate"></ng-container>
+            </thead>
+            <tbody>
+              <ng-container *ngIf="queueScannedRows.length > 0; else scannedEmpty">
+                <ng-container *ngTemplateOutlet="rowsTemplate; context: { rows: queueScannedRows }"></ng-container>
+              </ng-container>
+              <ng-template #scannedEmpty>
+                <tr class="corral-step-grid__placeholder-row">
+                  <td [attr.colspan]="totalColumnCount" class="text-muted">—</td>
+                </tr>
+              </ng-template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="corral-step-grid__queue-section">
+      <div class="corral-step-grid__section-header">
+        <button
+          type="button"
+          class="corral-step-grid__section-toggle"
+          (click)="togglePendingSection()"
+          [attr.aria-expanded]="pendingSectionExpanded"
+          [attr.aria-label]="pendingSectionExpanded ? ('corralWorkSession.queueSectionCollapse' | t) : ('corralWorkSession.queueSectionExpand' | t)"
+        >
+          <i class="bi" [class.bi-chevron-down]="pendingSectionExpanded" [class.bi-chevron-right]="!pendingSectionExpanded"></i>
+        </button>
+        <span class="corral-step-grid__section-title">{{ 'corralWorkSession.queueSectionPending' | t }}</span>
+        <app-info-hint
+          *ngIf="queuePendingRows.length === 0"
+          [text]="'corralWorkSession.queueSectionPendingEmpty' | t"
+        ></app-info-hint>
+        <span class="corral-step-grid__section-count">{{ queuePendingRows.length }}</span>
+      </div>
+      <div class="corral-step-grid__section-body" *ngIf="pendingSectionExpanded">
+        <div class="table-responsive corral-step-grid__scroll corral-step-grid__scroll--section">
+          <table class="table table-sm table-bordered corral-step-grid__table mb-0">
+            <thead>
+              <ng-container *ngTemplateOutlet="headTemplate"></ng-container>
+            </thead>
+            <tbody>
+              <ng-container *ngIf="queuePendingRows.length > 0; else pendingEmpty">
+                <ng-container *ngTemplateOutlet="rowsTemplate; context: { rows: queuePendingRows }"></ng-container>
+              </ng-container>
+              <ng-template #pendingEmpty>
+                <tr class="corral-step-grid__placeholder-row">
+                  <td [attr.colspan]="totalColumnCount" class="text-muted">—</td>
+                </tr>
+              </ng-template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end mt-1" *ngIf="!readonly && savableRows.length > 0">
+    <button type="button" class="btn btn-primary btn-sm py-0 px-2" (click)="requestSave()">
+      {{ 'corralWorkSession.saveStepGrid' | t }}
+    </button>
+  </div>
+</div>
+
+<ng-template #rowsTemplate let-rows="rows">
+  <tr *ngFor="let row of rows" [ngClass]="rowClass(row.animal_uuid)">
+    <th scope="row" class="corral-step-grid__sticky-col corral-step-grid__reg">
+      <span class="corral-step-grid__reg-number">{{ row.registration_number }}</span>
+      <span *ngIf="row.chip_number" class="corral-step-grid__reg-chip">{{ row.chip_number }}</span>
+      <span *ngIf="isLocalRow(row.animal_uuid)" class="badge rounded-pill corral-step-grid__local-badge">
+        {{ 'corralWorkSession.localRowBadge' | t }}
+      </span>
+    </th>
+    <td *ngFor="let col of grid.columns" class="corral-step-grid__data-cell" [class.corral-step-grid__data-cell--chip]="isChipPresetColumn(col.value_type)">
+      <ng-container *ngTemplateOutlet="cellTemplate; context: { row: row, col: col }"></ng-container>
+    </td>
+    <ng-container *ngIf="showFindingColumns">
+      <ng-container *ngTemplateOutlet="findingCellsTemplate; context: { row: row }"></ng-container>
+    </ng-container>
+  </tr>
+</ng-template>
+
+<ng-template #cellTemplate let-row="row" let-col="col">
+  <div class="corral-step-grid__cell-inner">
+    <ng-container [ngSwitch]="col.value_type">
+      <ng-container *ngSwitchCase="'medicine'">
+        <div class="corral-step-grid__tag-list" *ngIf="getCellList(row.animal_uuid, col.column_key).length > 0">
+          <span
+            *ngFor="let item of getCellList(row.animal_uuid, col.column_key); let i = index"
+            class="corral-step-grid__tag"
+          >
+            <span class="corral-step-grid__tag-label">{{ item }}</span>
+            <button
+              type="button"
+              class="corral-step-grid__tag-remove"
+              (click)="removeCellListItem(row.animal_uuid, col.column_key, i)"
+              [disabled]="readonly"
+              [attr.aria-label]="'corralWorkSession.removeVaccine' | t"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+        <div
+          class="corral-step-grid__cell-presets"
+          *ngIf="getColumnPresetEntries(col).length > 0"
+          [ngClass]="responsivePresetContainerClass(getColumnPresetEntries(col).length)"
+        >
+          <button
+            type="button"
+            *ngFor="let preset of getColumnPresetEntries(col)"
+            class="corral-step-grid__cell-preset"
+            [class.corral-step-grid__cell-preset--active]="isCellPresetActive(row.animal_uuid, col, preset)"
+            (click)="applyCellPreset(row.animal_uuid, col, preset)"
+            [disabled]="readonly"
+            [attr.data-animal]="row.animal_uuid"
+            #dataCell
+          >
+            {{ preset.label }}
+          </button>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'boolean'">
+        <div
+          class="corral-step-grid__cell-presets"
+          *ngIf="getColumnPresetEntries(col).length > 0"
+          [ngClass]="responsivePresetContainerClass(getColumnPresetEntries(col).length)"
+        >
+          <button
+            type="button"
+            *ngFor="let preset of getColumnPresetEntries(col)"
+            class="corral-step-grid__cell-preset"
+            [class.corral-step-grid__cell-preset--active]="isCellPresetActive(row.animal_uuid, col, preset)"
+            (click)="applyCellPreset(row.animal_uuid, col, preset)"
+            [disabled]="readonly"
+            [attr.data-animal]="row.animal_uuid"
+            #dataCell
+          >
+            {{ preset.label }}
+          </button>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchDefault>
+        <div class="corral-step-grid__cell-presets" *ngIf="getColumnPresetEntries(col).length > 0">
+          <button
+            type="button"
+            *ngFor="let preset of getColumnPresetEntries(col)"
+            class="corral-step-grid__cell-preset"
+            [class.corral-step-grid__cell-preset--active]="isCellPresetActive(row.animal_uuid, col, preset)"
+            (click)="applyCellPreset(row.animal_uuid, col, preset)"
+            [disabled]="readonly"
+            [attr.data-animal]="row.animal_uuid"
+            #dataCell
+          >
+            {{ preset.label }}
+          </button>
+        </div>
+        <input
+          class="form-control form-control-sm corral-step-grid__cell-input"
+          [type]="col.value_type === 'number' ? 'number' : 'text'"
+          [readonly]="readonly"
+          [value]="getCellValue(row.animal_uuid, col.column_key)"
+          (change)="onCellChange(row.animal_uuid, col.column_key, $any($event.target).value, col.value_type)"
+          [attr.data-animal]="row.animal_uuid"
+          [attr.placeholder]="'corralWorkSession.gridCustomValue' | t"
+        />
+      </ng-container>
+    </ng-container>
+  </div>
+</ng-template>
+
+<ng-template #headTemplate>
+  <tr>
+    <th class="corral-step-grid__sticky-col">{{ 'animal.fieldRegistrationNumber' | t }}</th>
+    <th *ngFor="let col of grid.columns" class="corral-step-grid__col-label">{{ columnLabel(col) }}</th>
+    <ng-container *ngIf="showFindingColumns">
+      <th class="corral-step-grid__col-label corral-step-grid__col-label--finding">{{ 'corralWorkSession.fieldObservation' | t }}</th>
+      <th class="corral-step-grid__col-label corral-step-grid__col-label--finding">{{ 'corralWorkSession.visualCondition' | t }}</th>
+      <th class="corral-step-grid__col-label corral-step-grid__col-label--finding">{{ 'corralWorkSession.additionalMedication' | t }}</th>
+    </ng-container>
+  </tr>
+</ng-template>
+
+<ng-template #findingCellsTemplate let-row="row">
+  <td class="corral-step-grid__finding-cell">
+    <div class="corral-step-grid__cell-inner">
+      <div class="corral-step-grid__cell-presets" *ngIf="findingPresets.observations.length > 0">
+        <button
+          type="button"
+          *ngFor="let obs of findingPresets.observations"
+          class="corral-step-grid__cell-preset"
+          [class.corral-step-grid__cell-preset--active]="isObservationPresetSelected(row.animal_uuid, obs)"
+          (click)="toggleObservationPreset(row.animal_uuid, obs)"
+          [disabled]="readonly"
+        >
+          {{ obs }}
+        </button>
+      </div>
+      <input
+        class="form-control form-control-sm corral-step-grid__finding-input"
+        [value]="getFinding(row.animal_uuid).observation"
+        (input)="onFindingObservationChange(row.animal_uuid, $any($event.target).value)"
+        [readonly]="readonly"
+        [placeholder]="'corralWorkSession.customObservation' | t"
+      />
+    </div>
+  </td>
+
+  <td class="corral-step-grid__finding-cell">
+    <div class="corral-step-grid__cell-inner">
+      <div class="corral-step-grid__cell-presets" *ngIf="findingPresets.conditions.length > 0">
+        <button
+          type="button"
+          *ngFor="let code of findingPresets.conditions"
+          class="corral-step-grid__cell-preset"
+          [class.corral-step-grid__cell-preset--active]="isConditionPresetSelected(row.animal_uuid, code)"
+          (click)="toggleConditionPreset(row.animal_uuid, code)"
+          [disabled]="readonly"
+        >
+          {{ conditionLabel(code) }}
+        </button>
+      </div>
+      <select
+        class="form-select form-select-sm corral-step-grid__finding-select"
+        [ngModel]="getConditionSelectDraft(row.animal_uuid)"
+        (ngModelChange)="setConditionSelectDraft(row.animal_uuid, $event)"
+        [disabled]="readonly"
+      >
+        <option value="">{{ 'corralWorkSession.addCondition' | t }}</option>
+        <option *ngFor="let c of conditionCodes" [value]="c">{{ conditionLabel(c) }}</option>
+      </select>
+    </div>
+  </td>
+
+  <td class="corral-step-grid__finding-cell corral-step-grid__finding-cell--medication">
+    <div class="corral-step-grid__cell-inner">
+      <div class="corral-step-grid__tag-list" *ngIf="getFinding(row.animal_uuid).medications.length > 0">
+        <span
+          *ngFor="let med of getFinding(row.animal_uuid).medications; let i = index"
+          class="corral-step-grid__tag"
+        >
+          <span class="corral-step-grid__tag-label">{{ medicationPresetLabel(med) }}</span>
+          <button
+            type="button"
+            class="corral-step-grid__tag-remove"
+            (click)="removeFindingMedication(row.animal_uuid, i)"
+            [disabled]="readonly"
+            [attr.aria-label]="'corralWorkSession.removeMedication' | t"
+          >
+            ×
+          </button>
+        </span>
+      </div>
+      <div class="corral-step-grid__med-options">
+        <div class="corral-step-grid__med-options-row">
+          <div
+            class="corral-step-grid__cell-presets"
+            [ngClass]="responsivePresetContainerClass(findingPresets.medications.length)"
+          >
+            <button
+              type="button"
+              *ngFor="let med of findingPresets.medications"
+              class="corral-step-grid__cell-preset"
+              [class.corral-step-grid__cell-preset--active]="isMedicationPresetSelected(row.animal_uuid, med)"
+              (click)="toggleMedicationPreset(row.animal_uuid, med)"
+              [disabled]="readonly"
+            >
+              {{ medicationPresetLabel(med) }}
+            </button>
+          </div>
+          <button
+            type="button"
+            class="corral-step-grid__cell-preset corral-step-grid__cell-preset--add"
+            [class.corral-step-grid__cell-preset--add-active]="isCustomMedicationExpanded(row.animal_uuid)"
+            (click)="toggleCustomMedicationForm(row.animal_uuid)"
+            [disabled]="readonly"
+            [attr.aria-expanded]="isCustomMedicationExpanded(row.animal_uuid)"
+            [attr.aria-label]="'corralWorkSession.addCustomMedication' | t"
+            [title]="'corralWorkSession.addCustomMedication' | t"
+          >
+            <i
+              class="bi"
+              [class.bi-plus-lg]="!isCustomMedicationExpanded(row.animal_uuid)"
+              [class.bi-x-lg]="isCustomMedicationExpanded(row.animal_uuid)"
+            ></i>
+          </button>
+        </div>
+        <div class="corral-step-grid__med-add" *ngIf="isCustomMedicationExpanded(row.animal_uuid)">
+          <input
+            class="form-control form-control-sm"
+            [(ngModel)]="getMedicationDraft(row.animal_uuid).product"
+            [placeholder]="'corralWorkSession.product' | t"
+            [disabled]="readonly"
+            (keyup.enter)="addCustomFindingMedication(row.animal_uuid)"
+          />
+          <input
+            class="form-control form-control-sm"
+            [(ngModel)]="getMedicationDraft(row.animal_uuid).dose"
+            [placeholder]="'corralWorkSession.dose' | t"
+            [disabled]="readonly"
+            (keyup.enter)="addCustomFindingMedication(row.animal_uuid)"
+          />
+          <input
+            class="form-control form-control-sm"
+            [(ngModel)]="getMedicationDraft(row.animal_uuid).unit"
+            [placeholder]="'corralWorkSession.unit' | t"
+            [disabled]="readonly"
+            (keyup.enter)="addCustomFindingMedication(row.animal_uuid)"
+          />
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
+            (click)="addCustomFindingMedication(row.animal_uuid)"
+            [disabled]="readonly || !getMedicationDraft(row.animal_uuid).product.trim()"
+            [attr.aria-label]="'corralWorkSession.addMedicationToList' | t"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  </td>
+</ng-template>

@@ -8,6 +8,7 @@ const ANIMAL_WRITE_ERROR_MESSAGES: Record<string, string> = {
   'chip_number is duplicated within this batch for the same ranch': 'animal.errorChipDuplicateBatch',
   'Owner not found or inactive': 'animal.errorOwnerNotFound',
   'Paddock not found or does not belong to this ranch': 'animal.errorPaddockNotFound',
+  'Invalid breed_code': 'animal.errorInvalidBreed',
   'Invalid or missing breed_code': 'animal.errorInvalidBreed',
   'birth_date is required': 'animal.errorBirthDateRequired',
   'Invalid birth_date': 'animal.errorBirthDateInvalid'
@@ -43,7 +44,7 @@ export function translateAnimalWriteError(i18n: I18nService, err: unknown, fallb
   if (i18nKey) {
     return i18n.translate(i18nKey);
   }
-  return message;
+  return i18n.translate('errors.generic');
 }
 
 export function isDuplicateRegistrationError(err: unknown): boolean {

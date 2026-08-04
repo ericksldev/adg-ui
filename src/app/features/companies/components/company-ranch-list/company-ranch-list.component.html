@@ -4,7 +4,7 @@
       <tr>
         <th>{{ 'saas.ranchName' | t }}</th>
         <th>{{ 'saas.ranchLocation' | t }}</th>
-        <th>{{ 'saas.ranchArea' | t }} ha</th>
+        <th>{{ 'saas.ranchArea' | t }} ({{ 'common.hectaresAbbr' | t }})</th>
         <th>{{ 'common.status' | t }}</th>
         <th *ngIf="!readOnly">{{ 'common.actions' | t }}</th>
       </tr>
@@ -16,8 +16,8 @@
         [class.company-ranch-row--highlight]="highlightedRanchUuid === ranch.uuid_ranch"
       >
         <td>{{ ranch.name }}</td>
-        <td>{{ ranch.location || '-' }}</td>
-        <td>{{ ranch.area || '-' }}</td>
+        <td>{{ ranch.location || ('common.notAvailable' | t) }}</td>
+        <td>{{ ranch.area || ('common.notAvailable' | t) }}</td>
         <td>{{ ranch.is_active === false ? ('users.inactive' | t) : ('users.active' | t) }}</td>
         <td *ngIf="!readOnly" class="app-table__cell-actions">
           <a

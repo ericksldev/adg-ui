@@ -1,4 +1,9 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  CORRAL_ACTIVITY_CODES,
+  CORRAL_ACTIVITY_ICONS,
+  CorralActivityCode
+} from 'src/app/features/corral-work-sessions/constants/corral-activities';
 import { SessionService } from '../../services/session.service';
 import { hasPermission, Permission } from 'src/app/shared/constants/permissions';
 
@@ -61,6 +66,20 @@ export class SidebarComponent {
 
   get hasAdministrationSection(): boolean {
     return this.canAccessCompanies || this.canAccessUsers || this.canAccessTenantCompany || this.canAccessRanches;
+  }
+
+  get canAccessFieldOps(): boolean {
+    return this.hasPermission(Permission.ANIMAL_WORK_SESSION_READ);
+  }
+
+  readonly corralActivities = CORRAL_ACTIVITY_CODES;
+
+  corralActivityRoute(activity: CorralActivityCode): string[] {
+    return ['/corral-work-session', 'activity', activity];
+  }
+
+  corralActivityIcon(activity: CorralActivityCode): string {
+    return CORRAL_ACTIVITY_ICONS[activity];
   }
 
   private hasPermission(permission: Permission): boolean {

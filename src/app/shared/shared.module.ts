@@ -6,6 +6,7 @@ import { UserFormComponent } from './components/forms/user-form/user-form.compon
 import { RanchFormComponent } from './components/forms/ranch-form/ranch-form.component';
 import { ConfirmDialogComponent } from './components/modals/confirm-dialog/confirm-dialog.component';
 import { SearchableSelectComponent } from './components/searchable-select/searchable-select.component';
+import { InfoHintComponent } from './components/info-hint/info-hint.component';
 
 @NgModule({
   declarations: [
@@ -13,7 +14,8 @@ import { SearchableSelectComponent } from './components/searchable-select/search
     UserFormComponent,
     RanchFormComponent,
     ConfirmDialogComponent,
-    SearchableSelectComponent
+    SearchableSelectComponent,
+    InfoHintComponent
   ],
   imports: [CommonModule, FormsModule],
   exports: [
@@ -21,7 +23,8 @@ import { SearchableSelectComponent } from './components/searchable-select/search
     UserFormComponent,
     RanchFormComponent,
     ConfirmDialogComponent,
-    SearchableSelectComponent
+    SearchableSelectComponent,
+    InfoHintComponent
   ]
 })
 export class SharedModule {}

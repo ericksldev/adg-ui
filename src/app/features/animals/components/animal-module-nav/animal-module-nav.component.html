@@ -1,0 +1,17 @@
+<nav class="animal-module-nav" [attr.aria-label]="'animal.nav.ariaLabel' | t">
+  <a
+    *ngFor="let item of visibleItems"
+    class="animal-module-nav__card"
+    [routerLink]="item.route"
+    routerLinkActive="animal-module-nav__card--active"
+    [routerLinkActiveOptions]="{ exact: item.exact === true }"
+  >
+    <span class="animal-module-nav__icon" aria-hidden="true">
+      <i class="bi" [ngClass]="item.iconClass"></i>
+    </span>
+    <span class="animal-module-nav__text">
+      <span class="animal-module-nav__title">{{ item.labelKey | t }}</span>
+      <span class="animal-module-nav__description">{{ item.descriptionKey | t }}</span>
+    </span>
+  </a>
+</nav>

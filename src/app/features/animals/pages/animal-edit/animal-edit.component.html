@@ -1,0 +1,118 @@
+<div *ngIf="isLoading" class="text-muted py-3">{{ 'common.loading' | t }}</div>
+
+<div *ngIf="!isLoading && animal" class="animal-edit">
+  <div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <h2 class="app-page-title mb-0">{{ 'animal.editTitle' | t }} — {{ animal.registration_number }}</h2>
+    <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/animal', animal.animal_uuid]">{{ 'common.cancel' | t }}</a>
+  </div>
+
+  <p class="text-muted small mb-3">{{ 'animal.editSubtitle' | t }}</p>
+
+  <div *ngIf="feedback" class="alert" [ngClass]="feedback.type === 'success' ? 'alert-success' : 'alert-danger'" role="status">
+    {{ feedback.message }}
+  </div>
+
+  <div class="app-card p-3">
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="registrationNumber">{{ 'animal.fieldRegistrationNumber' | t }}</label>
+          <input id="registrationNumber" class="form-control form-control-sm" type="text" formControlName="registrationNumber" readonly />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="sex">{{ 'animal.fieldSex' | t }} *</label>
+          <select id="sex" class="form-select form-select-sm" formControlName="sex">
+            <option value="MALE">{{ 'animal.male' | t }}</option>
+            <option value="FEMALE">{{ 'animal.female' | t }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="currentStatus">{{ 'animal.fieldCurrentStatus' | t }} *</label>
+          <select id="currentStatus" class="form-select form-select-sm" formControlName="currentStatus">
+            <option value="ACTIVE">{{ 'animal.statusActive' | t }}</option>
+            <option value="SOLD">{{ 'animal.statusSold' | t }}</option>
+            <option value="DISPOSED">{{ 'animal.statusDisposed' | t }}</option>
+            <option value="DEAD">{{ 'animal.statusDead' | t }}</option>
+            <option value="MISSING">{{ 'animal.statusMissing' | t }}</option>
+            <option value="INACTIVE">{{ 'animal.statusInactive' | t }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="originType">{{ 'animal.fieldOriginType' | t }} *</label>
+          <select id="originType" class="form-select form-select-sm" formControlName="originType">
+            <option value="UNKNOWN">{{ 'animal.originUnknown' | t }}</option>
+            <option value="BIRTH">{{ 'animal.originBirth' | t }}</option>
+            <option value="PURCHASE">{{ 'animal.originPurchase' | t }}</option>
+            <option value="TRANSFER">{{ 'animal.originTransfer' | t }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="birthDate">{{ 'animal.fieldBirthDate' | t }} *</label>
+          <input id="birthDate" class="form-control form-control-sm" type="date" formControlName="birthDate" [min]="minBirthDate" [max]="maxBirthDate" />
+        </div>
+
+        <div class="col-12"><hr class="animal-individual-optional-divider my-1" /></div>
+
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="breedCode">
+            {{ 'animal.fieldBreed' | t }}
+            <span class="text-muted fw-normal animal-optional-mark">{{ 'animal.optionalParen' | t }}</span>
+          </label>
+          <select id="breedCode" class="form-select form-select-sm" formControlName="breedCode">
+            <option value="">{{ 'animal.selectBreed' | t }}</option>
+            <option *ngFor="let b of breedRows" [value]="b.code">{{ breedLabel(b.code) }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="chipNumber">
+            {{ 'animal.fieldChipNumber' | t }}
+            <span class="text-muted fw-normal animal-optional-mark">{{ 'animal.optionalParen' | t }}</span>
+          </label>
+          <input id="chipNumber" class="form-control form-control-sm" type="text" formControlName="chipNumber" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="color">{{ 'animal.fieldColor' | t }}</label>
+          <input id="color" class="form-control form-control-sm" type="text" formControlName="color" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="motherRegistrationNumber">{{ 'animal.fieldMotherRegistration' | t }}</label>
+          <select id="motherRegistrationNumber" class="form-select form-select-sm" formControlName="motherRegistrationNumber">
+            <option value="">{{ 'animal.optionNone' | t }}</option>
+            <option *ngFor="let p of motherOptions" [value]="p.registration_number">{{ p.registration_number }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="fatherRegistrationNumber">{{ 'animal.fieldFatherRegistration' | t }}</label>
+          <select id="fatherRegistrationNumber" class="form-select form-select-sm" formControlName="fatherRegistrationNumber">
+            <option value="">{{ 'animal.optionNone' | t }}</option>
+            <option *ngFor="let p of fatherOptions" [value]="p.registration_number">{{ p.registration_number }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="currentOwnerUuid">{{ 'animal.fieldOwner' | t }}</label>
+          <select id="currentOwnerUuid" class="form-select form-select-sm" formControlName="currentOwnerUuid">
+            <option value="">{{ 'animal.optionNone' | t }}</option>
+            <option *ngFor="let o of ownerRows" [value]="o.owner_uuid">{{ o.full_name }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="currentPaddockUuid">{{ 'animal.fieldPaddock' | t }}</label>
+          <select id="currentPaddockUuid" class="form-select form-select-sm" formControlName="currentPaddockUuid">
+            <option value="">{{ 'animal.optionNone' | t }}</option>
+            <option *ngFor="let p of paddockOptions" [value]="p.paddock_uuid">{{ p.name }}</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label small mb-1" for="description">{{ 'animal.fieldDescription' | t }}</label>
+          <textarea id="description" class="form-control form-control-sm" rows="2" formControlName="description"></textarea>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="submit" class="btn btn-primary btn-sm" [disabled]="saving">
+          {{ (saving ? 'common.loading' : 'common.save') | t }}
+        </button>
+        <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/animal', animal.animal_uuid]">{{ 'common.cancel' | t }}</a>
+      </div>
+    </form>
+  </div>
+</div>

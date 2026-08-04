@@ -25,13 +25,13 @@
       <dt class="col-sm-3">{{ 'paddocks.sizeHa' | t }}</dt>
       <dd class="col-sm-9">{{ paddock.size_in_hectares ?? '-' }}</dd>
       <dt class="col-sm-3">{{ 'paddocks.grassType' | t }}</dt>
-      <dd class="col-sm-9">{{ paddock.grass_type || '-' }}</dd>
+      <dd class="col-sm-9">{{ paddock.grass_type || ('common.notAvailable' | t) }}</dd>
       <dt class="col-sm-3">{{ 'paddocks.waterSource' | t }}</dt>
-      <dd class="col-sm-9">{{ paddock.water_source || '-' }}</dd>
+      <dd class="col-sm-9">{{ paddock.water_source || ('common.notAvailable' | t) }}</dd>
       <dt class="col-sm-3">{{ 'paddocks.maximumCapacity' | t }}</dt>
       <dd class="col-sm-9">{{ paddock.maximum_capacity ?? '-' }}</dd>
       <dt class="col-sm-3">{{ 'paddocks.description' | t }}</dt>
-      <dd class="col-sm-9">{{ paddock.description || '-' }}</dd>
+      <dd class="col-sm-9">{{ paddock.description || ('common.notAvailable' | t) }}</dd>
     </dl>
   </div>
 </div>

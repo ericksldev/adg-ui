@@ -29,7 +29,7 @@
         <option *ngFor="let r of tenantRanches" [value]="r.uuid_ranch">{{ r.name }}</option>
       </select>
       <div *ngIf="!canChangeTenantRanch || !tenantRanches.length" class="form-control bg-light">
-        {{ tenantRanchName || '-' }}
+        {{ tenantRanchName || ('common.notAvailable' | t) }}
       </div>
     </div>
   </div>

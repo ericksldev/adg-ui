@@ -1,0 +1,28 @@
+.corral-session-detail {
+  &__field-label {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: 0.15rem;
+  }
+
+  &__field-value {
+    font-weight: 500;
+  }
+
+  &__sources {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  &__source-item {
+    font-size: 0.875rem;
+  }
+
+  .badge {
+    font-weight: 500;
+  }
+
+  .nav-tabs .nav-link {
+    cursor: pointer;
+  }
+}

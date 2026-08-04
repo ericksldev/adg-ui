@@ -69,12 +69,21 @@ export class LoginComponent {
     };
 
     const applyApiError = (message: string): void => {
-      const errorMessage = message || this.i18nService.translate('login.invalidCredentials');
+      const normalized = message.trim();
+      let errorMessage = this.i18nService.translate('login.invalidCredentials');
+      if (normalized.includes('Wrong user')) {
+        errorMessage = this.i18nService.translate('login.wrongUser');
+      } else if (normalized.includes('Wrong password')) {
+        errorMessage = this.i18nService.translate('login.wrongPassword');
+      } else if (normalized) {
+        errorMessage = this.i18nService.translate('errors.generic');
+      }
+
       this.loginApiError = '';
-      if (errorMessage.includes('Wrong user')) {
+      if (normalized.includes('Wrong user')) {
         this.validation.user_name = false;
         this.errorValidationMessage.user_name = errorMessage;
-      } else if (errorMessage.includes('Wrong password')) {
+      } else if (normalized.includes('Wrong password')) {
         this.validation.password = false;
         this.errorValidationMessage.password = errorMessage;
       } else {

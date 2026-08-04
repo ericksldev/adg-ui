@@ -19,15 +19,15 @@
       <dt class="col-sm-3">{{ 'owners.fullName' | t }}</dt>
       <dd class="col-sm-9">{{ owner.full_name }}</dd>
       <dt class="col-sm-3">{{ 'owners.documentNumber' | t }}</dt>
-      <dd class="col-sm-9">{{ owner.document_number || '-' }}</dd>
+      <dd class="col-sm-9">{{ owner.document_number || ('common.notAvailable' | t) }}</dd>
       <dt class="col-sm-3">{{ 'owners.phone' | t }}</dt>
-      <dd class="col-sm-9">{{ owner.phone_number || '-' }}</dd>
+      <dd class="col-sm-9">{{ owner.phone_number || ('common.notAvailable' | t) }}</dd>
       <dt class="col-sm-3">{{ 'owners.email' | t }}</dt>
-      <dd class="col-sm-9">{{ owner.email || '-' }}</dd>
+      <dd class="col-sm-9">{{ owner.email || ('common.notAvailable' | t) }}</dd>
       <dt class="col-sm-3">{{ 'owners.address' | t }}</dt>
-      <dd class="col-sm-9">{{ owner.address || '-' }}</dd>
+      <dd class="col-sm-9">{{ owner.address || ('common.notAvailable' | t) }}</dd>
       <dt class="col-sm-3">{{ 'owners.description' | t }}</dt>
-      <dd class="col-sm-9">{{ owner.description || '-' }}</dd>
+      <dd class="col-sm-9">{{ owner.description || ('common.notAvailable' | t) }}</dd>
     </dl>
   </div>
 </div>

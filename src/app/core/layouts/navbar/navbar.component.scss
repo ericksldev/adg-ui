@@ -1,5 +1,13 @@
+:host {
+  display: block;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1030;
+}
+
 .app-navbar {
-  height: 64px;
+  height: var(--header-height);
+  min-height: var(--header-height);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 0;
@@ -99,7 +107,7 @@
 
 @media (max-width: 991.98px) {
   .app-navbar {
-    min-height: 64px;
+    min-height: var(--header-height);
     height: auto;
   }
 

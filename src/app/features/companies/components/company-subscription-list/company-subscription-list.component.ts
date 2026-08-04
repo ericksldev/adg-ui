@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { I18nService } from 'src/app/core/services/i18n.service';
+import { notAvailableLabel } from 'src/app/core/utils/i18n-display.util';
 import { PAYMENT_METHODS } from 'src/app/shared/constants/domain.constants';
 import { CompanyPayment } from '../../models/company-management.model';
 import { normalizeCompanyPlanType } from 'src/app/shared/constants/subscription.constants';
@@ -24,7 +25,7 @@ export class CompanySubscriptionListComponent {
   /** Texto traducido del método de pago; el API puede enviar mayúsculas o guiones distintos. */
   displayPaymentMethod(method: string | undefined | null): string {
     if (!method?.trim()) {
-      return '-';
+      return notAvailableLabel(this.i18nService);
     }
     const n = method.trim().toLowerCase().replace(/-/g, '_');
     let slug: string | null = null;
@@ -34,7 +35,7 @@ export class CompanySubscriptionListComponent {
       slug = 'qr_payment';
     }
     if (!slug) {
-      return '-';
+      return notAvailableLabel(this.i18nService);
     }
     return this.i18nService.translate(`saas.paymentMethod.${slug}`);
   }

@@ -1,0 +1,235 @@
+<div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+  <h2 class="app-page-title mb-0">{{ 'animal.batchDeactivateTitle' | t }}</h2>
+  <a class="btn btn-outline-secondary btn-sm" routerLink="/animal/inactive">{{ 'animal.backToInactiveList' | t }}</a>
+</div>
+
+<p class="text-muted small mb-3">{{ 'animal.batchDeactivateSubtitle' | t }}</p>
+
+<div *ngIf="feedback" class="alert" [ngClass]="feedback.type === 'success' ? 'alert-success' : 'alert-danger'" role="status">
+  {{ feedback.message }}
+</div>
+
+<div class="app-card p-3 mb-3 animal-batch-deactivate__template">
+  <h3 class="h6 mb-1">{{ 'animal.batchDeactivateTemplateTitle' | t }}</h3>
+  <p class="text-muted small mb-2">{{ 'animal.batchDeactivateTemplateHint' | t }}</p>
+  <div class="row g-2">
+    <div class="col-md-3 col-6">
+      <label class="form-label small mb-1" for="templateExitType">{{ 'animal.exitType' | t }}</label>
+      <select
+        id="templateExitType"
+        class="form-select form-select-sm"
+        [(ngModel)]="templateExitType"
+      >
+        <option *ngFor="let opt of exitTypeOptions" [value]="opt.value">{{ opt.labelKey | t }}</option>
+      </select>
+    </div>
+    <div class="col-md-3 col-6">
+      <label class="form-label small mb-1" for="templateExitDate">{{ 'animal.exitDate' | t }}</label>
+      <input
+        id="templateExitDate"
+        class="form-control form-control-sm"
+        type="date"
+        [(ngModel)]="templateExitDate"
+        [max]="maxExitDate"
+      />
+    </div>
+    <div class="col-md-3 col-6">
+      <label class="form-label small mb-1" for="templateReason">{{ 'animal.exitReason' | t }}</label>
+      <input id="templateReason" class="form-control form-control-sm" type="text" [(ngModel)]="templateReason" />
+    </div>
+    <div class="col-md-3 col-12 d-flex align-items-end">
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        (click)="applyTemplateToAll()"
+        [disabled]="draftCount === 0"
+      >{{ 'animal.batchDeactivateApplyTemplate' | t }}</button>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="app-card p-3 h-100">
+      <h3 class="h6 mb-2">{{ 'animal.batchDeactivatePickerTitle' | t }}</h3>
+      <div class="app-toolbar mb-2">
+        <input
+          class="form-control form-control-sm"
+          type="search"
+          [value]="searchTerm"
+          (input)="updateSearch($any($event.target).value)"
+          [placeholder]="'common.search' | t"
+        />
+      </div>
+
+      <details class="animal-batch-deactivate__columns-details small mb-2">
+        <summary class="animal-batch-deactivate__columns-summary">{{ 'animal.batchOptionalColumnsTitle' | t }}</summary>
+        <div class="animal-batch-deactivate__columns-panel mt-2">
+          <div class="animal-batch-deactivate__columns-actions mb-2">
+            <button type="button" class="animal-batch-deactivate__columns-action" (click)="setAllDisplayColumns(true)">
+              {{ 'animal.batchOptionalColumnsShowAll' | t }}
+            </button>
+            <span class="animal-batch-deactivate__columns-actions-sep" aria-hidden="true">·</span>
+            <button type="button" class="animal-batch-deactivate__columns-action" (click)="setAllDisplayColumns(false)">
+              {{ 'animal.batchOptionalColumnsHideAll' | t }}
+            </button>
+          </div>
+          <div class="animal-batch-deactivate__columns-checks d-flex flex-wrap gap-2">
+            <div *ngFor="let col of displayColumns" class="form-check form-check-inline mb-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'batchDeactivateCol_' + col.key"
+                [checked]="isDisplayColumnVisible(col.key)"
+                (change)="onDisplayColumnToggle(col.key, $any($event.target).checked)"
+              />
+              <label class="form-check-label" [for]="'batchDeactivateCol_' + col.key">{{ col.labelKey | t }}</label>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div *ngIf="isLoading" class="text-muted small py-2">{{ 'common.loading' | t }}</div>
+
+      <div class="animal-batch-deactivate__table-wrap app-table" *ngIf="!isLoading">
+        <table class="table table-sm table-striped table-hover mb-0">
+          <thead>
+          <tr>
+            <th scope="col" class="text-center" style="width: 2.5rem">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                [checked]="allVisibleSelected"
+                (change)="toggleAll($any($event.target).checked)"
+                [attr.aria-label]="'animal.batchDeactivateSelectAll' | t"
+              />
+            </th>
+            <th scope="col">{{ 'animal.fieldRegistrationNumber' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('breed')" scope="col">{{ 'animal.fieldBreed' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('sex')" scope="col">{{ 'animal.sex' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('color')" scope="col">{{ 'animal.fieldColor' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('birthDate')" scope="col">{{ 'animal.fieldBirthDateShort' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('chipNumber')" scope="col">{{ 'animal.fieldChipNumber' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('originType')" scope="col">{{ 'animal.fieldOriginType' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('ranch')" scope="col">{{ 'animal.fieldRanch' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('owner')" scope="col">{{ 'animal.fieldOwner' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('paddock')" scope="col">{{ 'animal.fieldPaddock' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('motherRegistration')" scope="col">{{ 'animal.fieldMotherRegistration' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('fatherRegistration')" scope="col">{{ 'animal.fieldFatherRegistration' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('currentStatus')" scope="col">{{ 'animal.fieldCurrentStatus' | t }}</th>
+            <th *ngIf="isDisplayColumnVisible('description')" scope="col">{{ 'animal.fieldDescription' | t }}</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr *ngFor="let item of animals">
+            <td class="text-center">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                [checked]="isInDraft(item.animal_uuid)"
+                (change)="toggleOne(item, $any($event.target).checked)"
+              />
+            </td>
+            <td class="animal-batch-deactivate__reg-cell">{{ item.registration_number }}</td>
+            <td *ngIf="isDisplayColumnVisible('breed')">{{ breedLabel(item.breed_code) }}</td>
+            <td *ngIf="isDisplayColumnVisible('sex')">{{ sexLabel(item.sex) }}</td>
+            <td *ngIf="isDisplayColumnVisible('color')">{{ item.color || ('common.notAvailable' | t) }}</td>
+            <td *ngIf="isDisplayColumnVisible('birthDate')">
+              {{ item.birth_date ? (item.birth_date | date:'dd/MM/yy':'UTC') : '—' }}
+            </td>
+            <td *ngIf="isDisplayColumnVisible('chipNumber')">{{ item.chip_number || ('common.notAvailable' | t) }}</td>
+            <td *ngIf="isDisplayColumnVisible('originType')">{{ originLabel(item.origin_type) }}</td>
+            <td *ngIf="isDisplayColumnVisible('ranch')">{{ ranchLabel(item.ranch_uuid) }}</td>
+            <td *ngIf="isDisplayColumnVisible('owner')">{{ ownerLabel(item.current_owner_uuid) }}</td>
+            <td *ngIf="isDisplayColumnVisible('paddock')">{{ paddockLabel(item.current_paddock_uuid) }}</td>
+            <td *ngIf="isDisplayColumnVisible('motherRegistration')">{{ parentRegistrationLabel(item.mother_animal_uuid) }}</td>
+            <td *ngIf="isDisplayColumnVisible('fatherRegistration')">{{ parentRegistrationLabel(item.father_animal_uuid) }}</td>
+            <td *ngIf="isDisplayColumnVisible('currentStatus')">{{ statusLabel(item.current_status) }}</td>
+            <td *ngIf="isDisplayColumnVisible('description')" class="animal-batch-deactivate__description-cell">{{ item.description || ('common.notAvailable' | t) }}</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div *ngIf="!isLoading && animals.length === 0" class="text-muted small mt-2">{{ 'animal.empty' | t }}</div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="app-card p-3 h-100">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h3 class="h6 mb-0">{{ 'animal.batchDeactivateDraftTitle' | t }} ({{ draftCount }})</h3>
+        <button
+          type="button"
+          class="btn btn-danger btn-sm"
+          (click)="submit()"
+          [disabled]="saving || draftCount === 0"
+        >{{ (saving ? 'common.loading' : 'animal.batchDeactivateSubmit') | t:{ count: draftCount } }}</button>
+      </div>
+
+      <p *ngIf="draftCount === 0" class="text-muted small mb-0">{{ 'animal.batchDeactivateEmptyDraft' | t }}</p>
+
+      <div class="animal-batch-deactivate__draft-wrap app-table" *ngIf="draftCount > 0">
+        <table class="table table-sm table-striped mb-0 animal-batch-deactivate__draft-table">
+          <thead>
+          <tr>
+            <th scope="col">{{ 'animal.fieldRegistrationNumber' | t }}</th>
+            <th scope="col">{{ 'animal.exitType' | t }}</th>
+            <th scope="col">{{ 'animal.exitDate' | t }}</th>
+            <th scope="col">{{ 'animal.exitReason' | t }}</th>
+            <th scope="col">{{ 'animal.exitDescription' | t }}</th>
+            <th scope="col" class="text-center">{{ 'common.actions' | t }}</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr *ngFor="let row of draftRows">
+            <td class="animal-batch-deactivate__reg-cell">{{ row.registration_number }}</td>
+            <td>
+              <select
+                class="form-select form-select-sm"
+                [value]="row.exit_type"
+                (change)="updateDraftField(row.animal_uuid, 'exit_type', $any($event.target).value)"
+              >
+                <option *ngFor="let opt of exitTypeOptions" [value]="opt.value">{{ opt.labelKey | t }}</option>
+              </select>
+            </td>
+            <td>
+              <input
+                class="form-control form-control-sm"
+                type="date"
+                [value]="row.exit_date"
+                [max]="maxExitDate"
+                (change)="updateDraftField(row.animal_uuid, 'exit_date', $any($event.target).value)"
+              />
+            </td>
+            <td>
+              <input
+                class="form-control form-control-sm"
+                type="text"
+                [value]="row.reason"
+                (input)="updateDraftField(row.animal_uuid, 'reason', $any($event.target).value)"
+              />
+            </td>
+            <td>
+              <input
+                class="form-control form-control-sm"
+                type="text"
+                [value]="row.description"
+                (input)="updateDraftField(row.animal_uuid, 'description', $any($event.target).value)"
+              />
+            </td>
+            <td class="text-center">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                (click)="removeDraftRow(row.animal_uuid)"
+                [attr.aria-label]="'animal.batchDeactivateRemoveRow' | t"
+              >×</button>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

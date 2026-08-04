@@ -1,0 +1,12 @@
+.corral-activity-shortcut-page__quick-start {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.corral-activity-shortcut-page__recent-sessions {
+  .table-responsive {
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0.75rem 0.75rem;
+  }
+}

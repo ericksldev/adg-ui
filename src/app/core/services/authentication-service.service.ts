@@ -23,7 +23,6 @@ export class AuthenticationServiceService {
   }
 
   login(userData: LoginRequest): Observable<LoginResponse> {
-    console.log('userData', userData);
     return this.http.post<LoginResponse>(`${this.baseUrl}/login`, userData).pipe(
       tap((response) => {
         if (response.success && response.data) {

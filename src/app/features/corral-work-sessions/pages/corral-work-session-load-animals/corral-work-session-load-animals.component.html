@@ -1,0 +1,221 @@
+<div class="corral-load-animals">
+  <div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <h2 class="app-page-title mb-0 d-inline-flex align-items-center gap-1">
+      {{ 'corralWorkSession.loadAnimalsTitle' | t }}
+      <app-info-hint [text]="'corralWorkSession.loadAnimalsSubtitle' | t"></app-info-hint>
+    </h2>
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="backToList()">
+      {{ 'corralWorkSession.backToList' | t }}
+    </button>
+  </div>
+
+  <div *ngIf="loading" class="text-muted small">{{ 'common.loading' | t }}</div>
+  <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+  <div *ngIf="session && !loading" class="app-card p-3 mb-3">
+    <div class="row g-2 small">
+      <div class="col-md-3">
+        <span class="text-muted">{{ 'corralWorkSession.fieldWorkDate' | t }}:</span>
+        {{ session.work_date | date: 'yyyy-MM-dd' }}
+      </div>
+      <div class="col-md-3">
+        <span class="text-muted">{{ 'animal.fieldRanch' | t }}:</span>
+        {{ ranchName }}
+      </div>
+      <div class="col-md-3">
+        <span class="text-muted">{{ 'corralWorkSession.fieldStatus' | t }}:</span>
+        {{ i18n.translate('corralWorkSession.status.' + session.status) }}
+      </div>
+      <div class="col-md-3" *ngIf="session.animal_count">
+        <span class="text-muted">{{ 'corralWorkSession.fieldAnimalCount' | t }}:</span>
+        {{ session.animal_count }}
+      </div>
+    </div>
+    <div *ngIf="session.animals_loaded && canEditSources" class="alert alert-info small mt-2 mb-0">
+      {{ 'corralWorkSession.reloadAnimalsHint' | t }}
+    </div>
+    <div *ngIf="!canEditSources" class="alert alert-warning small mt-2 mb-0">
+      {{ 'corralWorkSession.loadAnimalsLockedHint' | t }}
+    </div>
+  </div>
+
+  <div *ngIf="session && canEditSources && !loading">
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item">
+        <button type="button" class="nav-link" [class.active]="activeTab === 'paddocks'" (click)="setTab('paddocks')">
+          {{ 'corralWorkSession.tabPaddocks' | t }}
+        </button>
+      </li>
+      <li class="nav-item">
+        <button type="button" class="nav-link" [class.active]="activeTab === 'filters'" (click)="setTab('filters')">
+          {{ 'corralWorkSession.tabFilters' | t }}
+        </button>
+      </li>
+      <li class="nav-item">
+        <button type="button" class="nav-link" [class.active]="activeTab === 'manual'" (click)="setTab('manual')">
+          {{ 'corralWorkSession.tabManual' | t }}
+        </button>
+      </li>
+    </ul>
+
+    <div class="app-card p-3 mb-3" *ngIf="activeTab === 'paddocks'">
+      <div class="d-flex align-items-center gap-1 mb-2">
+        <span class="small fw-semibold">{{ 'corralWorkSession.tabPaddocks' | t }}</span>
+        <app-info-hint [text]="'corralWorkSession.tabPaddocksHint' | t"></app-info-hint>
+      </div>
+      <div *ngIf="paddockRows.length === 0" class="text-muted small">{{ 'corralWorkSession.noPaddocks' | t }}</div>
+      <div class="d-flex flex-wrap gap-2">
+        <label *ngFor="let p of paddockRows" class="form-check form-check-inline mb-0">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            [checked]="isPaddockSelected(p.paddock_uuid)"
+            (change)="togglePaddock(p.paddock_uuid, $any($event.target).checked)"
+          />
+          <span class="form-check-label small">{{ p.name }}</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="app-card p-3 mb-3" *ngIf="activeTab === 'filters'">
+      <div class="d-flex align-items-center gap-1 mb-2">
+        <span class="small fw-semibold">{{ 'corralWorkSession.tabFilters' | t }}</span>
+        <app-info-hint [text]="'corralWorkSession.tabFiltersHint' | t"></app-info-hint>
+      </div>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <span class="form-label small d-block">{{ 'corralWorkSession.filterSex' | t }}</span>
+          <label class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" [(ngModel)]="filterMale" (ngModelChange)="onFilterChange()" />
+            <span class="form-check-label small">{{ 'animal.male' | t }}</span>
+          </label>
+          <label class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" [(ngModel)]="filterFemale" (ngModelChange)="onFilterChange()" />
+            <span class="form-check-label small">{{ 'animal.female' | t }}</span>
+          </label>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">{{ 'animal.fieldBreed' | t }}</label>
+          <input
+            class="form-control form-control-sm"
+            [(ngModel)]="filterBreedCode"
+            (ngModelChange)="onFilterChange()"
+            [placeholder]="'corralWorkSession.breedFilterPlaceholder' | t"
+          />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">{{ 'animal.fieldOriginType' | t }}</label>
+          <select class="form-select form-select-sm" [(ngModel)]="filterOriginType" (ngModelChange)="onFilterChange()">
+            <option value="">{{ 'common.all' | t }}</option>
+            <option *ngFor="let o of originTypes" [value]="o">{{ originLabel(o) }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-card p-3 mb-3" *ngIf="activeTab === 'manual'">
+      <div class="d-flex align-items-center gap-1 mb-2">
+        <span class="small fw-semibold">{{ 'corralWorkSession.tabManual' | t }}</span>
+        <app-info-hint [text]="'corralWorkSession.tabManualHint' | t"></app-info-hint>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-md-6">
+          <input
+            class="form-control form-control-sm"
+            [(ngModel)]="inventorySearch"
+            [placeholder]="'corralWorkSession.inventorySearchPlaceholder' | t"
+            (keyup.enter)="loadInventory()"
+          />
+        </div>
+        <div class="col-md-3">
+          <button type="button" class="btn btn-outline-secondary btn-sm w-100" (click)="loadInventory()" [disabled]="inventoryLoading">
+            {{ 'common.search' | t }}
+          </button>
+        </div>
+        <div class="col-md-3 small text-muted align-self-center">
+          {{ selectedManualUuids.size }} {{ 'corralWorkSession.selected' | t }}
+        </div>
+      </div>
+      <div *ngIf="inventoryLoading" class="text-muted small">{{ 'common.loading' | t }}</div>
+      <div class="table-responsive" *ngIf="!inventoryLoading">
+        <table class="table table-sm table-hover mb-0">
+          <thead>
+            <tr>
+              <th></th>
+              <th>{{ 'corralWorkSession.findingAnimal' | t }}</th>
+              <th>{{ 'animal.fieldSex' | t }}</th>
+              <th>{{ 'animal.fieldBreed' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="inventoryAnimals.length === 0">
+              <td colspan="4" class="text-muted text-center py-3">{{ 'corralWorkSession.emptyInventory' | t }}</td>
+            </tr>
+            <tr *ngFor="let a of inventoryAnimals">
+              <td>
+                <input
+                  type="checkbox"
+                  [checked]="isManualSelected(a.animal_uuid)"
+                  (change)="toggleManual(a.animal_uuid, $any($event.target).checked)"
+                />
+              </td>
+              <td>{{ a.registration_number }}</td>
+              <td>{{ a.sex }}</td>
+              <td>{{ a.breed_code }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="app-card p-3 mb-3" *ngIf="preview">
+      <h3 class="h6">{{ 'corralWorkSession.previewTitle' | t }}</h3>
+      <p class="small mb-2">
+        <strong>{{ preview.total_count }}</strong> {{ 'corralWorkSession.animals' | t }}
+        <span class="text-muted ms-2">
+          ({{ 'corralWorkSession.previewBreakdown' | t }}:
+          {{ preview.breakdown.from_paddocks }} / {{ preview.breakdown.from_filters }} / {{ preview.breakdown.from_manual }})
+        </span>
+      </p>
+
+      <h4 class="h6 mt-3 d-inline-flex align-items-center gap-1">
+        {{ 'corralWorkSession.stepAssignmentTitle' | t }}
+        <app-info-hint [text]="'corralWorkSession.stepAssignmentHint' | t"></app-info-hint>
+      </h4>
+      <div class="table-responsive" style="max-height: 360px">
+        <table class="table table-sm table-bordered mb-0">
+          <thead>
+            <tr>
+              <th>{{ 'corralWorkSession.findingAnimal' | t }}</th>
+              <th *ngFor="let step of sessionSteps">
+                {{ 'corralWorkSession.stepLabel' | t }} {{ step.step_order }}
+                <span class="text-muted">({{ stepAssignmentCount(step.uuid_corral_session_step) }})</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of preview.animals">
+              <td>{{ a.registration_number }}</td>
+              <td *ngFor="let step of sessionSteps" class="text-center">
+                <input
+                  type="checkbox"
+                  [checked]="isAnimalInStep(step.uuid_corral_session_step, a.animal_uuid)"
+                  (change)="toggleStepAnimal(step.uuid_corral_session_step, a.animal_uuid, $any($event.target).checked)"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="previewAnimals()" [disabled]="previewing || saving">
+        {{ previewing ? ('common.loading' | t) : ('corralWorkSession.previewButton' | t) }}
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="confirmLoad()" [disabled]="previewing || saving">
+        {{ saving ? ('common.saving' | t) : ('corralWorkSession.confirmLoadButton' | t) }}
+      </button>
+    </div>
+  </div>
+</div>

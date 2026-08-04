@@ -1,7 +1,7 @@
 /** Body for POST /animal (snake_case, Sequelize plain shape). */
 export interface AnimalCreatePayload {
   ranch_uuid: string;
-  breed_code: string;
+  breed_code?: string | null;
   registration_number: string;
   chip_number?: string | null;
   mother_registration_number?: string | null;

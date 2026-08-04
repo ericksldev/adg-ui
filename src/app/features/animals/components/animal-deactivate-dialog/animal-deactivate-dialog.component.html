@@ -1,0 +1,20 @@
+<div class="modal-header">
+  <h5 class="modal-title">{{ 'animal.deactivateDialogTitle' | t }}</h5>
+  <button type="button" class="btn-close" [attr.aria-label]="'common.close' | t" (click)="activeModal.dismiss()"></button>
+</div>
+<div class="modal-body">
+  <p class="mb-2" *ngIf="animalLabel">
+    <span class="text-muted small">{{ 'animal.fieldRegistrationNumber' | t }}:</span>
+    <span class="fw-semibold ms-1">{{ animalLabel }}</span>
+  </p>
+  <app-animal-exit-form [form]="form" [showLegend]="false"></app-animal-exit-form>
+  <p class="text-danger small mt-2 mb-0" *ngIf="errorMessage">{{ errorMessage }}</p>
+</div>
+<div class="modal-footer">
+  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="activeModal.dismiss()" [disabled]="saving">
+    {{ 'common.cancel' | t }}
+  </button>
+  <button type="button" class="btn btn-danger btn-sm" (click)="submit()" [disabled]="saving">
+    {{ (saving ? 'common.loading' : 'animal.deactivate') | t }}
+  </button>
+</div>

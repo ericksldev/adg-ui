@@ -1,0 +1,191 @@
+<div class="corral-session-detail">
+  <div *ngIf="loading" class="text-muted small py-3">{{ 'common.loading' | t }}</div>
+  <div *ngIf="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+
+  <ng-container *ngIf="!loading && session && !errorMessage">
+    <div class="app-page-header d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+      <div>
+        <h2 class="app-page-title mb-1 d-inline-flex align-items-center gap-1">
+          {{ 'corralWorkSession.detailTitle' | t }}
+          <app-info-hint [text]="'corralWorkSession.detailSubtitle' | t"></app-info-hint>
+        </h2>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="backToList()">
+          {{ 'corralWorkSession.backToList' | t }}
+        </button>
+        <button
+          *ngIf="session.status !== 'CLOSED'"
+          type="button"
+          class="btn btn-primary btn-sm"
+          (click)="workSession()"
+        >
+          {{ 'corralWorkSession.workButton' | t }}
+        </button>
+        <button
+          *ngIf="session.status === 'CLOSED' && canOpenWork"
+          type="button"
+          class="btn btn-outline-primary btn-sm"
+          (click)="openWork()"
+        >
+          {{ 'corralWorkSession.openWorkFromDetail' | t }}
+        </button>
+      </div>
+    </div>
+
+    <div class="app-card p-3 mb-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h3 class="h6 mb-0">{{ 'corralWorkSession.sectionSession' | t }}</h3>
+        <span class="badge rounded-pill" [ngClass]="{
+          'bg-secondary': session.status === 'DRAFT',
+          'bg-primary': session.status === 'IN_PROGRESS',
+          'bg-dark': session.status === 'CLOSED'
+        }">
+          {{ statusLabel(session.status) }}
+        </span>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-3 col-sm-6">
+          <div class="corral-session-detail__field-label">{{ 'corralWorkSession.fieldWorkDate' | t }}</div>
+          <div class="corral-session-detail__field-value">{{ session.work_date | date: 'yyyy-MM-dd' }}</div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <div class="corral-session-detail__field-label">{{ 'animal.fieldRanch' | t }}</div>
+          <div class="corral-session-detail__field-value">{{ ranchName || session.ranch_uuid }}</div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <div class="corral-session-detail__field-label">{{ 'corralWorkSession.responsiblePerson' | t }}</div>
+          <div class="corral-session-detail__field-value">{{ session.responsible_person || ('common.notAvailable' | t) }}</div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <div class="corral-session-detail__field-label">{{ 'corralWorkSession.fieldAnimalCount' | t }}</div>
+          <div class="corral-session-detail__field-value">{{ session.animal_count ?? 0 }}</div>
+        </div>
+        <div class="col-md-3 col-sm-6" *ngIf="session.started_at">
+          <div class="corral-session-detail__field-label">{{ 'corralWorkSession.fieldStartedAt' | t }}</div>
+          <div class="corral-session-detail__field-value">{{ session.started_at | date: 'yyyy-MM-dd HH:mm' }}</div>
+        </div>
+        <div class="col-md-3 col-sm-6" *ngIf="session.closed_at">
+          <div class="corral-session-detail__field-label">{{ 'corralWorkSession.fieldClosedAt' | t }}</div>
+          <div class="corral-session-detail__field-value">{{ session.closed_at | date: 'yyyy-MM-dd HH:mm' }}</div>
+        </div>
+        <div class="col-md-3 col-sm-6" *ngIf="session.created_by">
+          <div class="corral-session-detail__field-label">{{ 'corralWorkSession.fieldCreatedBy' | t }}</div>
+          <div class="corral-session-detail__field-value">{{ session.created_by }}</div>
+        </div>
+        <div class="col-12" *ngIf="session.notes">
+          <div class="corral-session-detail__field-label">{{ 'corralWorkSession.fieldNotes' | t }}</div>
+          <div class="corral-session-detail__field-value">{{ session.notes }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-card p-3 mb-3">
+      <h3 class="h6 mb-3 d-inline-flex align-items-center gap-1">
+        {{ 'corralWorkSession.fieldPlannedActivities' | t }}
+        <app-info-hint
+          *ngIf="!session.planned_activities?.length"
+          [text]="'corralWorkSession.notConfiguredHint' | t"
+        ></app-info-hint>
+      </h3>
+      <div *ngIf="session.planned_activities?.length; else noPlannedActivities">
+        <span
+          *ngFor="let activity of session.planned_activities"
+          class="badge bg-light text-dark border me-1 mb-1"
+        >
+          {{ activityLabel(activity) }}
+        </span>
+      </div>
+      <ng-template #noPlannedActivities>
+        <p class="text-muted small mb-0">—</p>
+      </ng-template>
+    </div>
+
+    <div class="app-card p-3 mb-3" *ngIf="session.sources?.length">
+      <h3 class="h6 mb-3">{{ 'corralWorkSession.sectionSources' | t }}</h3>
+      <ul class="list-unstyled mb-0 corral-session-detail__sources">
+        <li *ngFor="let source of session.sources" class="corral-session-detail__source-item">
+          <span class="badge bg-light text-dark border me-2">
+            {{ ('corralWorkSession.sourceType.' + source.source_type) | t }}
+          </span>
+          {{ sourceLabel(source) }}
+        </li>
+      </ul>
+    </div>
+
+    <div class="app-card p-0 overflow-hidden mb-3">
+      <div class="p-3 border-bottom d-flex align-items-center gap-1">
+        <h3 class="h6 mb-0">{{ 'corralWorkSession.sectionActivities' | t }}</h3>
+        <app-info-hint
+          *ngIf="!session.steps?.length"
+          [text]="'corralWorkSession.noStepsConfigured' | t"
+        ></app-info-hint>
+      </div>
+      <div class="table-responsive" *ngIf="session.steps?.length; else noSteps">
+        <table class="table table-sm table-hover mb-0">
+          <thead>
+            <tr>
+              <th>{{ 'corralWorkSession.stepColumn' | t }}</th>
+              <th>{{ 'corralWorkSession.stepName' | t }}</th>
+              <th>{{ 'corralWorkSession.workModeLabel' | t }}</th>
+              <th>{{ 'corralWorkSession.stepActivitiesInStep' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let step of session.steps">
+              <td>{{ step.step_order }}</td>
+              <td>{{ stepLabel(step.step_order, step.label) }}</td>
+              <td>{{ workModeLabel(step.work_mode) }}</td>
+              <td>
+                <span
+                  *ngFor="let activity of step.activities"
+                  class="badge bg-light text-dark border me-1 mb-1"
+                >
+                  {{ activityLabel(activity) }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noSteps>
+        <p class="text-muted small p-3 mb-0">—</p>
+      </ng-template>
+    </div>
+
+    <div class="app-card p-3 mb-3" *ngIf="session.work_configured">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h3 class="h6 mb-0">{{ 'corralWorkSession.sectionRecords' | t }}</h3>
+        <span class="text-muted small" *ngIf="workspace">
+          {{ 'corralWorkSession.findingsSummary' | t }}: {{ workspace.findings_summary_count }}
+        </span>
+      </div>
+
+      <div *ngIf="loadingWorkspace" class="text-muted small">{{ 'common.loading' | t }}</div>
+
+      <ng-container *ngIf="!loadingWorkspace && workspace">
+        <ul class="nav nav-tabs mb-2">
+          <li class="nav-item" *ngFor="let grid of workspace.grids; let i = index">
+            <button
+              type="button"
+              class="nav-link"
+              [class.active]="activeStepIndex === i"
+              (click)="activeStepIndex = i"
+            >
+              {{ stepLabel(grid.step_order, grid.label) }}
+              <span class="text-muted">({{ grid.rows.length }})</span>
+            </button>
+          </li>
+        </ul>
+
+        <app-corral-step-grid
+          *ngIf="activeGrid"
+          [grid]="activeGrid"
+          [readonly]="true"
+          [workMode]="activeGrid.work_mode || 'SCAN_DYNAMIC'"
+        ></app-corral-step-grid>
+      </ng-container>
+    </div>
+  </ng-container>
+</div>

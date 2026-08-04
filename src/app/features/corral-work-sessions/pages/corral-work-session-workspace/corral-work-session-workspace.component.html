@@ -1,0 +1,477 @@
+<div class="corral-workspace" *ngIf="!loading && workspace">
+  <div class="app-page-header corral-workspace__header d-flex flex-wrap align-items-start justify-content-between gap-2">
+    <div>
+      <h2 class="app-page-title mb-1 d-inline-flex align-items-center gap-1 flex-wrap">
+        {{ workspaceTitleKey | t }}
+        <app-info-hint *ngIf="workspaceEntryHint" [text]="workspaceEntryHint"></app-info-hint>
+      </h2>
+      <p class="corral-workspace__meta small mb-0">
+        {{ workspace.session.work_date | date: 'yyyy-MM-dd' }}
+        <span *ngIf="workspace.session.responsible_person"> · {{ workspace.session.responsible_person }}</span>
+      </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-outline-primary btn-sm" (click)="openActivitiesSetup()" [disabled]="isClosed">
+        <i class="bi bi-sliders me-1"></i>{{ 'corralActivityShortcut.manageActivitiesButton' | t }}
+      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="backToList()">
+        {{ 'corralWorkSession.backToList' | t }}
+      </button>
+      <button type="button" class="btn btn-outline-danger btn-sm" (click)="closeSession()" [disabled]="closing || isClosed">
+        {{ closing ? ('common.saving' | t) : ('corralWorkSession.closeSession' | t) }}
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger py-2 corral-workspace__alert">{{ errorMessage }}</div>
+  <div *ngIf="successMessage" class="alert alert-success py-2 corral-workspace__alert">{{ successMessage }}</div>
+
+  <div class="corral-workspace__body" [class.corral-workspace__body--sidebar-collapsed]="!findingsPanelExpanded">
+    <div class="corral-workspace__main">
+      <!-- Escáner arriba de las pestañas -->
+      <div class="app-card corral-workspace__card corral-workspace__scan-bar p-2 mb-2" *ngIf="activeGridData">
+        <div class="d-flex align-items-center gap-2">
+          <input
+            id="scanInput"
+            class="form-control form-control-sm corral-workspace__scan-input flex-grow-1"
+            [(ngModel)]="scanInput"
+            (keydown)="onScanKeydown($event)"
+            [placeholder]="'corralWorkSession.animalNumberPlaceholder' | t"
+            [disabled]="isClosed"
+            autocomplete="off"
+          />
+          <app-info-hint [text]="workModeScanHint(activeWorkMode)" placement="bottom"></app-info-hint>
+        </div>
+
+        <div *ngIf="unknownScanIdentifier" class="corral-workspace__unknown-prompt mt-2">
+          <p class="small mb-2">
+            <ng-container *ngIf="unknownScanContext === 'not_in_step'">
+              {{ 'corralWorkSession.scanNotInStep' | t }} <strong>{{ unknownScanIdentifier }}</strong>
+            </ng-container>
+            <ng-container *ngIf="unknownScanContext === 'missing'">
+              {{ 'corralWorkSession.scanNotFound' | t }} <strong>{{ unknownScanIdentifier }}</strong>
+            </ng-container>
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm corral-workspace__confirm-load-btn" (click)="confirmAddUnknownScan()">
+              {{ 'corralWorkSession.addAnywayButton' | t }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="clearUnknownScanPrompt()">
+              {{ 'common.cancel' | t }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pestañas de pasos -->
+      <ul class="nav nav-tabs corral-workspace__tabs mb-2" *ngIf="showStepTabs">
+        <li class="nav-item" *ngFor="let grid of workspace.grids; let i = index">
+          <button
+            type="button"
+            class="nav-link corral-workspace__tab"
+            [class.active]="activeStepIndex === i"
+            (click)="selectStep(i)"
+          >
+            <span class="corral-workspace__tab-step">{{ stepLabel(grid.step_order, grid.label) }}</span>
+            <span class="corral-workspace__tab-sep">—</span>
+            <span class="corral-workspace__tab-count">{{ grid.columns.length }}</span>
+          </button>
+        </li>
+      </ul>
+
+      <!-- Modo de trabajo + cargar animales (compacto) -->
+      <div class="corral-workspace__toolbar d-flex flex-wrap align-items-center gap-2 mb-2" *ngIf="activeGridData">
+        <label class="corral-workspace__toolbar-label small mb-0 d-inline-flex align-items-center gap-1">
+          {{ 'corralWorkSession.workModeLabel' | t }}
+          <app-info-hint [text]="workModeDescription(activeWorkMode)"></app-info-hint>
+        </label>
+        <select
+          class="form-select form-select-sm corral-workspace__mode-select"
+          [ngModel]="activeWorkMode"
+          (ngModelChange)="onWorkModeChange($event)"
+          [disabled]="isClosed || updatingWorkMode"
+        >
+          <option *ngFor="let mode of workModes" [value]="mode">{{ workModeLabel(mode) }}</option>
+        </select>
+        <button
+          type="button"
+          class="btn btn-sm corral-workspace__load-btn"
+          [class.corral-workspace__load-btn--active]="showAttachPanel"
+          (click)="onLoadAnimalsPanelToggle()"
+          [disabled]="isClosed"
+        >
+          {{ 'corralWorkSession.loadAnimalsButton' | t }}
+        </button>
+      </div>
+
+      <div class="app-card corral-workspace__card corral-workspace__load-panel p-3 mb-3" *ngIf="showAttachPanel && activeGridData">
+        <h3 class="h6 mb-2 corral-workspace__panel-title d-inline-flex align-items-center gap-1">
+          {{ 'corralWorkSession.loadAnimalsPanelTitle' | t }}
+          <app-info-hint [text]="'corralWorkSession.loadAnimalsPanelHint' | t"></app-info-hint>
+        </h3>
+
+        <ul class="nav nav-pills corral-workspace__source-tabs nav-fill mb-3">
+          <li class="nav-item">
+            <button type="button" class="nav-link" [class.active]="attachTab === 'paddocks'" (click)="onAttachTabChange('paddocks')">
+              {{ 'corralWorkSession.tabPaddocks' | t }}
+            </button>
+          </li>
+          <li class="nav-item">
+            <button type="button" class="nav-link" [class.active]="attachTab === 'filters'" (click)="onAttachTabChange('filters')">
+              {{ 'corralWorkSession.tabFilters' | t }}
+            </button>
+          </li>
+          <li class="nav-item">
+            <button type="button" class="nav-link" [class.active]="attachTab === 'inventory'" (click)="onAttachTabChange('inventory')">
+              {{ 'corralWorkSession.tabManual' | t }}
+            </button>
+          </li>
+        </ul>
+
+        <div *ngIf="attachTab === 'paddocks'">
+          <div *ngIf="paddockRows.length === 0" class="corral-workspace__hint small">{{ 'corralWorkSession.noPaddocks' | t }}</div>
+          <div class="d-flex flex-wrap gap-1">
+            <button
+              type="button"
+              *ngFor="let p of paddockRows"
+              class="btn btn-sm corral-workspace__chip"
+              [class.corral-workspace__chip--selected]="isPaddockSelected(p.paddock_uuid)"
+              (click)="togglePaddock(p.paddock_uuid, !isPaddockSelected(p.paddock_uuid))"
+            >
+              {{ p.name }}
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="attachTab === 'filters'" class="row g-2">
+          <div class="col-md-4">
+            <span class="form-label small d-block mb-1">{{ 'corralWorkSession.filterSex' | t }}</span>
+            <label class="form-check form-check-inline small mb-0">
+              <input class="form-check-input" type="checkbox" [(ngModel)]="filterMale" (ngModelChange)="onFilterChange()" />
+              <span class="form-check-label">{{ 'animal.male' | t }}</span>
+            </label>
+            <label class="form-check form-check-inline small mb-0">
+              <input class="form-check-input" type="checkbox" [(ngModel)]="filterFemale" (ngModelChange)="onFilterChange()" />
+              <span class="form-check-label">{{ 'animal.female' | t }}</span>
+            </label>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1">{{ 'animal.fieldBreed' | t }}</label>
+            <input class="form-control form-control-sm" [(ngModel)]="filterBreedCode" (ngModelChange)="onFilterChange()" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1">{{ 'animal.fieldOriginType' | t }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="filterOriginType" (ngModelChange)="onFilterChange()">
+              <option value="">{{ 'common.all' | t }}</option>
+              <option *ngFor="let o of originTypes" [value]="o">{{ originLabel(o) }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div *ngIf="attachTab === 'inventory'" class="corral-workspace__inventory">
+          <div class="row g-2 mb-2 align-items-end">
+            <div class="col-md-8">
+              <label class="form-label small mb-1">{{ 'corralWorkSession.inventorySearchLabel' | t }}</label>
+              <input
+                class="form-control form-control-sm"
+                [(ngModel)]="inventorySearch"
+                [placeholder]="'corralWorkSession.inventorySearchPlaceholder' | t"
+                (ngModelChange)="onInventorySearchInput()"
+              />
+            </div>
+            <div class="col-md-4">
+              <div class="corral-workspace__inventory-meta small">
+                <span *ngIf="inventoryLoading">{{ 'common.loading' | t }}</span>
+                <span *ngIf="!inventoryLoading && inventoryTotal > 0">
+                  {{ 'corralWorkSession.inventoryShowing' | t }}: {{ inventoryAnimals.length }} / {{ inventoryTotal }}
+                </span>
+                <span *ngIf="!inventoryLoading && inventoryTotal === 0">{{ 'corralWorkSession.emptyInventory' | t }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-responsive corral-workspace__inventory-table-wrap" *ngIf="inventoryAnimals.length > 0">
+            <table class="table table-sm table-hover mb-0 corral-workspace__inventory-table">
+              <thead>
+                <tr>
+                  <th class="text-center" style="width: 2.5rem">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      [checked]="isInventoryPageFullySelected()"
+                      (change)="toggleSelectAllInventory($any($event.target).checked)"
+                    />
+                  </th>
+                  <th>{{ 'corralWorkSession.findingAnimal' | t }}</th>
+                  <th>{{ 'animal.fieldChipNumber' | t }}</th>
+                  <th>{{ 'animal.fieldSex' | t }}</th>
+                  <th>{{ 'animal.fieldBreed' | t }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  *ngFor="let a of inventoryAnimals"
+                  class="corral-workspace__inventory-row"
+                  [class.corral-workspace__inventory-row--selected]="isManualSelected(a.animal_uuid)"
+                  (click)="toggleManual(a.animal_uuid, !isManualSelected(a.animal_uuid))"
+                >
+                  <td class="text-center" (click)="$event.stopPropagation()">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      [checked]="isManualSelected(a.animal_uuid)"
+                      (change)="toggleManual(a.animal_uuid, $any($event.target).checked)"
+                    />
+                  </td>
+                  <td class="fw-semibold">{{ a.registration_number }}</td>
+                  <td>{{ a.chip_number || ('common.notAvailable' | t) }}</td>
+                  <td>{{ sexLabel(a.sex) }}</td>
+                  <td>{{ a.breed_code || ('common.notAvailable' | t) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
+            <span class="corral-workspace__hint small">
+              {{ selectedInventoryCount }} {{ 'corralWorkSession.selected' | t }}
+            </span>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              *ngIf="inventoryHasMore"
+              (click)="loadMoreInventory()"
+              [disabled]="inventoryLoading"
+            >
+              {{ 'corralWorkSession.loadMoreInventory' | t }}
+            </button>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-3 corral-workspace__load-actions">
+          <span *ngIf="previewing" class="corral-workspace__hint small">{{ 'common.loading' | t }}</span>
+          <span *ngIf="preview && !previewing" class="corral-workspace__preview-badge">
+            {{ preview.total_count }} {{ 'corralWorkSession.animals' | t }}
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm corral-workspace__confirm-load-btn"
+            (click)="appendAnimalsToCurrentStep()"
+            [disabled]="appendingAnimals || isClosed || !hasAnyAttachSource"
+          >
+            {{ appendingAnimals ? ('common.saving' | t) : ('corralWorkSession.appendToStep' | t) }}
+          </button>
+        </div>
+      </div>
+
+      <div class="app-card corral-workspace__card corral-workspace__grid-card p-2" *ngIf="activeGridData">
+        <div class="corral-workspace__presets-panel mb-2">
+          <div class="corral-workspace__presets-header">
+            <button type="button" class="corral-workspace__presets-toggle" (click)="togglePresetsConfig()">
+              <i class="bi" [class.bi-chevron-down]="presetsConfigExpanded" [class.bi-chevron-right]="!presetsConfigExpanded"></i>
+              <span>
+                {{ 'corralWorkSession.stepShortcutsTitle' | t }}
+              </span>
+              <app-info-hint [text]="'corralWorkSession.stepShortcutsHint' | t"></app-info-hint>
+            </button>
+
+            <div class="corral-workspace__grid-actions">
+              <button
+                type="button"
+                class="corral-workspace__finding-columns-btn"
+                [class.corral-workspace__finding-columns-btn--active]="findingColumnsExpanded"
+                (click)="toggleFindingColumns()"
+                [attr.aria-pressed]="findingColumnsExpanded"
+                [attr.aria-label]="'corralWorkSession.findingColumnsToggleAria' | t"
+                [title]="'corralWorkSession.findingColumnsHint' | t"
+              >
+                <i
+                  class="bi corral-workspace__finding-columns-btn-icon"
+                  [class.bi-eye]="findingColumnsExpanded"
+                  [class.bi-eye-slash]="!findingColumnsExpanded"
+                  aria-hidden="true"
+                ></i>
+                <span>{{ 'corralWorkSession.findingColumnsToggleLabel' | t }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="corral-workspace__presets-summary" *ngIf="!presetsConfigExpanded">
+            <span *ngFor="let column of activeGridData.columns" class="corral-workspace__preset-summary-chip">
+              {{ activityLabel(column.activity_code) }}
+            </span>
+            <span class="corral-workspace__preset-summary-divider" aria-hidden="true"></span>
+            <span class="corral-workspace__preset-summary-chip corral-workspace__preset-summary-chip--finding">
+              {{ 'corralWorkSession.fieldObservation' | t }}
+            </span>
+            <span class="corral-workspace__preset-summary-chip corral-workspace__preset-summary-chip--finding">
+              {{ 'corralWorkSession.visualCondition' | t }}
+            </span>
+            <span class="corral-workspace__preset-summary-chip corral-workspace__preset-summary-chip--finding">
+              {{ 'corralWorkSession.additionalMedication' | t }}
+            </span>
+          </div>
+
+          <div class="corral-workspace__presets-body" *ngIf="presetsConfigExpanded">
+            <div *ngFor="let col of activeGridData.columns" class="corral-workspace__preset-row">
+              <span class="corral-workspace__preset-row-label">{{ activityLabel(col.activity_code) }}</span>
+              <div class="corral-workspace__preset-row-tags">
+                <span
+                  *ngFor="let preset of getGridColumnPresetEntries(col.column_key); let i = index"
+                  class="corral-workspace__preset-tag"
+                >
+                  {{ preset.label }}
+                  <button
+                    type="button"
+                    class="corral-workspace__preset-remove"
+                    (click)="removeGridColumnPreset(col.column_key, i)"
+                    [disabled]="isClosed"
+                  >
+                    ×
+                  </button>
+                </span>
+              </div>
+              <div class="corral-workspace__preset-row-add">
+                <ng-container *ngIf="col.value_type === 'boolean'; else textColumnPresetAdd">
+                  <div class="input-group input-group-sm corral-workspace__preset-add-group">
+                    <input
+                      class="form-control"
+                      [(ngModel)]="gridColumnPresetDraftByKey[col.column_key]"
+                      [placeholder]="'corralWorkSession.booleanPresetCustomLabel' | t"
+                      [disabled]="isClosed"
+                      (keyup.enter)="addGridColumnBooleanPreset(col.column_key, 'true')"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      (click)="addGridColumnBooleanPreset(col.column_key, 'true')"
+                      [disabled]="isClosed || !gridColumnPresetDraftByKey[col.column_key]?.trim()"
+                    >
+                      +
+                    </button>
+                  </div>
+                </ng-container>
+                <ng-template #textColumnPresetAdd>
+                  <div class="input-group input-group-sm corral-workspace__preset-add-group">
+                    <input
+                      class="form-control"
+                      [(ngModel)]="gridColumnPresetDraftByKey[col.column_key]"
+                      [placeholder]="activityLabel(col.activity_code)"
+                      [disabled]="isClosed"
+                      (keyup.enter)="addGridColumnPreset(col)"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      (click)="addGridColumnPreset(col)"
+                      [disabled]="isClosed || !gridColumnPresetDraftByKey[col.column_key]?.trim()"
+                    >
+                      +
+                    </button>
+                  </div>
+                </ng-template>
+              </div>
+            </div>
+
+            <div class="corral-workspace__preset-row">
+              <span class="corral-workspace__preset-row-label">{{ 'corralWorkSession.fieldObservation' | t }}</span>
+              <div class="corral-workspace__preset-row-tags">
+                <span *ngFor="let obs of activePresets.observations; let i = index" class="corral-workspace__preset-tag">
+                  {{ obs }}
+                  <button type="button" class="corral-workspace__preset-remove" (click)="removeObservationPreset(i)" [disabled]="isClosed">×</button>
+                </span>
+              </div>
+              <div class="corral-workspace__preset-row-add">
+                <div class="input-group input-group-sm corral-workspace__preset-add-group">
+                  <input class="form-control" [(ngModel)]="presetObservationDraft" [placeholder]="'corralWorkSession.customObservation' | t" [disabled]="isClosed" (keyup.enter)="addObservationPreset()" />
+                  <button type="button" class="btn btn-outline-secondary" (click)="addObservationPreset()" [disabled]="isClosed || !presetObservationDraft.trim()">+</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="corral-workspace__preset-row">
+              <span class="corral-workspace__preset-row-label">{{ 'corralWorkSession.visualCondition' | t }}</span>
+              <div class="corral-workspace__preset-row-tags">
+                <span *ngFor="let code of activePresets.conditions; let i = index" class="corral-workspace__preset-tag">
+                  {{ 'corralWorkSession.condition.' + code | t }}
+                  <button type="button" class="corral-workspace__preset-remove" (click)="removeConditionPreset(i)" [disabled]="isClosed">×</button>
+                </span>
+              </div>
+              <div class="corral-workspace__preset-row-add">
+                <div class="input-group input-group-sm corral-workspace__preset-add-group">
+                  <select class="form-select" [(ngModel)]="presetConditionDraft" [disabled]="isClosed">
+                    <option value="">{{ 'corralWorkSession.addCondition' | t }}</option>
+                    <option *ngFor="let c of availableConditionPresets" [value]="c">{{ 'corralWorkSession.condition.' + c | t }}</option>
+                  </select>
+                  <button type="button" class="btn btn-outline-secondary" (click)="addConditionPreset()" [disabled]="isClosed || !presetConditionDraft">+</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="corral-workspace__preset-row corral-workspace__preset-row--medication">
+              <span class="corral-workspace__preset-row-label">{{ 'corralWorkSession.additionalMedication' | t }}</span>
+              <div class="corral-workspace__preset-row-tags">
+                <span *ngFor="let med of activePresets.medications; let i = index" class="corral-workspace__preset-tag">
+                  {{ medicationPresetLabel(med) }}
+                  <button type="button" class="corral-workspace__preset-remove" (click)="removeMedicationPreset(i)" [disabled]="isClosed">×</button>
+                </span>
+              </div>
+              <div class="corral-workspace__preset-row-add corral-workspace__preset-row-add--medication">
+                <input class="form-control form-control-sm" [(ngModel)]="presetMedicationProductDraft" [placeholder]="'corralWorkSession.product' | t" [disabled]="isClosed" />
+                <input class="form-control form-control-sm" [(ngModel)]="presetMedicationDoseDraft" [placeholder]="'corralWorkSession.dose' | t" [disabled]="isClosed" />
+                <input class="form-control form-control-sm" [(ngModel)]="presetMedicationUnitDraft" [placeholder]="'corralWorkSession.unit' | t" [disabled]="isClosed" />
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="addMedicationPreset()" [disabled]="isClosed || !presetMedicationProductDraft.trim()">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <app-corral-step-grid
+          [grid]="activeGridData"
+          [readonly]="isClosed"
+          [highlightAnimalUuid]="highlightAnimalUuid"
+          [workMode]="activeWorkMode"
+          [queueScannedUuids]="activeQueueScannedUuids"
+          [columnPresets]="activeGridColumnPresets"
+          [findingPresets]="activePresets"
+          [rowFindings]="activeRowFindings"
+          [presetValueSeparator]="presetValueSeparator"
+          [showFindingColumns]="findingColumnsExpanded"
+          (saveRequested)="onSaveGrid($event)"
+          (gridChange)="onGridChange($event)"
+          (workspaceDraftChange)="onWorkspaceDraftChange()"
+        ></app-corral-step-grid>
+        <p *ngIf="saving" class="corral-workspace__hint small mt-2 mb-0">{{ 'common.saving' | t }}</p>
+      </div>
+    </div>
+
+    <aside class="corral-workspace__sidebar" [class.corral-workspace__sidebar--collapsed]="!findingsPanelExpanded">
+      <div class="corral-workspace__sidebar-rail">
+        <button
+          type="button"
+          class="corral-workspace__sidebar-toggle"
+          (click)="toggleFindingsPanel()"
+          [attr.aria-label]="findingsPanelExpanded ? ('corralWorkSession.sidebarCollapse' | t) : ('corralWorkSession.sidebarExpand' | t)"
+          [title]="findingsPanelExpanded ? ('corralWorkSession.sidebarCollapse' | t) : ('corralWorkSession.sidebarExpand' | t)"
+        >
+          <i class="bi" [class.bi-chevron-left]="findingsPanelExpanded" [class.bi-chevron-right]="!findingsPanelExpanded"></i>
+        </button>
+        <span class="corral-workspace__sidebar-rail-label" *ngIf="!findingsPanelExpanded">
+          {{ 'corralWorkSession.animalHistoryTitle' | t }}
+        </span>
+      </div>
+
+      <div class="corral-workspace__sidebar-content app-card corral-workspace__card corral-workspace__findings-card" *ngIf="findingsPanelExpanded">
+        <div class="corral-workspace__sidebar-header">
+          <h3 class="h6 corral-workspace__panel-title mb-0">{{ 'corralWorkSession.animalHistoryTitle' | t }}</h3>
+        </div>
+
+        <div class="corral-workspace__sidebar-placeholder">
+          <p class="small text-muted mb-0">{{ 'corralWorkSession.animalHistoryPlaceholder' | t }}</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div *ngIf="loading" class="text-muted small py-4">{{ 'common.loading' | t }}</div>

@@ -1,4 +1,8 @@
-<div class="app-shell" [ngClass]="{'theme-light': currentTheme === 'light', 'theme-dark': currentTheme === 'dark'}">
+<div
+  class="app-shell"
+  [class.app-shell--authenticated]="user != null"
+  [ngClass]="{'theme-light': currentTheme === 'light', 'theme-dark': currentTheme === 'dark'}"
+>
   <app-navbar
     *ngIf="user != null"
     [isSidebarOpen]="openSidebar"
@@ -7,7 +11,7 @@
   ></app-navbar>
 
   <div class="app-layout" *ngIf="user != null; else guestLayout">
-    <button type="button" class="app-sidebar-backdrop" [class.show]="openSidebar" (click)="openSidebar = false" aria-label="Close sidebar"></button>
+    <button type="button" class="app-sidebar-backdrop" [class.show]="openSidebar" (click)="openSidebar = false" [attr.aria-label]="'nav.closeSidebar' | t"></button>
     <app-sidebar [classApplied]="openSidebar" (sidebarLinkClicked)="openSidebar = false"></app-sidebar>
     <main class="app-main">
       <app-breadcrumb></app-breadcrumb>

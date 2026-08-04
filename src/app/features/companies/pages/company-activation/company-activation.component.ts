@@ -15,6 +15,7 @@ import {
   PLAN_HEAD_LIMIT
 } from 'src/app/shared/constants/subscription.constants';
 import { I18nService } from 'src/app/core/services/i18n.service';
+import { notAvailableLabel } from 'src/app/core/utils/i18n-display.util';
 import { CompanyManagement, CompanyPaidActivationPayload, CompanyPayment } from '../../models/company-management.model';
 import { SaasManagementService } from '../../services/saas-management.service';
 
@@ -140,7 +141,7 @@ export class CompanyActivationComponent implements OnInit {
 
   getPlanLabel(plan: CompanyPlanType | string | undefined): string {
     if (!plan) {
-      return '-';
+      return notAvailableLabel(this.i18nService);
     }
     const key = normalizeCompanyPlanType(String(plan)).toLowerCase();
     return this.i18nService.translate(`saas.planType.${key}`);
@@ -148,7 +149,7 @@ export class CompanyActivationComponent implements OnInit {
 
   getBillingCycleLabel(cycle: BillingCycle | string | undefined): string {
     if (!cycle) {
-      return '-';
+      return notAvailableLabel(this.i18nService);
     }
     const key = normalizeBillingCycle(String(cycle)).toLowerCase();
     return this.i18nService.translate(`saas.billingCycle.${key}`);

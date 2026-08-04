@@ -1,11 +1,11 @@
 <aside class="sidebar" [class.active]="classApplied">
     <div class="sidebar-brand">
-        <span class="sidebar-brand__eyebrow">Operations</span>
-        <span class="sidebar-brand__title">CattlePro</span>
+        <span class="sidebar-brand__eyebrow">{{ 'sidebar.brandEyebrow' | t }}</span>
+        <span class="sidebar-brand__title">{{ 'sidebar.brandTitle' | t }}</span>
     </div>
     <nav class="sidebar-nav">	
         <ul class="list-unstyled components">	
-            <li class="sidebar-header">Core</li>
+            <li class="sidebar-header">{{ 'sidebar.coreSection' | t }}</li>
             <li>	
                 <a routerLink="/animal" routerLinkActive="active" (click)="closeSidebarOnMobile()"><i class="bi bi-grid-1x2 me-2"></i>{{ 'sidebar.animal' | t }}</a>
             </li>	
@@ -33,36 +33,30 @@
                     <a routerLink="/configuration/paddocks" routerLinkActive="active" (click)="closeSidebarOnMobile()"><i class="bi bi-grid-3x3-gap me-2"></i>{{ 'sidebar.paddocks' | t }}</a>
                 </li>
             </ng-container>
-            <li class="sidebar-header">Field Ops</li>
-            <li>	
-                <a href="#"><i class="bi bi-droplet me-2"></i>{{ 'sidebar.dairy' | t }}</a>	
-            </li>	
-            <li>	
-                <a href="#pageSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-clipboard2-pulse me-2"></i>{{ 'sidebar.attendance' | t }}</a>	
-                <ul class="collapse list-unstyled" id="pageSubmenu">	
-                    <li>	
-                        <a href="#">{{ 'sidebar.active' | t }}</a>	
-                    </li>	
-                    <li>	
-                        <a href="#">{{ 'sidebar.idle' | t }}</a>	
-                    </li>	
-                    <li>	
-                        <a href="#">{{ 'sidebar.nonActive' | t }}</a>	
-                    </li>	
-                </ul>	
-            </li>	
-            <li>	
-                <a href="#"><i class="bi bi-heart-pulse me-2"></i>{{ 'sidebar.healthService' | t }}</a>	
-            </li>	
-            <li>	
-                <a href="#"><i class="bi bi-truck me-2"></i>{{ 'sidebar.distribution' | t }}</a>	
-            </li>	
-            <li>	
-                <a href="#"><i class="bi bi-motherboard me-2"></i>{{ 'sidebar.maternity' | t }}</a>	
-            </li>	
-            <li>	
-                <a href="#"><i class="bi bi-card-checklist me-2"></i>{{ 'sidebar.registration' | t }}</a>	
-            </li>	
+            <ng-container *ngIf="canAccessFieldOps">
+                <li class="sidebar-header">{{ 'sidebar.fieldOps' | t }}</li>
+                <li>
+                    <a
+                        routerLink="/corral-work-session"
+                        routerLinkActive="active"
+                        [routerLinkActiveOptions]="{ exact: true }"
+                        (click)="closeSidebarOnMobile()"
+                    >
+                        <i class="bi bi-signpost-split me-2"></i>{{ 'sidebar.corralService' | t }}
+                    </a>
+                </li>
+                <li class="sidebar-subheader">{{ 'sidebar.corralActivities' | t }}</li>
+                <li *ngFor="let activity of corralActivities">
+                    <a
+                        class="sidebar-nav__sub"
+                        [routerLink]="corralActivityRoute(activity)"
+                        routerLinkActive="active"
+                        (click)="closeSidebarOnMobile()"
+                    >
+                        <i class="bi me-2" [ngClass]="corralActivityIcon(activity)"></i>{{ ('corralWorkSession.activity.' + activity) | t }}
+                    </a>
+                </li>
+            </ng-container>
         </ul>	
     </nav>
 </aside>

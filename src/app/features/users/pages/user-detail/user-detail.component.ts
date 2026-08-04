@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { I18nService } from 'src/app/core/services/i18n.service';
+import { notAvailableLabel } from 'src/app/core/utils/i18n-display.util';
 import { SessionService } from 'src/app/core/services/session.service';
 import { RanchOption, UserManagementItem } from '../../models/user-management.model';
 import { UserManagementService } from '../../services/user-management.service';
@@ -24,7 +25,7 @@ export class UserDetailComponent implements OnInit {
   readonly normalizeUserRole = normalizeUserRole;
 
   user: UserManagementItem | null = null;
-  companyName = '-';
+  companyName = '';
   /** Company-scoped role from the user record. */
   summaryRole: UserRole | null = null;
   ranchRows: UserDetailRanchRow[] = [];
@@ -82,12 +83,12 @@ export class UserDetailComponent implements OnInit {
         next: ({ user, ranches }) => {
           if (!user) {
             this.errorMessage = this.i18nService.translate('users.detailNotFound');
-            this.companyName = '-';
+            this.companyName = notAvailableLabel(this.i18nService);
             this.isLoading = false;
             return;
           }
           this.user = user;
-          this.companyName = user.company?.name ?? user.uuid_company ?? '-';
+          this.companyName = user.company?.name ?? user.uuid_company ?? notAvailableLabel(this.i18nService);
           this.summaryRole = normalizeUserRole(String(user.role ?? ''));
           this.ranchRows = this.buildRanchRows(user.uuid_company, this.summaryRole, ranches);
           this.isLoading = false;

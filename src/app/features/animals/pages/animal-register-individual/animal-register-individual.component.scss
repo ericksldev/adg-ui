@@ -1,23 +1,29 @@
+.animal-individual {
+  max-width: 56rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.animal-individual .app-page-header {
+  justify-content: center;
+  text-align: center;
+}
+
 .animal-individual-card {
-  max-width: 52rem;
+  width: 100%;
+  overflow: visible;
 }
 
 .animal-individual .form-label {
   font-size: 0.8rem;
 }
 
-.animal-individual .form-select.form-select-sm {
-  max-width: 100%;
-  padding-right: 2.25rem;
-  background-position: right 0.5rem center;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.animal-form-fields-legend {
-  font-size: 0.78rem;
-  line-height: 1.35;
+.animal-individual-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary, #5c6b63);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .animal-optional-mark {
@@ -27,4 +33,21 @@
 
 .animal-individual-optional-divider {
   opacity: 0.35;
+}
+
+.animal-individual-parent-warning {
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #856404;
+  background: rgba(255, 193, 7, 0.14);
+  border: 1px solid rgba(255, 193, 7, 0.35);
+}
+
+.theme-dark .animal-individual-parent-warning {
+  color: #ffda6a;
+  background: rgba(255, 193, 7, 0.1);
+  border-color: rgba(255, 193, 7, 0.25);
 }

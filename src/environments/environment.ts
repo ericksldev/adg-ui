@@ -14,7 +14,7 @@ export const environment = {
   },
   /**
    * URL base del backend (incluye `/api` porque Express monta las rutas ahí).
-   * Puerto por defecto: 3010 (publicado por `adg-api/docker-compose.yml` como `ADG_API_PORT`).
+   * Puerto por defecto: 3010 (publicado por `adg-api/docker-compose.yml` como `API_HOST_PORT` en `.env`).
    */
   urlApi: "http://localhost:3010/api"
 

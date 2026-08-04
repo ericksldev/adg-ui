@@ -1,0 +1,141 @@
+<div class="corral-activity-shortcut-page">
+  <div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div>
+      <h2 class="app-page-title mb-0 d-inline-flex align-items-center gap-1 flex-wrap">
+        <i class="bi me-2" [ngClass]="activityIcon"></i>{{ activityLabel() }}
+        <app-info-hint [text]="'corralActivityShortcut.pageSubtitle' | t"></app-info-hint>
+      </h2>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+
+  <section class="corral-activity-shortcut-page__quick-start mb-4">
+    <h3 class="h6 mb-3 d-inline-flex align-items-center gap-1">
+      {{ 'corralActivityShortcut.quickStartTitle' | t }}
+      <app-info-hint [text]="'corralActivityShortcut.quickStartSubtitle' | t"></app-info-hint>
+    </h3>
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3" *ngIf="isSaasOwner">
+        <label class="form-label small mb-1" for="shortcutCompany">{{ 'users.company' | t }}</label>
+        <select
+          id="shortcutCompany"
+          class="form-select form-select-sm"
+          [(ngModel)]="selectedCompany"
+          (ngModelChange)="onCompanyChange($event)"
+          [disabled]="starting"
+        >
+          <option value="">{{ 'paddocks.pickCompany' | t }}</option>
+          <option *ngFor="let c of companyRows" [value]="c.uuid_company">{{ c.name }}</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-1" for="shortcutRanch">{{ 'animal.fieldRanch' | t }} *</label>
+        <select
+          id="shortcutRanch"
+          class="form-select form-select-sm"
+          [(ngModel)]="quickRanchUuid"
+          [disabled]="starting || ranchRows.length === 0"
+        >
+          <option value="">{{ 'animal.selectRanch' | t }}</option>
+          <option *ngFor="let r of ranchRows" [value]="r.uuid_ranch">{{ r.name }}</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-1" for="shortcutDate">{{ 'corralWorkSession.fieldWorkDate' | t }} *</label>
+        <input id="shortcutDate" type="date" class="form-control form-control-sm" [(ngModel)]="quickWorkDate" [disabled]="starting" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-1" for="shortcutResponsible">{{ 'corralWorkSession.responsiblePerson' | t }}</label>
+        <input
+          id="shortcutResponsible"
+          class="form-control form-control-sm"
+          [(ngModel)]="quickResponsiblePerson"
+          [disabled]="starting"
+        />
+      </div>
+      <div class="col-12 col-md-auto ms-md-auto d-flex justify-content-end pt-1">
+        <button type="button" class="btn btn-primary btn-sm" (click)="startActivitySession()" [disabled]="starting">
+          <i class="bi bi-play-fill me-1"></i>
+          {{ starting ? ('common.loading' | t) : ('corralActivityShortcut.startButton' | t) }}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <div class="app-card p-0 overflow-hidden mb-3 corral-activity-shortcut-page__recent-sessions">
+    <div class="p-3">
+      <h3 class="h6 mb-3">{{ 'corralActivityShortcut.recentSessionsTitle' | t }}</h3>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label small mb-1" for="filterRanch">{{ 'animal.fieldRanch' | t }}</label>
+          <select id="filterRanch" class="form-select form-select-sm" [(ngModel)]="filterRanchUuid">
+            <option value="">{{ 'animal.allRanches' | t }}</option>
+            <option *ngFor="let r of ranchRows" [value]="r.uuid_ranch">{{ r.name }}</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small mb-1" for="filterDate">{{ 'corralWorkSession.fieldWorkDate' | t }}</label>
+          <input id="filterDate" type="date" class="form-control form-control-sm" [(ngModel)]="filterWorkDate" />
+        </div>
+        <div class="col-md-4">
+          <button type="button" class="btn btn-outline-secondary btn-sm w-100" (click)="loadSessions()" [disabled]="loading">
+            {{ 'common.search' | t }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="loading" class="text-muted small px-3 pb-3">{{ 'common.loading' | t }}</div>
+
+    <div class="table-responsive" *ngIf="!loading">
+      <table class="table table-sm table-hover mb-0">
+        <thead>
+          <tr>
+            <th>{{ 'corralWorkSession.fieldWorkDate' | t }}</th>
+            <th>{{ 'animal.fieldRanch' | t }}</th>
+            <th>{{ 'corralWorkSession.responsiblePerson' | t }}</th>
+            <th>{{ 'corralWorkSession.stepColumn' | t }}</th>
+            <th>{{ 'corralWorkSession.fieldPlannedActivities' | t }}</th>
+            <th>{{ 'corralWorkSession.fieldAnimalCount' | t }}</th>
+            <th>{{ 'corralWorkSession.fieldStatus' | t }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="sessions.length === 0">
+            <td colspan="8" class="text-muted text-center py-4">{{ 'corralActivityShortcut.emptyList' | t }}</td>
+          </tr>
+          <tr *ngFor="let s of sessions">
+            <td>{{ s.work_date | date: 'yyyy-MM-dd' }}</td>
+            <td>{{ ranchNameByUuid.get(s.ranch_uuid) || s.ranch_uuid }}</td>
+            <td>{{ s.responsible_person || ('common.notAvailable' | t) }}</td>
+            <td>{{ s.steps?.length || 0 }}</td>
+            <td>
+              <span *ngFor="let a of s.planned_activities" class="badge bg-light text-dark border me-1 mb-1">
+                {{ ('corralWorkSession.activity.' + a) | t }}
+              </span>
+            </td>
+            <td>{{ s.animal_count ?? 0 }}</td>
+            <td>{{ statusLabel(s.status) }}</td>
+            <td class="text-end">
+              <div class="d-flex flex-wrap gap-1 justify-content-end">
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="viewDetail(s)">
+                  <i class="bi bi-eye me-1"></i>{{ 'corralWorkSession.viewDetailButton' | t }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  (click)="workSession(s)"
+                  [disabled]="startingWork"
+                >
+                  {{ 'corralWorkSession.workButton' | t }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

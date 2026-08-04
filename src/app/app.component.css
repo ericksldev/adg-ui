@@ -4,6 +4,22 @@
   color: var(--text-primary);
 }
 
+/* Logged-in shell: navbar + sidebar stay put; only main content scrolls */
+.app-shell--authenticated {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-shell--authenticated .app-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 .app-layout {
   display: flex;
   min-height: calc(100vh - var(--header-height));
@@ -15,6 +31,12 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+}
+
+.app-shell--authenticated .app-main {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-page-body {
@@ -49,4 +71,3 @@
     pointer-events: auto;
   }
 }
-

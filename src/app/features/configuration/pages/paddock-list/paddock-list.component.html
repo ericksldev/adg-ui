@@ -80,11 +80,11 @@
         </thead>
         <tbody>
           <tr *ngFor="let paddock of paddocks">
-            <td *ngIf="showAllPaddocks">{{ paddock.ranch_name || '-' }}</td>
+            <td *ngIf="showAllPaddocks">{{ paddock.ranch_name || ('common.notAvailable' | t) }}</td>
             <td>{{ paddock.name }}</td>
             <td>{{ paddock.size_in_hectares ?? '-' }}</td>
-            <td>{{ paddock.grass_type || '-' }}</td>
-            <td>{{ paddock.water_source || '-' }}</td>
+            <td>{{ paddock.grass_type || ('common.notAvailable' | t) }}</td>
+            <td>{{ paddock.water_source || ('common.notAvailable' | t) }}</td>
             <td>{{ paddock.maximum_capacity ?? '-' }}</td>
             <td class="app-table__cell-actions">
               <a

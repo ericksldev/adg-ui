@@ -3,10 +3,11 @@ export const ANIMAL_BATCH_MAX_ROW_SLOTS = 500;
 export const ANIMAL_BATCH_DEFAULT_ROW_SLOTS = 10;
 /** Bumped when draft row shape changes (invalidates old localStorage drafts). */
 export const ANIMAL_BATCH_STORAGE_PREFIX = 'adg_animal_batch_draft_v5';
-export const ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX = 'adg_animal_batch_visible_cols_v2';
+export const ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX = 'adg_animal_batch_visible_cols_v3';
 export const ANIMAL_BATCH_PERSIST_DEBOUNCE_MS = 400;
 
 export type AnimalBatchOptionalColumnKey =
+  | 'breedCode'
   | 'chipNumber'
   | 'motherRegistrationNumber'
   | 'fatherRegistrationNumber'
@@ -22,6 +23,7 @@ export interface AnimalBatchOptionalColumnDef {
 }
 
 export const ANIMAL_BATCH_OPTIONAL_COLUMNS: readonly AnimalBatchOptionalColumnDef[] = [
+  { key: 'breedCode', labelKey: 'animal.fieldBreed' },
   { key: 'chipNumber', labelKey: 'animal.fieldChipNumber' },
   { key: 'motherRegistrationNumber', labelKey: 'animal.fieldMotherRegistration' },
   { key: 'fatherRegistrationNumber', labelKey: 'animal.fieldFatherRegistration' },
@@ -33,6 +35,7 @@ export const ANIMAL_BATCH_OPTIONAL_COLUMNS: readonly AnimalBatchOptionalColumnDe
 ] as const;
 
 export const ANIMAL_BATCH_DEFAULT_OPTIONAL_COLUMN_VISIBILITY: Record<AnimalBatchOptionalColumnKey, boolean> = {
+  breedCode: true,
   chipNumber: true,
   motherRegistrationNumber: true,
   fatherRegistrationNumber: true,

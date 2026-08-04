@@ -66,7 +66,7 @@ export class UserManagementService {
   }
 
   getRanches(uuidCompany?: string): Observable<RanchOption[]> {
-    let params = new HttpParams().set('page', '1').set('size', '500');
+    let params = new HttpParams().set('page', '1').set('size', '500').set('status', 'active');
     if (uuidCompany?.trim()) {
       params = params.set('uuid_company', uuidCompany);
     }

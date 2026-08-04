@@ -6,6 +6,7 @@ import { CompanyManagement } from '../../models/company-management.model';
 import { SaasManagementService } from '../../services/saas-management.service';
 import { CompanyFieldAvailabilityService } from 'src/app/core/services/company-field-availability.service';
 import { I18nService } from 'src/app/core/services/i18n.service';
+import { notAvailableLabel } from 'src/app/core/utils/i18n-display.util';
 import { translateCompanyWriteError } from 'src/app/core/utils/company-write-error.util';
 import { ConfirmDialogComponent } from 'src/app/shared/components/modals/confirm-dialog/confirm-dialog.component';
 import { BillingCycle, CompanyPlanType, MembershipStatus } from 'src/app/shared/constants/domain.constants';
@@ -290,7 +291,7 @@ export class SaasManagementComponent implements OnInit, OnDestroy {
 
   getPlanLabel(plan: CompanyPlanType | string | undefined): string {
     if (!plan) {
-      return '-';
+      return notAvailableLabel(this.i18nService);
     }
     const key = normalizeCompanyPlanType(String(plan)).toLowerCase();
     return this.i18nService.translate(`saas.planType.${key}`);
@@ -298,7 +299,7 @@ export class SaasManagementComponent implements OnInit, OnDestroy {
 
   getBillingCycleLabel(cycle: BillingCycle | string | undefined): string {
     if (!cycle) {
-      return '-';
+      return notAvailableLabel(this.i18nService);
     }
     const key = normalizeBillingCycle(String(cycle)).toLowerCase();
     return this.i18nService.translate(`saas.billingCycle.${key}`);
@@ -310,7 +311,7 @@ export class SaasManagementComponent implements OnInit, OnDestroy {
 
   getMembershipStatusLabel(status: MembershipStatus | undefined): string {
     if (!status) {
-      return '-';
+      return notAvailableLabel(this.i18nService);
     }
     return this.i18nService.translate(`saas.membershipStatus.${status.toLowerCase()}`);
   }

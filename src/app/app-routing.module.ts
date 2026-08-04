@@ -21,6 +21,12 @@ const routes: Routes = [
     data: { breadcrumb: 'breadcrumbs.animal' }
   },
   {
+    path: 'corral-work-session',
+    loadChildren: () =>
+      import('./features/corral-work-sessions/corral-work-session.module').then((m) => m.CorralWorkSessionModule),
+    data: { breadcrumb: 'breadcrumbs.corralWorkSession' }
+  },
+  {
     path: 'saas-management',
     loadChildren: () =>
       import('./features/companies/company.module').then((m) => m.CompanyModule),

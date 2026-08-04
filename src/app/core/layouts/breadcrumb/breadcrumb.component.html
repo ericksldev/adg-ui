@@ -1,7 +1,7 @@
 <nav
   class="app-breadcrumb-bar"
   *ngIf="showBreadcrumb"
-  aria-label="Breadcrumb"
+  [attr.aria-label]="'common.breadcrumb' | t"
 >
   <div class="container-fluid app-breadcrumb-bar__inner">
     <div class="app-breadcrumb-bar__row">

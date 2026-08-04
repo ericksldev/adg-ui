@@ -1,15 +1,17 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { AuthenticationServiceService } from '../../services/authentication-service.service';
 import { SessionService } from '../../services/session.service';
 import { AppLanguage, I18nService } from '../../services/i18n.service';
+import { formatAppDate, translateMembershipStatus } from '../../utils/i18n-display.util';
 
 @Component({
   selector: 'app-navbar',
   templateUrl: './navbar.component.html',
   styleUrls: ['./navbar.component.scss']
 })
-export class NavbarComponent implements OnInit {
+export class NavbarComponent implements OnInit, OnDestroy {
   isNavbarCollapsed = true;
   username = '';
   membershipStatus = '';
@@ -21,6 +23,7 @@ export class NavbarComponent implements OnInit {
     { code: 'pt', label: 'PT' },
     { code: 'en', label: 'EN' }
   ];
+  private languageSubscription?: Subscription;
   @Input() isSidebarOpen = false;
   @Output() toggleSidebarToParent = new EventEmitter<boolean>();
   @Output() themeChanged = new EventEmitter<'light' | 'dark'>();
@@ -36,6 +39,14 @@ export class NavbarComponent implements OnInit {
     this.username = this.authenticationService.getUsername() ?? this.i18nService.translate('common.username');
     this.currentLanguage = this.i18nService.getCurrentLanguage();
     this.buildMembershipSummary();
+    this.languageSubscription = this.i18nService.language$.subscribe((language) => {
+      this.currentLanguage = language;
+      this.buildMembershipSummary();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.languageSubscription?.unsubscribe();
   }
   
   toggleSidebar() {
@@ -75,7 +86,7 @@ export class NavbarComponent implements OnInit {
       return;
     }
 
-    this.membershipStatus = session.membership_status ?? 'UNKNOWN';
+    this.membershipStatus = translateMembershipStatus(this.i18nService, session.membership_status);
     if (!session.membership_renewal_at) {
       this.renewalDateLabel = this.i18nService.translate('nav.membership.noDate');
       this.remainingDaysLabel = '';
@@ -83,7 +94,7 @@ export class NavbarComponent implements OnInit {
     }
 
     const renewalDate = new Date(session.membership_renewal_at);
-    this.renewalDateLabel = renewalDate.toLocaleDateString();
+    this.renewalDateLabel = formatAppDate(this.i18nService, renewalDate);
 
     const msPerDay = 1000 * 60 * 60 * 24;
     const remainingDays = Math.ceil((renewalDate.getTime() - Date.now()) / msPerDay);

@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { forkJoin, of, Subject } from 'rxjs';
-import { catchError, filter, switchMap, takeUntil } from 'rxjs/operators';
+import { catchError, finalize, switchMap, takeUntil } from 'rxjs/operators';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
 import {
@@ -10,6 +10,7 @@ import {
 } from 'src/app/core/utils/animal-write-error.util';
 import { RanchOption } from 'src/app/features/users/models/user-management.model';
 import { UserManagementService } from 'src/app/features/users/services/user-management.service';
+import { SearchableSelectOption } from 'src/app/shared/components/searchable-select/searchable-select.component';
 import { AnimalCreatePayload } from '../../models/animal-create-payload.model';
 import {
   AnimalApiService,
@@ -30,6 +31,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
   readonly maxBirthDate = `${new Date().getFullYear() + 1}-12-31`;
   feedback: { type: 'success' | 'error'; message: string } | null = null;
   saving = false;
+  loadingRanchDependencies = false;
 
   ranchRows: RanchOption[] = [];
   breedRows: BreedOptionDto[] = [];
@@ -51,7 +53,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       ranchUuid: ['', Validators.required],
       registrationNumber: ['', Validators.required],
       chipNumber: [''],
-      breedCode: ['UNKNOWN', Validators.required],
+      breedCode: [''],
       sex: ['MALE', Validators.required],
       originType: ['UNKNOWN', Validators.required],
       motherRegistrationNumber: [''],
@@ -62,6 +64,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       birthDate: ['', [Validators.required, AnimalRegisterIndividualComponent.birthDateValidator]],
       description: ['']
     });
+
   }
 
   private static birthDateValidator(control: AbstractControl): ValidationErrors | null {
@@ -106,14 +109,21 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       .get('ranchUuid')
       ?.valueChanges.pipe(
         takeUntil(this.destroy$),
-        filter((v) => Boolean(String(v ?? '').trim())),
-        switchMap((ranchUuid) =>
-          forkJoin({
-            paddocks: this.animalApi.getPaddocksForRanch(ranchUuid).pipe(catchError(() => of([]))),
-            mothers: this.animalApi.getParentOptions(ranchUuid, 'FEMALE').pipe(catchError(() => of([]))),
-            fathers: this.animalApi.getParentOptions(ranchUuid, 'MALE').pipe(catchError(() => of([])))
-          })
-        )
+        switchMap((ranchUuid) => {
+          const id = String(ranchUuid ?? '').trim();
+          if (!id) {
+            this.loadingRanchDependencies = false;
+            return of({ paddocks: [] as PaddockOptionDto[], mothers: [] as ParentOptionDto[], fathers: [] as ParentOptionDto[] });
+          }
+          this.loadingRanchDependencies = true;
+          return forkJoin({
+            paddocks: this.animalApi.getPaddocksForRanch(id).pipe(catchError(() => of([]))),
+            mothers: this.animalApi.getParentOptions(id, 'FEMALE').pipe(catchError(() => of([]))),
+            fathers: this.animalApi.getParentOptions(id, 'MALE').pipe(catchError(() => of([])))
+          }).pipe(finalize(() => {
+            this.loadingRanchDependencies = false;
+          }));
+        })
       )
       .subscribe(({ paddocks, mothers, fathers }) => {
         this.paddockOptions = paddocks;
@@ -133,6 +143,68 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       .get('registrationNumber')
       ?.valueChanges.pipe(takeUntil(this.destroy$))
       .subscribe(() => this.clearRegistrationDuplicateError());
+  }
+
+  get ranchSelected(): boolean {
+    return Boolean(String(this.form.get('ranchUuid')?.value ?? '').trim());
+  }
+
+  get paddockSelectOptions(): SearchableSelectOption[] {
+    return this.paddockOptions.map((p) => ({ value: p.paddock_uuid, label: p.name }));
+  }
+
+  get motherSelectOptions(): SearchableSelectOption[] {
+    return this.motherOptions.map((p) => ({
+      value: p.registration_number,
+      label: p.registration_number
+    }));
+  }
+
+  get fatherSelectOptions(): SearchableSelectOption[] {
+    return this.fatherOptions.map((p) => ({
+      value: p.registration_number,
+      label: p.registration_number
+    }));
+  }
+
+  get currentPaddockUuid(): string {
+    return String(this.form.get('currentPaddockUuid')?.value ?? '');
+  }
+
+  get motherRegistrationNumber(): string {
+    return String(this.form.get('motherRegistrationNumber')?.value ?? '');
+  }
+
+  get fatherRegistrationNumber(): string {
+    return String(this.form.get('fatherRegistrationNumber')?.value ?? '');
+  }
+
+  onPaddockChange(value: string): void {
+    this.form.get('currentPaddockUuid')?.setValue(value);
+  }
+
+  onMotherChange(value: string): void {
+    this.form.get('motherRegistrationNumber')?.setValue(value);
+  }
+
+  onFatherChange(value: string): void {
+    this.form.get('fatherRegistrationNumber')?.setValue(value);
+  }
+
+  isMotherUnknown(): boolean {
+    const value = String(this.form.get('motherRegistrationNumber')?.value ?? '').trim();
+    if (!value || !this.ranchSelected) {
+      return false;
+    }
+    return !this.motherOptions.some((p) => p.registration_number === value);
+  }
+
+  isFatherUnknown(): boolean {
+    const value = String(this.form.get('fatherRegistrationNumber')?.value ?? '').trim();
+    if (!value || !this.ranchSelected) {
+      return false;
+    }
+    return !this.fatherOptions.some((p) => p.registration_number === value);
   }
 
   private clearRegistrationDuplicateError(): void {
@@ -178,12 +250,16 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     };
     const payload: AnimalCreatePayload = {
       ranch_uuid: v.ranchUuid.trim(),
-      breed_code: v.breedCode.trim(),
       registration_number: v.registrationNumber.trim(),
       sex: v.sex as 'MALE' | 'FEMALE',
       origin_type: v.originType as AnimalCreatePayload['origin_type'],
       birth_date: String(v.birthDate ?? '').trim()
     };
+
+    const breed = String(v.breedCode ?? '').trim();
+    if (breed) {
+      payload.breed_code = breed;
+    }
 
     const chip = String(v.chipNumber ?? '').trim();
     const mother = String(v.motherRegistrationNumber ?? '').trim();
@@ -215,11 +291,17 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       payload.description = desc;
     }
 
+    const hadUnresolvedParents = this.isMotherUnknown() || this.isFatherUnknown();
+
     this.saving = true;
     this.animalApi.createAnimal(payload).subscribe({
       next: () => {
         this.saving = false;
-        this.feedback = { type: 'success', message: this.i18n.translate('animal.individualSaveSuccess') };
+        let message = this.i18n.translate('animal.individualSaveSuccess');
+        if (hadUnresolvedParents) {
+          message = `${message} ${this.i18n.translate('animal.parentNotLinkedOnSave')}`;
+        }
+        this.feedback = { type: 'success', message };
         this.resetForm();
       },
       error: (err) => {
@@ -245,7 +327,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       ranchUuid: '',
       registrationNumber: '',
       chipNumber: '',
-      breedCode: 'UNKNOWN',
+      breedCode: '',
       sex: 'MALE',
       originType: 'UNKNOWN',
       motherRegistrationNumber: '',

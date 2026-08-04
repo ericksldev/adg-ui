@@ -46,11 +46,11 @@
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'saas.legalName' | t }}</div>
-        <div class="app-detail-value">{{ company.legal_name || '-' }}</div>
+        <div class="app-detail-value">{{ company.legal_name || ('common.notAvailable' | t) }}</div>
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'saas.taxId' | t }}</div>
-        <div class="app-detail-value">{{ company.tax_id || '-' }}</div>
+        <div class="app-detail-value">{{ company.tax_id || ('common.notAvailable' | t) }}</div>
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'saas.plan' | t }}</div>
@@ -70,7 +70,7 @@
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'saas.membershipStartDate' | t }}</div>
-        <div class="app-detail-value">{{ (company.membership_started_at | date:'yyyy-MM-dd') || '-' }}</div>
+        <div class="app-detail-value">{{ (company.membership_started_at | date:'yyyy-MM-dd') || ('common.notAvailable' | t) }}</div>
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'common.status' | t }}</div>

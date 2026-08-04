@@ -1,8 +1,7 @@
-<div class="container-fluid">
+<div class="animal-batch-register">
   <div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
     <h2 class="app-page-title mb-0">{{ 'animal.batchRegisterTitle' | t }}</h2>
     <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-outline-secondary btn-sm" routerLink="/animal/register/individual">{{ 'animal.individualRegisterTitle' | t }}</a>
       <button type="button" class="btn btn-success btn-sm" (click)="saveBatch()" [disabled]="savingBatch">
         {{ (savingBatch ? 'common.loading' : 'animal.batchSaveBatch') | t }}
       </button>
@@ -10,10 +9,14 @@
   </div>
 
   <div class="animal-batch-hints app-card p-2 mb-3" role="note">
-    <ul class="animal-batch-hints-list mb-0 small text-muted">
-      <li>{{ 'animal.batchHintDraft' | t }}</li>
-      <li>{{ 'animal.batchHintRequired' | t }}</li>
-    </ul>
+    <details #batchHintsDetails class="animal-batch-excel-details animal-batch-hints-details small text-muted" open>
+      <summary class="animal-batch-excel-summary"> {{ 'animal.batchHintsDetailsTitle' | t }}</summary>
+      <ul class="animal-batch-hints-list mb-0 mt-1">
+        <li>{{ 'animal.batchHintDraft' | t }}</li>
+        <li>{{ 'animal.batchHintRequired' | t }}</li>
+        <li>{{ 'animal.batchHintGridTools' | t }}</li>
+      </ul>
+    </details>
     <details class="animal-batch-excel-details small text-muted">
       <summary class="animal-batch-excel-summary"> {{ 'animal.batchExcelDetailsTitle' | t }}</summary>
       <p class="mb-0 mt-1 animal-batch-excel-hint">{{ 'animal.batchExcelHint' | t }}</p>
@@ -62,12 +65,26 @@
             [(ngModel)]="modelRowNumber"
             [ngModelOptions]="{ standalone: true }"
           />
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="applyModelRowToOthers()">
+          <label class="form-label mb-0 small text-nowrap" for="batchTargetRows">{{ 'animal.batchTargetRowsLabel' | t }}</label>
+          <input
+            id="batchTargetRows"
+            class="form-control form-control-sm animal-batch-bar__targets"
+            type="text"
+            [(ngModel)]="targetRowsSpec"
+            [ngModelOptions]="{ standalone: true }"
+            [attr.placeholder]="'animal.batchTargetRowsPlaceholder' | t"
+            [attr.title]="'animal.batchTargetRowsHint' | t"
+          />
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="applyModelRowToOthers()" [disabled]="rows.length < 2">
             {{ 'animal.batchApplyModelRow' | t }}
           </button>
           <div class="form-check mb-0 animal-batch-bar__check">
             <input id="batchCopyOnlyEmpty" class="form-check-input" type="checkbox" [(ngModel)]="copyOnlyEmptyTargets" [ngModelOptions]="{ standalone: true }" />
             <label class="form-check-label small" for="batchCopyOnlyEmpty">{{ 'animal.batchCopyOnlyEmpty' | t }}</label>
+          </div>
+          <div class="form-check mb-0 animal-batch-bar__check">
+            <input id="batchCopyFullRow" class="form-check-input" type="checkbox" [(ngModel)]="copyFullRow" [ngModelOptions]="{ standalone: true }" />
+            <label class="form-check-label small" for="batchCopyFullRow">{{ 'animal.batchCopyFullRow' | t }}</label>
           </div>
         </div>
 
@@ -110,76 +127,246 @@
     </div>
 
     <form *ngIf="batchTableAlive" [formGroup]="form">
-      <div class="animal-batch-scroll">
+      <div
+        #batchGridScroll
+        class="animal-batch-scroll"
+        tabindex="0"
+        [class.animal-batch-scroll--selecting]="gridSelecting"
+        [attr.aria-label]="'animal.batchGridAriaLabel' | t"
+      >
         <table
           class="table table-sm table-striped mb-0 animal-batch-table"
           [class.animal-batch-table--wide-optional]="anyOptionalColumnVisible"
+          [class.animal-batch-table--selecting]="gridSelecting"
         >
           <thead class="table-light">
             <tr>
               <th scope="col" class="text-center animal-batch-col-idx">#</th>
-              <th scope="col">{{ 'animal.fieldRegistrationNumber' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></th>
-              <th scope="col">{{ 'animal.fieldRanch' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></th>
-              <th scope="col">{{ 'animal.fieldBreed' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></th>
-              <th scope="col">{{ 'animal.fieldSex' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></th>
-              <th scope="col">
-                {{ 'animal.fieldBirthDate' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span>
+              <th scope="col" class="animal-batch-th-with-action">
+                <span class="animal-batch-th-label">{{ 'animal.fieldRegistrationNumber' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></span>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [attr.aria-label]="('animal.batchClearColumn' | t) + ' ' + ('animal.fieldRegistrationNumber' | t)"
+                  [disabled]="!columnHasData('registrationNumber') || savingBatch"
+                  (click)="clearBatchColumn('registrationNumber')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
+              </th>
+              <th scope="col" class="animal-batch-th-with-action">
+                <span class="animal-batch-th-label">{{ 'animal.fieldRanch' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></span>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [attr.aria-label]="('animal.batchClearColumn' | t) + ' ' + ('animal.fieldRanch' | t)"
+                  [disabled]="!columnHasData('ranchUuid') || savingBatch"
+                  (click)="clearBatchColumn('ranchUuid')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
+              </th>
+              <th scope="col" class="animal-batch-th-with-action">
+                <span class="animal-batch-th-label">{{ 'animal.fieldSex' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span></span>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [attr.aria-label]="('animal.batchClearColumn' | t) + ' ' + ('animal.fieldSex' | t)"
+                  [disabled]="!columnHasData('sex') || savingBatch"
+                  (click)="clearBatchColumn('sex')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
+              </th>
+              <th scope="col" class="animal-batch-th-with-action">
+                <span class="animal-batch-th-label">
+                  {{ 'animal.fieldBirthDate' | t }} <span class="animal-batch-req-star" aria-hidden="true">*</span>
+                </span>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [attr.aria-label]="('animal.batchClearColumn' | t) + ' ' + ('animal.fieldBirthDate' | t)"
+                  [disabled]="!columnHasData('birthDate') || savingBatch"
+                  (click)="clearBatchColumn('birthDate')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
+              </th>
+              <th
+                *ngIf="isOptionalColumnVisible('breedCode')"
+                scope="col"
+                class="animal-batch-th-with-action"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('breedCode')"
+              >
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldBreed' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [attr.aria-label]="('animal.batchClearColumn' | t) + ' ' + ('animal.fieldBreed' | t)"
+                  [disabled]="!columnHasData('breedCode') || savingBatch"
+                  (click)="clearBatchColumn('breedCode')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
               <th
                 *ngIf="isOptionalColumnVisible('chipNumber')"
                 scope="col"
+                class="animal-batch-th-with-action"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('chipNumber')"
               >
-                {{ 'animal.fieldChipNumber' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldChipNumber' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [disabled]="!columnHasData('chipNumber') || savingBatch"
+                  (click)="clearBatchColumn('chipNumber')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
               <th
                 *ngIf="isOptionalColumnVisible('motherRegistrationNumber')"
                 scope="col"
+                class="animal-batch-th-with-action"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('motherRegistrationNumber')"
               >
-                {{ 'animal.fieldMotherRegistration' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldMotherRegistration' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [disabled]="!columnHasData('motherRegistrationNumber') || savingBatch"
+                  (click)="clearBatchColumn('motherRegistrationNumber')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
               <th
                 *ngIf="isOptionalColumnVisible('fatherRegistrationNumber')"
                 scope="col"
+                class="animal-batch-th-with-action"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('fatherRegistrationNumber')"
               >
-                {{ 'animal.fieldFatherRegistration' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldFatherRegistration' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [disabled]="!columnHasData('fatherRegistrationNumber') || savingBatch"
+                  (click)="clearBatchColumn('fatherRegistrationNumber')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
               <th
                 *ngIf="isOptionalColumnVisible('currentOwnerUuid')"
                 scope="col"
+                class="animal-batch-th-with-action"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentOwnerUuid')"
               >
-                {{ 'animal.fieldOwner' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldOwner' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [disabled]="!columnHasData('currentOwnerUuid') || savingBatch"
+                  (click)="clearBatchColumn('currentOwnerUuid')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
               <th
                 *ngIf="isOptionalColumnVisible('currentPaddockUuid')"
                 scope="col"
+                class="animal-batch-th-with-action"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentPaddockUuid')"
               >
-                {{ 'animal.fieldPaddock' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldPaddock' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [disabled]="!columnHasData('currentPaddockUuid') || savingBatch"
+                  (click)="clearBatchColumn('currentPaddockUuid')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
               <th
                 *ngIf="isOptionalColumnVisible('color')"
                 scope="col"
+                class="animal-batch-th-with-action"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('color')"
               >
-                {{ 'animal.fieldColor' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldColor' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [disabled]="!columnHasData('color') || savingBatch"
+                  (click)="clearBatchColumn('color')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
               <th
                 *ngIf="isOptionalColumnVisible('originType')"
                 scope="col"
+                class="animal-batch-th-with-action"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('originType')"
               >
-                {{ 'animal.fieldOriginType' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldOriginType' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [disabled]="!columnHasData('originType') || savingBatch"
+                  (click)="clearBatchColumn('originType')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
               <th
                 *ngIf="isOptionalColumnVisible('description')"
                 scope="col"
+                class="animal-batch-th-with-action"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('description')"
               >
-                {{ 'animal.fieldDescription' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span>
+                <span class="animal-batch-th-label"
+                  >{{ 'animal.fieldDescription' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [disabled]="!columnHasData('description') || savingBatch"
+                  (click)="clearBatchColumn('description')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
               </th>
             </tr>
           </thead>
@@ -198,46 +385,103 @@
                   <i class="bi bi-eraser" aria-hidden="true"></i>
                 </button>
               </td>
-              <td><input class="form-control animal-batch-control" type="text" formControlName="registrationNumber" autocomplete="off" /></td>
-              <td>
+              <td
+                class="animal-batch-cell"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'registrationNumber')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'registrationNumber')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'registrationNumber')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'registrationNumber')"
+              >
+                <input class="form-control animal-batch-control" type="text" formControlName="registrationNumber" autocomplete="off" />
+              </td>
+              <td
+                class="animal-batch-cell"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'ranchUuid')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'ranchUuid')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'ranchUuid')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'ranchUuid')"
+              >
                 <select class="form-select animal-batch-control" formControlName="ranchUuid" (change)="onRanchChange(i)">
                   <option value="">{{ 'animal.selectRanch' | t }}</option>
                   <option *ngFor="let r of ranchRows" [value]="r.uuid_ranch">{{ r.name }}</option>
                 </select>
               </td>
-              <td>
-                <select class="form-select animal-batch-control" formControlName="breedCode">
-                  <option *ngFor="let c of breedCodes" [value]="c">{{ breedLabel(c) }}</option>
-                </select>
-              </td>
-              <td>
+              <td
+                class="animal-batch-cell"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'sex')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'sex')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'sex')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'sex')"
+              >
                 <select class="form-select animal-batch-control" formControlName="sex">
                   <option value="MALE">{{ 'animal.male' | t }}</option>
                   <option value="FEMALE">{{ 'animal.female' | t }}</option>
                 </select>
               </td>
-              <td><input class="form-control animal-batch-control" type="date" formControlName="birthDate" autocomplete="off" /></td>
+              <td
+                class="animal-batch-cell"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'birthDate')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'birthDate')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'birthDate')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'birthDate')"
+              >
+                <input class="form-control animal-batch-control" type="date" formControlName="birthDate" autocomplete="off" />
+              </td>
+              <td
+                *ngIf="isOptionalColumnVisible('breedCode')"
+                class="animal-batch-cell"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('breedCode')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'breedCode')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'breedCode')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'breedCode')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'breedCode')"
+              >
+                <select class="form-select animal-batch-control" formControlName="breedCode">
+                  <option value="">{{ 'animal.selectBreed' | t }}</option>
+                  <option *ngFor="let c of breedCodes" [value]="c">{{ breedLabel(c) }}</option>
+                </select>
+              </td>
               <td
                 *ngIf="isOptionalColumnVisible('chipNumber')"
+                class="animal-batch-cell"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('chipNumber')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'chipNumber')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'chipNumber')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'chipNumber')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'chipNumber')"
               >
                 <input class="form-control animal-batch-control" type="text" formControlName="chipNumber" autocomplete="off" [attr.placeholder]="'animal.fieldChipNumberPlaceholder' | t" />
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('motherRegistrationNumber')"
+                class="animal-batch-cell"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('motherRegistrationNumber')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'motherRegistrationNumber')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'motherRegistrationNumber')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'motherRegistrationNumber')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'motherRegistrationNumber')"
               >
                 <input class="form-control animal-batch-control" type="text" formControlName="motherRegistrationNumber" autocomplete="off" />
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('fatherRegistrationNumber')"
+                class="animal-batch-cell"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('fatherRegistrationNumber')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'fatherRegistrationNumber')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'fatherRegistrationNumber')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'fatherRegistrationNumber')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'fatherRegistrationNumber')"
               >
                 <input class="form-control animal-batch-control" type="text" formControlName="fatherRegistrationNumber" autocomplete="off" />
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('currentOwnerUuid')"
+                class="animal-batch-cell"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentOwnerUuid')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'currentOwnerUuid')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'currentOwnerUuid')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'currentOwnerUuid')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'currentOwnerUuid')"
               >
                 <select class="form-select animal-batch-control" formControlName="currentOwnerUuid">
                   <option value="">{{ 'animal.optionNone' | t }}</option>
@@ -246,7 +490,12 @@
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('currentPaddockUuid')"
+                class="animal-batch-cell"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentPaddockUuid')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'currentPaddockUuid')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'currentPaddockUuid')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'currentPaddockUuid')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'currentPaddockUuid')"
               >
                 <select class="form-select animal-batch-control" formControlName="currentPaddockUuid">
                   <option value="">{{ ctrl.get('ranchUuid')?.value ? ('animal.optionNone' | t) : ('animal.selectRanchFirst' | t) }}</option>
@@ -255,13 +504,23 @@
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('color')"
+                class="animal-batch-cell"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('color')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'color')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'color')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'color')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'color')"
               >
                 <input class="form-control animal-batch-control" type="text" formControlName="color" autocomplete="off" />
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('originType')"
+                class="animal-batch-cell"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('originType')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'originType')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'originType')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'originType')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'originType')"
               >
                 <select class="form-select animal-batch-control" formControlName="originType">
                   <option value="UNKNOWN">{{ 'animal.originUnknown' | t }}</option>
@@ -272,7 +531,12 @@
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('description')"
+                class="animal-batch-cell"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('description')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'description')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'description')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'description')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'description')"
               >
                 <input class="form-control animal-batch-control" type="text" formControlName="description" autocomplete="off" />
               </td>

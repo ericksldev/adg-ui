@@ -6,11 +6,11 @@
         <a class="navbar-brand me-2" href="/home">
             <img
                 src="../../../../assets/logo_navbar.jpg"
-                alt="Logo ADG"
+                [alt]="'nav.logoAlt' | t"
                 class="navbar__logo-navbar"
             />
         </a> 
-        <button class="navbar__btn-toggler-navbar navbar-toggler" type="button" (click)="toggleNavbar()" aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar__btn-toggler-navbar navbar-toggler" type="button" (click)="toggleNavbar()" aria-expanded="false" [attr.aria-label]="'nav.toggleNavigation' | t">
             <i class="bi bi-list"></i>
         </button>
         <div class="navbar__options--right collapse navbar-collapse" [ngbCollapse]="isNavbarCollapsed">
@@ -22,7 +22,7 @@
                 <select id="language-selector" class="navbar__language-select" [ngModel]="currentLanguage" (ngModelChange)="changeLanguage($event)">
                     <option *ngFor="let language of languages" [ngValue]="language.code">{{ language.label }}</option>
                 </select>
-                <div class="btn-group" role="group" aria-label="Theme selection">
+                <div class="btn-group" role="group" [attr.aria-label]="'nav.themeSelection' | t">
                     <button type="button" class="navbar__btn-dark btn" (click)="setTheme('dark')"><i class="bi bi-moon"></i></button>
                     <button type="button" class="navbar__btn-light btn" (click)="setTheme('light')"><i class="bi bi-sun"></i></button>
                 </div>

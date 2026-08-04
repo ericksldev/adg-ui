@@ -7,6 +7,7 @@ import { batchDraftRowHasData, emptyBatchDraftRow } from '../utils/animal-batch-
 import { pickBirthDateFromRecord } from '../utils/animal-batch-excel-date.util';
 
 const EXCEL_OPTIONAL_COLUMN_HEADERS: Record<AnimalBatchOptionalColumnKey, readonly string[]> = {
+  breedCode: ['breed_code', 'breedcode', 'breed', 'raza', 'breed_uuid', 'breeduuid', 'uuid_breed'],
   chipNumber: ['chip_number', 'chip', 'chipnumber', 'numero_chip', 'no_chip', 'arete', 'id_chip'],
   motherRegistrationNumber: [
     'mother_registration_number',
@@ -81,7 +82,7 @@ function pickRanchUuid(cells: Record<string, string>): string {
 }
 
 function pickBreedCode(cells: Record<string, string>): string {
-  return pickFromKeys(cells, ['breed_code', 'breedcode', 'breed', 'raza', 'breed_uuid', 'breeduuid', 'uuid_breed']);
+  return pickFromKeys(cells, EXCEL_OPTIONAL_COLUMN_HEADERS.breedCode);
 }
 
 function pickSexRaw(cells: Record<string, string>): string {

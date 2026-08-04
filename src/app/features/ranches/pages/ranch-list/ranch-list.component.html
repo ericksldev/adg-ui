@@ -46,7 +46,7 @@
             <th *ngIf="isSaasOwner">{{ 'users.company' | t }}</th>
             <th>{{ 'saas.ranchName' | t }}</th>
             <th>{{ 'saas.ranchLocation' | t }}</th>
-            <th>{{ 'saas.ranchArea' | t }} ha</th>
+            <th>{{ 'saas.ranchArea' | t }} ({{ 'common.hectaresAbbr' | t }})</th>
             <th>{{ 'common.actions' | t }}</th>
           </tr>
         </thead>
@@ -54,8 +54,8 @@
           <tr *ngFor="let ranch of ranches">
             <td *ngIf="isSaasOwner">{{ companyNameForRanch(ranch) }}</td>
             <td>{{ ranch.name }}</td>
-            <td>{{ ranch.location || '-' }}</td>
-            <td>{{ ranch.area || '-' }}</td>
+            <td>{{ ranch.location || ('common.notAvailable' | t) }}</td>
+            <td>{{ ranch.area || ('common.notAvailable' | t) }}</td>
             <td class="app-table__cell-actions">
               <a
                 class="btn btn-sm btn-outline-primary me-1"

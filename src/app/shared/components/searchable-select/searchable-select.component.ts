@@ -27,12 +27,16 @@ export class SearchableSelectComponent implements OnChanges {
   @Input() placeholder = '';
   @Input() inputId = '';
   @Input() disabled = false;
+  @Input() allowCustomValue = false;
+  @Input() size: 'sm' | 'md' = 'md';
 
   @Output() readonly valueChange = new EventEmitter<string>();
 
   searchQuery = '';
   isOpen = false;
   highlightedIndex = -1;
+
+  private suppressBlur = false;
 
   constructor(private readonly elementRef: ElementRef<HTMLElement>) {}
 
@@ -66,13 +70,34 @@ export class SearchableSelectComponent implements OnChanges {
     }
     this.isOpen = true;
     this.highlightedIndex = -1;
-    this.searchQuery = this.selectedLabel();
+    this.searchQuery = this.displayTextForValue(this.value);
   }
 
   onInput(event: Event): void {
     this.searchQuery = (event.target as HTMLInputElement).value;
     this.isOpen = true;
     this.highlightedIndex = -1;
+    if (this.allowCustomValue) {
+      this.valueChange.emit(this.searchQuery.trim());
+    }
+  }
+
+  onBlur(): void {
+    if (this.suppressBlur) {
+      this.suppressBlur = false;
+      return;
+    }
+    if (this.allowCustomValue) {
+      this.commitCustomValue();
+      return;
+    }
+    this.close();
+  }
+
+  onOptionSelect(event: MouseEvent, nextValue: string): void {
+    event.preventDefault();
+    this.suppressBlur = true;
+    this.selectValue(nextValue);
   }
 
   onKeydown(event: KeyboardEvent): void {
@@ -102,9 +127,16 @@ export class SearchableSelectComponent implements OnChanges {
       return;
     }
 
-    if (event.key === 'Enter' && this.highlightedIndex >= 0) {
-      this.selectByIndex(this.highlightedIndex);
-      event.preventDefault();
+    if (event.key === 'Enter') {
+      if (this.highlightedIndex >= 0) {
+        this.selectByIndex(this.highlightedIndex);
+        event.preventDefault();
+        return;
+      }
+      if (this.allowCustomValue) {
+        this.commitCustomValue();
+        event.preventDefault();
+      }
     }
   }
 
@@ -133,7 +165,7 @@ export class SearchableSelectComponent implements OnChanges {
     }
     this.isOpen = false;
     this.highlightedIndex = -1;
-    this.searchQuery = this.labelForValue(nextValue);
+    this.searchQuery = this.displayTextForValue(nextValue);
   }
 
   isHighlighted(index: number): boolean {
@@ -153,18 +185,26 @@ export class SearchableSelectComponent implements OnChanges {
     this.syncSearchFromValue();
   }
 
-  private syncSearchFromValue(): void {
-    this.searchQuery = this.selectedLabel();
-  }
-
-  private selectedLabel(): string {
-    return this.labelForValue(this.value);
-  }
-
-  private labelForValue(optionValue: string): string {
-    if (!optionValue) {
-      return this.allowEmpty ? this.emptyLabel : '';
+  private commitCustomValue(): void {
+    const next = this.searchQuery.trim();
+    if (next !== this.value) {
+      this.valueChange.emit(next);
     }
-    return this.options.find((option) => option.value === optionValue)?.label ?? '';
+    this.close();
+  }
+
+  private syncSearchFromValue(): void {
+    this.searchQuery = this.displayTextForValue(this.value);
+  }
+
+  private displayTextForValue(optionValue: string): string {
+    if (!optionValue) {
+      return '';
+    }
+    const match = this.options.find((option) => option.value === optionValue);
+    if (match) {
+      return match.label;
+    }
+    return this.allowCustomValue ? optionValue : '';
   }
 }
