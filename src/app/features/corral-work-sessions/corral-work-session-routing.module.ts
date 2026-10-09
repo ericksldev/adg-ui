@@ -10,6 +10,7 @@ import { CorralWorkSessionLoadAnimalsComponent } from './pages/corral-work-sessi
 import { CorralWorkSessionWorkspaceComponent } from './pages/corral-work-session-workspace/corral-work-session-workspace.component';
 import { CorralWorkSessionDetailComponent } from './pages/corral-work-session-detail/corral-work-session-detail.component';
 import { CorralActivityShortcutPageComponent } from './pages/corral-activity-shortcut/corral-activity-shortcut-page.component';
+import { PendingAnimalRegistrationListComponent } from './pages/pending-animal-registration-list/pending-animal-registration-list.component';
 
 const readPermissions = [Permission.ANIMAL_WORK_SESSION_READ];
 const writePermissions = [Permission.ANIMAL_WORK_SESSION_WRITE];
@@ -22,6 +23,15 @@ const routes: Routes = [
     data: {
       permissions: readPermissions,
       breadcrumb: 'breadcrumbs.corralWorkSessionList'
+    }
+  },
+  {
+    path: 'pending-registrations',
+    component: PendingAnimalRegistrationListComponent,
+    canActivate: [AutenticacionGuard, PermissionGuard],
+    data: {
+      permissions: readPermissions,
+      breadcrumb: 'breadcrumbs.pendingAnimalRegistrations'
     }
   },
   {

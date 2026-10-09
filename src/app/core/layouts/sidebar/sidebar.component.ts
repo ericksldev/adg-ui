@@ -37,6 +37,14 @@ export class SidebarComponent {
     return this.canAccessTenantCompany ? '/saas-management/my-company' : null;
   }
 
+  get canAccessPlans(): boolean {
+    return this.hasPermission(Permission.SAAS_PLAN_READ);
+  }
+
+  get canAccessTerms(): boolean {
+    return this.hasPermission(Permission.TERMS_VERSION_READ);
+  }
+
   get canAccessUsers(): boolean {
     return this.hasPermission(Permission.USER_READ);
   }
@@ -46,26 +54,27 @@ export class SidebarComponent {
   }
 
   get canAccessOwners(): boolean {
-    return (
-      this.hasPermission(Permission.OWNER_READ) ||
-      this.hasPermission(Permission.ANIMAL_READ)
-    );
+    return this.hasPermission(Permission.OWNER_READ);
+  }
+
+  get canAccessAnimals(): boolean {
+    return this.hasPermission(Permission.ANIMAL_READ);
   }
 
   get canAccessPaddocks(): boolean {
-    return (
-      this.hasPermission(Permission.PADDOCK_READ) ||
-      this.hasPermission(Permission.RANCH_READ) ||
-      this.hasPermission(Permission.ANIMAL_READ)
-    );
+    return this.hasPermission(Permission.PADDOCK_READ);
   }
 
   get hasConfigurationSection(): boolean {
     return this.canAccessOwners || this.canAccessPaddocks;
   }
 
+  get canAccessRecordPurge(): boolean {
+    return this.hasPermission(Permission.RECORD_PURGE_READ);
+  }
+
   get hasAdministrationSection(): boolean {
-    return this.canAccessCompanies || this.canAccessUsers || this.canAccessTenantCompany || this.canAccessRanches;
+    return this.canAccessCompanies || this.canAccessPlans || this.canAccessTerms || this.canAccessUsers || this.canAccessTenantCompany || this.canAccessRanches || this.canAccessRecordPurge;
   }
 
   get canAccessFieldOps(): boolean {

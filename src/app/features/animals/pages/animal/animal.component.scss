@@ -44,14 +44,16 @@
   word-break: break-word;
 }
 
-.animal-list__columns-details {
+.animal-list__columns-details,
+.animal-list__filters-details {
   font-size: 0.78rem;
   margin: 0.55rem 0 0.75rem;
   padding-top: 0.55rem;
   border-top: 1px solid var(--border);
 }
 
-.animal-list__columns-summary {
+.animal-list__columns-summary,
+.animal-list__filters-summary {
   cursor: pointer;
   font-weight: 600;
   color: var(--text-secondary);
@@ -68,8 +70,47 @@
   }
 }
 
-.animal-list__columns-details[open] .animal-list__columns-summary::before {
+.animal-list__columns-details[open] .animal-list__columns-summary::before,
+.animal-list__filters-details[open] .animal-list__filters-summary::before {
   transform: rotate(90deg);
+}
+
+.animal-list__filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: 0.65rem 0.75rem;
+  align-items: end;
+}
+
+.animal-list__filters-actions {
+  display: flex;
+  align-items: flex-end;
+}
+
+.animal-list__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.65rem;
+}
+
+.animal-list__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
 }
 
 .animal-list__columns-actions {
@@ -95,4 +136,38 @@
 
 .animal-list__columns-actions-sep {
   color: var(--text-secondary);
+}
+
+.animal-list__column-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+
+  .form-check-inline {
+    margin-right: 0;
+  }
+}
+
+.animal-list__birth-mode {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.animal-list__birth-mode-option {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+
+  &--active {
+    background: var(--primary);
+    color: #fff;
+  }
 }

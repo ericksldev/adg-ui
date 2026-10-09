@@ -28,6 +28,14 @@ export class AnimalModuleNavComponent {
       exact: true
     },
     {
+      id: 'attendance',
+      labelKey: 'animal.nav.attendance',
+      descriptionKey: 'animal.nav.attendanceDescription',
+      route: '/animal/attendance',
+      iconClass: 'bi-clipboard2-check',
+      exact: true
+    },
+    {
       id: 'register-individual',
       labelKey: 'animal.nav.registerIndividual',
       descriptionKey: 'animal.nav.registerIndividualDescription',

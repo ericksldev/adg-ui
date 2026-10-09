@@ -10,6 +10,7 @@ import {
   ViewChild
 } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
+import { Router } from '@angular/router';
 import { firstValueFrom, forkJoin, of, Subject, Subscription } from 'rxjs';
 import { catchError, debounceTime, finalize, takeUntil } from 'rxjs/operators';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
@@ -17,10 +18,12 @@ import { ConfirmDialogComponent } from 'src/app/shared/components/modals/confirm
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
 import { translateAnimalWriteError } from 'src/app/core/utils/animal-write-error.util';
+import { readLocalStorageMigrating } from 'src/app/core/utils/legacy-local-storage';
 import { RanchOption } from 'src/app/features/users/models/user-management.model';
 import { UserManagementService } from 'src/app/features/users/services/user-management.service';
 import {
   ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX,
+  ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX_LEGACY,
   ANIMAL_BATCH_DEFAULT_OPTIONAL_COLUMN_VISIBILITY,
   ANIMAL_BATCH_DEFAULT_ROW_SLOTS,
   ANIMAL_BATCH_MAX_ROW_SLOTS,
@@ -40,6 +43,7 @@ import {
   AnimalBatchDraftRow,
   AnimalBatchDraftSnapshot
 } from '../../models/animal-batch-draft.model';
+import { PendingAnimalBatchNavigationState } from '../../models/animal-batch-pending-handoff.model';
 import { AnimalBatchCreateRequestBody } from '../../models/animal-batch-create.model';
 import { AnimalCreatePayload } from '../../models/animal-create-payload.model';
 import { AnimalApiService, OwnerOptionDto, PaddockOptionDto } from '../../services/animal-api.service';
@@ -84,6 +88,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   feedback: { type: 'success' | 'error'; message: string } | null = null;
   savingBatch = false;
   batchTableAlive = true;
+  fromPendingRegistrations = false;
 
   ranchRows: RanchOption[] = [];
   ownerRows: OwnerOptionDto[] = [];
@@ -106,6 +111,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   private draftPersistSub?: Subscription;
   private readonly paddockCache = new Map<string, PaddockOptionDto[]>();
   private readonly paddockLoading = new Set<string>();
+  private readonly pendingBatchSeeds: AnimalBatchDraftRow[];
 
   constructor(
     private readonly fb: FormBuilder,
@@ -117,11 +123,13 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     private readonly animalApi: AnimalApiService,
     private readonly cdr: ChangeDetectorRef,
     private readonly ngZone: NgZone,
-    private readonly modalService: NgbModal
+    private readonly modalService: NgbModal,
+    private readonly router: Router
   ) {
     this.form = this.fb.group({
       rows: this.fb.array([])
     });
+    this.pendingBatchSeeds = this.readPendingBatchSeeds();
   }
 
   get rows(): FormArray {
@@ -729,17 +737,50 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
         this.ownerRows = owners;
       });
 
-    const draft = this.draftStorage.load();
-    if (draft) {
-      const count = this.clampSlotCount(draft.rowSlotCount);
-      this.requestedSlotCount = count;
-      this.replaceFormRows(count, draft.rows);
+    if (this.pendingBatchSeeds.length > 0) {
+      const limited = this.pendingBatchSeeds.slice(0, ANIMAL_BATCH_MAX_ROW_SLOTS);
+      const slotCount = this.clampSlotCount(Math.max(ANIMAL_BATCH_MIN_ROW_SLOTS, limited.length));
+      this.requestedSlotCount = slotCount;
+      this.fromPendingRegistrations = true;
+      this.replaceFormRows(slotCount, limited);
+      this.preloadPaddocksForAllRanches();
+      this.persistDraftNow();
+      if (this.pendingBatchSeeds.length > limited.length) {
+        this.setFeedback({
+          type: 'error',
+          message: this.i18n.translate('animal.pendingBatchTruncated', {
+            count: String(limited.length),
+            max: String(ANIMAL_BATCH_MAX_ROW_SLOTS)
+          })
+        });
+      }
     } else {
-      this.requestedSlotCount = ANIMAL_BATCH_DEFAULT_ROW_SLOTS;
-      this.replaceFormRows(ANIMAL_BATCH_DEFAULT_ROW_SLOTS, []);
+      const draft = this.draftStorage.load();
+      if (draft) {
+        const count = this.clampSlotCount(draft.rowSlotCount);
+        this.requestedSlotCount = count;
+        this.replaceFormRows(count, draft.rows);
+      } else {
+        this.requestedSlotCount = ANIMAL_BATCH_DEFAULT_ROW_SLOTS;
+        this.replaceFormRows(ANIMAL_BATCH_DEFAULT_ROW_SLOTS, []);
+      }
     }
 
     this.bindDraftAutoSave();
+  }
+
+  private readPendingBatchSeeds(): AnimalBatchDraftRow[] {
+    const state = this.router.getCurrentNavigation()?.extras.state as PendingAnimalBatchNavigationState | undefined;
+    if (!state?.fromPendingRegistrations || !Array.isArray(state.rows)) {
+      return [];
+    }
+    return state.rows
+      .map((row) => ({
+        ...emptyBatchDraftRow(),
+        registrationNumber: String(row.registrationNumber ?? '').trim(),
+        ranchUuid: String(row.ranchUuid ?? '').trim()
+      }))
+      .filter((row) => row.registrationNumber && row.ranchUuid);
   }
 
   ngAfterViewInit(): void {
@@ -1053,21 +1094,22 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     this.cdr.detectChanges();
   }
 
-  private columnsStorageKey(): string | null {
+  private columnsStorageKey(prefix: string): string | null {
     const company = this.sessionService.getUuidCompany();
     const username = this.sessionService.getUsername();
     if (!company?.trim() || !username?.trim()) {
       return null;
     }
-    return `${ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX}_${company}_${username}`;
+    return `${prefix}_${company}_${username}`;
   }
 
   private loadColumnVisibility(): void {
-    const key = this.columnsStorageKey();
-    if (!key) {
+    const key = this.columnsStorageKey(ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX);
+    const legacyKey = this.columnsStorageKey(ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX_LEGACY);
+    if (!key || !legacyKey) {
       return;
     }
-    const raw = localStorage.getItem(key);
+    const raw = readLocalStorageMigrating(key, legacyKey);
     if (!raw) {
       return;
     }
@@ -1083,7 +1125,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   }
 
   private persistColumnVisibility(): void {
-    const key = this.columnsStorageKey();
+    const key = this.columnsStorageKey(ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX);
     if (!key) {
       return;
     }

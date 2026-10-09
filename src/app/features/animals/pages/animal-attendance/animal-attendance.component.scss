@@ -1,0 +1,55 @@
+.attendance-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.attendance-summary__label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.attendance-summary__value {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.attendance-summary__value--present {
+  color: var(--success);
+}
+
+.attendance-summary__value--absent {
+  color: var(--danger, #b42318);
+}
+
+.attendance-status {
+  max-width: 12rem;
+}
+
+.attendance-reg-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.attendance-reg-link:hover {
+  text-decoration: underline;
+}
+
+.attendance-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.attendance-badge--present {
+  background: color-mix(in srgb, var(--success) 22%, var(--surface));
+  color: var(--success);
+}
+
+.attendance-badge--absent {
+  background: color-mix(in srgb, var(--danger, #b42318) 16%, var(--surface));
+  color: var(--danger, #b42318);
+}

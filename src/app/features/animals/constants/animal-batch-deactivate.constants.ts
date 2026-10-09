@@ -55,4 +55,6 @@ export const ANIMAL_BATCH_DEACTIVATE_DEFAULT_COLUMN_VISIBILITY: Record<
 };
 
 export const ANIMAL_BATCH_DEACTIVATE_COLUMNS_STORAGE_PREFIX =
+  'vrete_animal_batch_deactivate_visible_cols_v1';
+export const ANIMAL_BATCH_DEACTIVATE_COLUMNS_STORAGE_PREFIX_LEGACY =
   'adg_animal_batch_deactivate_visible_cols_v1';

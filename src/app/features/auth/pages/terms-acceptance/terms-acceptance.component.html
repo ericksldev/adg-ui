@@ -1,0 +1,57 @@
+<section class="terms-gate">
+  <div class="terms-gate__card app-card">
+    <header class="terms-gate__header">
+      <div>
+        <p class="terms-gate__brand">Vrete</p>
+        <p class="terms-gate__provider">Myracore Services</p>
+      </div>
+      <button type="button" class="btn btn-link terms-gate__logout" (click)="logout()">
+        {{ 'terms.logout' | t }}
+      </button>
+    </header>
+
+    <h1>{{ document?.title || ('terms.title' | t) }}</h1>
+    <p class="terms-gate__notice">{{ 'terms.notice' | t }}</p>
+
+    <dl class="terms-gate__meta" *ngIf="document">
+      <div>
+        <dt>{{ 'terms.version' | t }}</dt>
+        <dd>{{ document.version }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'terms.updatedAt' | t }}</dt>
+        <dd>{{ document.effective_at | date:'dd/MM/yyyy':'UTC' }}</dd>
+      </div>
+    </dl>
+
+    <p class="terms-gate__status" *ngIf="isLoading">{{ 'common.loading' | t }}</p>
+
+    <div class="alert alert-warning" role="alert" *ngIf="!isLoading && blockReason === 'membership_invalid'">
+      {{ 'terms.membershipInvalid' | t }}
+    </div>
+    <div class="alert alert-warning" role="alert" *ngIf="!isLoading && blockReason === 'organization_missing'">
+      {{ 'terms.organizationMissing' | t }}
+    </div>
+    <div class="alert alert-warning" role="alert" *ngIf="!isLoading && blockReason === 'terms_unavailable'">
+      {{ 'terms.unavailable' | t }}
+    </div>
+    <div class="alert alert-danger" role="alert" *ngIf="loadErrorKey">{{ loadErrorKey | t }}</div>
+
+    <article class="terms-gate__document" *ngIf="documentHtml" [innerHTML]="documentHtml"></article>
+
+    <footer class="terms-gate__actions" *ngIf="document && blockReason === 'acceptance_required'">
+      <label class="terms-gate__checkbox">
+        <input type="checkbox" [(ngModel)]="hasAccepted" [disabled]="isSubmitting" />
+        <span>{{ 'terms.checkbox' | t }}</span>
+      </label>
+      <div class="alert alert-danger py-2" role="alert" *ngIf="actionErrorKey">{{ actionErrorKey | t }}</div>
+      <button type="button" class="btn btn-primary w-100" [disabled]="!canSubmit" (click)="accept()">
+        {{ (isSubmitting ? 'terms.accepting' : 'terms.accept') | t }}
+      </button>
+    </footer>
+
+    <div class="terms-gate__retry" *ngIf="!isLoading && !document">
+      <button type="button" class="btn btn-outline-secondary" (click)="load()">{{ 'terms.retry' | t }}</button>
+    </div>
+  </div>
+</section>

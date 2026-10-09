@@ -97,6 +97,39 @@
           </li>
         </ul>
       </section>
+
+      <section class="app-card p-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <h3 class="h6 mb-0">{{ 'animal.attendance.title' | t }}</h3>
+          <a
+            class="btn btn-sm btn-outline-primary"
+            [routerLink]="attendanceReviewLink().commands"
+            [queryParams]="attendanceReviewLink().queryParams"
+          >{{ (animal.current_paddock_uuid ? 'animal.attendance.reviewPaddock' : 'animal.attendance.reviewInventory') | t }}</a>
+        </div>
+        <div *ngIf="attendanceLoading" class="text-muted small">{{ 'common.loading' | t }}</div>
+        <p *ngIf="attendanceError" class="text-danger small mb-0">{{ attendanceError }}</p>
+        <ng-container *ngIf="!attendanceLoading && attendance">
+          <p class="small mb-2">
+            <span
+              class="animal-detail__attendance-badge"
+              [class.animal-detail__attendance-badge--present]="attendance.status === 'PRESENT'"
+              [class.animal-detail__attendance-badge--absent]="attendance.status === 'ABSENT'"
+            >{{ (attendance.status === 'PRESENT' ? 'animal.attendance.statusPresent' : 'animal.attendance.statusAbsent') | t }}</span>
+            <span class="text-muted ms-2" *ngIf="attendance.last_attended_on">
+              {{ 'animal.attendance.lastDate' | t }}: {{ attendance.last_attended_on }}
+            </span>
+          </p>
+          <p *ngIf="!attendance.history?.length" class="text-muted small mb-0">{{ 'animal.attendance.historyEmpty' | t }}</p>
+          <ul *ngIf="attendance.history?.length" class="list-unstyled mb-0 animal-detail__history">
+            <li *ngFor="let entry of attendance.history">
+              <span>{{ entry.work_date }}</span>
+              <span class="text-muted">{{ entry.responsible_person || ('common.notAvailable' | t) }}</span>
+              <span class="text-muted">{{ sessionStatusLabel(entry.session_status) }}</span>
+            </li>
+          </ul>
+        </ng-container>
+      </section>
     </div>
   </div>
 </div>

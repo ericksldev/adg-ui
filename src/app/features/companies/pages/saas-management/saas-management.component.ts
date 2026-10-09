@@ -9,12 +9,8 @@ import { I18nService } from 'src/app/core/services/i18n.service';
 import { notAvailableLabel } from 'src/app/core/utils/i18n-display.util';
 import { translateCompanyWriteError } from 'src/app/core/utils/company-write-error.util';
 import { ConfirmDialogComponent } from 'src/app/shared/components/modals/confirm-dialog/confirm-dialog.component';
-import { BillingCycle, CompanyPlanType, MembershipStatus } from 'src/app/shared/constants/domain.constants';
-import {
-  normalizeBillingCycle,
-  normalizeCompanyPlanType,
-  PLAN_HEAD_LIMIT
-} from 'src/app/shared/constants/subscription.constants';
+import { BillingCycle, MembershipStatus } from 'src/app/shared/constants/domain.constants';
+import { normalizeBillingCycle } from 'src/app/shared/constants/subscription.constants';
 import { ApiPagination } from 'src/app/shared/models/paginated-list.model';
 import { pageNumbers } from 'src/app/shared/utils/list-query.util';
 import {
@@ -289,12 +285,14 @@ export class SaasManagementComponent implements OnInit, OnDestroy {
     return this.i18nService.translate(errorKey);
   }
 
-  getPlanLabel(plan: CompanyPlanType | string | undefined): string {
-    if (!plan) {
+  getPlanLabel(company: CompanyManagement): string {
+    if (company.plan?.name) {
+      return company.plan.name;
+    }
+    if (!company.plan_type?.trim()) {
       return notAvailableLabel(this.i18nService);
     }
-    const key = normalizeCompanyPlanType(String(plan)).toLowerCase();
-    return this.i18nService.translate(`saas.planType.${key}`);
+    return company.plan_type;
   }
 
   getBillingCycleLabel(cycle: BillingCycle | string | undefined): string {
@@ -305,8 +303,8 @@ export class SaasManagementComponent implements OnInit, OnDestroy {
     return this.i18nService.translate(`saas.billingCycle.${key}`);
   }
 
-  getHeadLimitForCompany(company: CompanyManagement): number {
-    return PLAN_HEAD_LIMIT[normalizeCompanyPlanType(company.plan_type)];
+  getHeadLimitForCompany(company: CompanyManagement): number | null {
+    return company.plan?.limits?.ANIMALS ?? null;
   }
 
   getMembershipStatusLabel(status: MembershipStatus | undefined): string {

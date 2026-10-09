@@ -11,7 +11,7 @@ RUN npm ci
 
 COPY . .
 
-# Default dev port (see docker-compose ADG_UI_PORT; avoid 4200 clashes with other Angular apps)
+# Default dev port (see docker-compose VRETE_UI_PORT; avoid 4200 clashes with other Angular apps)
 EXPOSE 4730
 
 # Usar la CLI del proyecto (Angular 13); no usar `ng` global incompatible.

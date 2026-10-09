@@ -6,7 +6,11 @@ import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
 import { RanchOption } from 'src/app/features/users/models/user-management.model';
 import { UserManagementService } from 'src/app/features/users/services/user-management.service';
-import { CORRAL_ACTIVITY_CODES, CorralActivityCode, isCorralActivityCode } from '../../constants/corral-activities';
+import {
+  CORRAL_ACTIVITY_CODES,
+  CorralActivityCode,
+  isCorralActivityCode
+} from '../../constants/corral-activities';
 import { CorralWorkSessionDto } from '../../models/corral-work-session.model';
 import { CorralWorkSessionApiService } from '../../services/corral-work-session-api.service';
 

@@ -1,0 +1,117 @@
+<div class="container-fluid saas-plans">
+  <div class="app-page-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h3 class="app-page-title mb-0">{{ 'saasPlans.title' | t }}</h3>
+    <button *ngIf="canWrite && !showForm" class="btn btn-primary btn-sm" type="button" (click)="startCreate()">
+      {{ 'saasPlans.create' | t }}
+    </button>
+  </div>
+
+  <p class="text-danger mt-2" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="text-muted mt-2" *ngIf="isLoading">{{ 'common.loading' | t }}</p>
+
+  <div class="app-card p-3 mt-3" *ngIf="showForm">
+    <h5 class="mb-3">{{ (isEditing ? 'saasPlans.edit' : 'saasPlans.create') | t }}</h5>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label mb-1" for="plan-name">{{ 'saasPlans.name' | t }}</label>
+        <input id="plan-name" class="form-control" [(ngModel)]="form.name" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label mb-1" for="plan-code">{{ 'saasPlans.code' | t }}</label>
+        <input id="plan-code" class="form-control" [(ngModel)]="form.code" [disabled]="isEditing" />
+        <div class="form-text text-muted" *ngIf="isEditing">{{ 'saasPlans.codeLocked' | t }}</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label mb-1" for="plan-currency">{{ 'saasPlans.currency' | t }}</label>
+        <input id="plan-currency" class="form-control" maxlength="3" [(ngModel)]="form.currency" />
+      </div>
+    </div>
+    <div class="row g-2 mt-2">
+      <div class="col-md-8">
+        <label class="form-label mb-1" for="plan-description">{{ 'saasPlans.description' | t }}</label>
+        <input id="plan-description" class="form-control" [(ngModel)]="form.description" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label mb-1" for="plan-price">{{ 'saasPlans.annualPrice' | t }}</label>
+        <input id="plan-price" class="form-control" type="number" min="0" step="0.01" [(ngModel)]="form.annual_price" />
+      </div>
+    </div>
+    <div class="row g-2 mt-2">
+      <div class="col-md-4">
+        <label class="form-label mb-1" for="plan-users">{{ 'saasPlans.maxUsers' | t }}</label>
+        <input id="plan-users" class="form-control" type="number" min="0" step="1" [(ngModel)]="form.max_users" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label mb-1" for="plan-animals">{{ 'saasPlans.maxAnimals' | t }}</label>
+        <input id="plan-animals" class="form-control" type="number" min="0" step="1" [(ngModel)]="form.max_animals" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label mb-1" for="plan-activity">{{ 'saasPlans.maxActivityRecords' | t }}</label>
+        <input id="plan-activity" class="form-control" type="number" min="0" step="1" [(ngModel)]="form.max_activity_records" />
+      </div>
+    </div>
+    <div class="form-check mt-3">
+      <input id="plan-active" class="form-check-input" type="checkbox" [(ngModel)]="form.is_active" />
+      <label class="form-check-label" for="plan-active">{{ 'saasPlans.active' | t }}</label>
+    </div>
+    <div class="mt-3">
+      <button class="btn btn-primary btn-sm me-2" type="button" [disabled]="isSaving" (click)="save()">
+        {{ 'common.save' | t }}
+      </button>
+      <button class="btn btn-outline-secondary btn-sm" type="button" (click)="cancelForm()">
+        {{ 'common.cancel' | t }}
+      </button>
+    </div>
+  </div>
+
+  <div class="app-table mt-3" *ngIf="!isLoading">
+    <table class="table table-striped table-hover mb-0">
+      <thead>
+        <tr>
+          <th>{{ 'saasPlans.name' | t }}</th>
+          <th>{{ 'saasPlans.annualPrice' | t }}</th>
+          <th>{{ 'saasPlans.users' | t }}</th>
+          <th>{{ 'saasPlans.animals' | t }}</th>
+          <th>{{ 'saasPlans.activityRecords' | t }}</th>
+          <th>{{ 'common.status' | t }}</th>
+          <th *ngIf="canWrite">{{ 'common.actions' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let plan of plans">
+          <td>
+            <div class="fw-medium">{{ plan.name }}</div>
+            <div class="text-muted small">{{ plan.code }}</div>
+          </td>
+          <td>{{ plan.currency }} {{ plan.annual_price | number:'1.2-2' }}</td>
+          <td>{{ plan.limits.USERS }}</td>
+          <td>{{ plan.limits.ANIMALS }}</td>
+          <td>{{ plan.limits.ACTIVITY_RECORDS }}</td>
+          <td>
+            <span class="badge" [class.bg-success]="plan.is_active" [class.bg-secondary]="!plan.is_active">
+              {{ (plan.is_active ? 'saasPlans.active' : 'saasPlans.inactive') | t }}
+            </span>
+          </td>
+          <td *ngIf="canWrite" class="app-table__cell-actions">
+            <button class="btn btn-sm btn-outline-secondary me-1" type="button" (click)="startEdit(plan)">
+              {{ 'saasPlans.edit' | t }}
+            </button>
+            <button
+              *ngIf="plan.is_active"
+              class="btn btn-sm btn-outline-danger"
+              type="button"
+              (click)="setActive(plan, false)"
+            >{{ 'saasPlans.deactivate' | t }}</button>
+            <button
+              *ngIf="!plan.is_active"
+              class="btn btn-sm btn-outline-success"
+              type="button"
+              (click)="setActive(plan, true)"
+            >{{ 'saasPlans.activate' | t }}</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="text-muted mt-2" *ngIf="plans.length === 0">{{ 'saasPlans.empty' | t }}</p>
+  </div>
+</div>

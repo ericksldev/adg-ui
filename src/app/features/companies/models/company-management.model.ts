@@ -13,6 +13,20 @@ export interface CompanyManagement {
   legal_name?: string | null;
   tax_id?: string | null;
   plan_type: CompanyPlanType;
+  plan?: {
+    uuid_plan: string;
+    code: string;
+    name: string;
+    description?: string | null;
+    annual_price: number;
+    currency: string;
+    is_active: boolean;
+    limits: {
+      USERS: number | null;
+      ANIMALS: number | null;
+      ACTIVITY_RECORDS: number | null;
+    };
+  } | null;
   billing_cycle: BillingCycle;
   membership_status: MembershipStatus;
   membership_started_at?: string | null;
@@ -48,6 +62,8 @@ export interface CompanyPayment {
   uuid_company: string;
   amount: number;
   currency: string;
+  exchange_rate?: number | string | null;
+  amount_bob?: number | string | null;
   payment_method?: PaymentMethod | null;
   payment_reference?: string | null;
   notes?: string | null;
@@ -55,6 +71,9 @@ export interface CompanyPayment {
   period_start?: string | null;
   period_end?: string | null;
   plan_type: CompanyPlanType;
+  max_users?: number | null;
+  max_animals?: number | null;
+  max_activity_records?: number | null;
   billing_cycle: BillingCycle;
   status: PaymentStatus;
   is_active: boolean;
@@ -64,6 +83,7 @@ export interface CompanyPaidActivationPayload {
   plan_type: CompanyPlanType;
   billing_cycle: BillingCycle;
   amount?: number;
+  exchange_rate?: number | null;
   payment_method: PaymentMethod;
   payment_reference?: string | null;
   notes?: string | null;

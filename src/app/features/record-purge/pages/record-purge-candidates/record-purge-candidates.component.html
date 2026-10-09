@@ -1,0 +1,126 @@
+<div class="app-page-header">
+  <h2 class="app-page-title mb-1">{{ 'recordPurge.candidatesTitle' | t }}</h2>
+  <p class="text-muted mb-0">{{ 'recordPurge.candidatesSubtitle' | t }}</p>
+</div>
+
+<p class="text-danger" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+<div class="app-card p-3">
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="tab === 'animals'" (click)="selectTab('animals')">
+        {{ 'recordPurge.tabAnimals' | t }}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="tab === 'sessions'" (click)="selectTab('sessions')">
+        {{ 'recordPurge.tabSessions' | t }}
+      </button>
+    </li>
+  </ul>
+
+  <div class="app-toolbar mb-3">
+    <input
+      class="form-control form-control-sm"
+      type="search"
+      [value]="search"
+      (input)="updateSearch($any($event.target).value)"
+      [placeholder]="'recordPurge.searchPlaceholder' | t"
+    />
+  </div>
+
+  <div class="text-muted py-3" *ngIf="isLoading">{{ 'common.loading' | t }}</div>
+
+  <div class="app-table" *ngIf="!isLoading && tab === 'animals'">
+    <table class="table table-striped table-hover mb-0">
+      <thead>
+        <tr>
+          <th>{{ 'recordPurge.colRegistration' | t }}</th>
+          <th>{{ 'recordPurge.colRanch' | t }}</th>
+          <th>{{ 'recordPurge.colSex' | t }}</th>
+          <th>{{ 'recordPurge.colReasons' | t }}</th>
+          <th>{{ 'common.actions' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let animal of animals">
+          <td>
+            <div>{{ animal.registration_number }}</div>
+            <div class="small text-muted" *ngIf="animal.chip_number">{{ animal.chip_number }}</div>
+          </td>
+          <td>{{ animal.ranch_name }}</td>
+          <td>{{ sexLabel(animal.sex) }}</td>
+          <td>
+            <ul class="record-purge__reasons mb-0">
+              <li *ngFor="let reason of animal.reasons">{{ ('recordPurge.reason.' + reason) | t }}</li>
+            </ul>
+          </td>
+          <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" (click)="askDeleteAnimal(animal)">
+              {{ 'recordPurge.delete' | t }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="mt-2 text-muted" *ngIf="animals.length === 0">{{ 'recordPurge.emptyAnimals' | t }}</div>
+  </div>
+
+  <div class="app-table" *ngIf="!isLoading && tab === 'sessions'">
+    <table class="table table-striped table-hover mb-0">
+      <thead>
+        <tr>
+          <th>{{ 'recordPurge.colWorkDate' | t }}</th>
+          <th>{{ 'recordPurge.colRanch' | t }}</th>
+          <th>{{ 'common.status' | t }}</th>
+          <th>{{ 'recordPurge.colActivities' | t }}</th>
+          <th>{{ 'recordPurge.colReasons' | t }}</th>
+          <th>{{ 'common.actions' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let session of sessions">
+          <td>
+            <div>{{ session.work_date }}</div>
+            <div class="small text-muted" *ngIf="session.responsible_person">{{ session.responsible_person }}</div>
+          </td>
+          <td>{{ session.ranch_name }}</td>
+          <td>{{ statusLabel(session.status) }}</td>
+          <td>
+            <div class="d-flex flex-wrap gap-1" *ngIf="session.activity_codes.length; else noActivities">
+              <span class="badge text-bg-light border" *ngFor="let code of session.activity_codes">
+                {{ ('corralWorkSession.activity.' + code) | t }}
+              </span>
+            </div>
+            <ng-template #noActivities><span class="text-muted">{{ 'recordPurge.noActivities' | t }}</span></ng-template>
+          </td>
+          <td>
+            <ul class="record-purge__reasons mb-0">
+              <li *ngFor="let reason of session.reasons">{{ ('recordPurge.reason.' + reason) | t }}</li>
+            </ul>
+          </td>
+          <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" (click)="askDeleteSession(session)">
+              {{ 'recordPurge.delete' | t }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="mt-2 text-muted" *ngIf="sessions.length === 0">{{ 'recordPurge.emptySessions' | t }}</div>
+  </div>
+
+  <div class="d-flex justify-content-end mt-2" *ngIf="!isLoading && totalPages > 1">
+    <ul class="pagination pagination-sm app-pagination mb-0">
+      <li class="page-item" [class.disabled]="page === 1">
+        <button type="button" class="page-link" (click)="goToPage(page - 1)">&laquo;</button>
+      </li>
+      <li class="page-item" *ngFor="let pageNumber of pageNumbersList" [class.active]="page === pageNumber">
+        <button type="button" class="page-link" (click)="goToPage(pageNumber)">{{ pageNumber }}</button>
+      </li>
+      <li class="page-item" [class.disabled]="page === totalPages">
+        <button type="button" class="page-link" (click)="goToPage(page + 1)">&raquo;</button>
+      </li>
+    </ul>
+  </div>
+</div>

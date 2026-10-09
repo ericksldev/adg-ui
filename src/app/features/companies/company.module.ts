@@ -12,9 +12,11 @@ import { CompanyDetailComponent } from './pages/company-detail/company-detail.co
 import { CompanyTenantOverviewComponent } from './pages/company-tenant-overview/company-tenant-overview.component';
 import { CompanyRanchCreateComponent } from './pages/company-ranch-create/company-ranch-create.component';
 import { SaasManagementComponent } from './pages/saas-management/saas-management.component';
+import { SaasPlansComponent } from './pages/saas-plans/saas-plans.component';
 import { CompanyRanchListComponent } from './components/company-ranch-list/company-ranch-list.component';
 import { CompanyUserListComponent } from './components/company-user-list/company-user-list.component';
 import { CompanySubscriptionListComponent } from './components/company-subscription-list/company-subscription-list.component';
+import { TermsVersionsComponent } from './pages/terms-versions/terms-versions.component';
 
 const routes: Routes = [
   {
@@ -24,6 +26,24 @@ const routes: Routes = [
     data: {
       permissions: [Permission.COMPANY_READ],
       breadcrumb: 'breadcrumbs.list'
+    }
+  },
+  {
+    path: 'plans',
+    component: SaasPlansComponent,
+    canActivate: [AutenticacionGuard, PermissionGuard],
+    data: {
+      permissions: [Permission.SAAS_PLAN_READ],
+      breadcrumb: 'breadcrumbs.saasPlans'
+    }
+  },
+  {
+    path: 'terms',
+    component: TermsVersionsComponent,
+    canActivate: [AutenticacionGuard, PermissionGuard],
+    data: {
+      permissions: [Permission.TERMS_VERSION_READ],
+      breadcrumb: 'breadcrumbs.termsVersions'
     }
   },
   {
@@ -71,6 +91,8 @@ const routes: Routes = [
     CompanyTenantOverviewComponent,
     CompanyRanchCreateComponent,
     CompanyActivationComponent,
+    SaasPlansComponent,
+    TermsVersionsComponent,
     CompanyRanchListComponent,
     CompanyUserListComponent,
     CompanySubscriptionListComponent

@@ -95,7 +95,8 @@ export class LoginComponent {
     this.authenticationService.login(userData).subscribe({
       next: (result) => {
         if (result.success) {
-          this.router.navigateByUrl('/home');
+          const granted = result.data?.terms?.access_granted === true;
+          this.router.navigateByUrl(granted ? '/home' : '/terms-acceptance');
           return;
         }
         const errorMessage =

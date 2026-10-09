@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "adg-ui": {
+    "vrete-ui": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:application": {
@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/adg-ui",
+            "outputPath": "dist/vrete-ui",
             "index": "src/index.html",
             "main": "src/main.ts",
             "polyfills": "src/polyfills.ts",
@@ -78,10 +78,10 @@
           },
           "configurations": {
             "production": {
-              "browserTarget": "adg-ui:build:production"
+              "browserTarget": "vrete-ui:build:production"
             },
             "development": {
-              "browserTarget": "adg-ui:build:development"
+              "browserTarget": "vrete-ui:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -89,7 +89,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "adg-ui:build"
+            "browserTarget": "vrete-ui:build"
           }
         },
         "test": {
@@ -112,5 +112,5 @@
       }
     }
   },
-  "defaultProject": "adg-ui"
+  "defaultProject": "vrete-ui"
 }

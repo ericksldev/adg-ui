@@ -21,7 +21,7 @@
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'saas.plan' | t }}</div>
-        <div class="app-detail-value">{{ ('saas.planType.' + planTypeI18nSuffix(company.plan_type)) | t }}</div>
+        <div class="app-detail-value">{{ planDisplayName(company) }}</div>
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'saas.cycle' | t }}</div>
@@ -29,7 +29,19 @@
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'saas.headLimitColumn' | t }}</div>
-        <div class="app-detail-value">{{ getAnimalHeadLimit(company.plan_type) }}</div>
+        <div class="app-detail-value">{{ getAnimalHeadLimit(company) ?? ('common.notAvailable' | t) }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saasPlans.annualPrice' | t }}</div>
+        <div class="app-detail-value">{{ company.plan ? (company.plan.currency + ' ' + (company.plan.annual_price | number:'1.2-2')) : ('common.notAvailable' | t) }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saasPlans.users' | t }}</div>
+        <div class="app-detail-value">{{ company.plan?.limits?.USERS ?? ('common.notAvailable' | t) }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-label mb-1">{{ 'saasPlans.activityRecords' | t }}</div>
+        <div class="app-detail-value">{{ company.plan?.limits?.ACTIVITY_RECORDS ?? ('common.notAvailable' | t) }}</div>
       </div>
       <div class="col-md-4">
         <div class="form-label mb-1">{{ 'saas.membership' | t }}</div>

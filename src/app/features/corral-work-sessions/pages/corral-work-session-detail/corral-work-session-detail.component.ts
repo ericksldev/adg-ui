@@ -32,6 +32,7 @@ export class CorralWorkSessionDetailComponent implements OnInit, OnDestroy {
   workspace: CorralSessionWorkspaceDto | null = null;
   activeStepIndex = 0;
   ranchName = '';
+  paddocks: PaddockOptionDto[] = [];
   paddockNameByUuid = new Map<string, string>();
   activityFocusCode: CorralActivityCode | null = null;
 
@@ -196,6 +197,7 @@ export class CorralWorkSessionDetailComponent implements OnInit, OnDestroy {
   private loadPaddocks(ranchUuid: string): void {
     this.animalApiService.getPaddocksForRanch(ranchUuid).subscribe({
       next: (paddocks: PaddockOptionDto[]) => {
+        this.paddocks = paddocks;
         this.paddockNameByUuid = new Map(paddocks.map((p) => [p.paddock_uuid, p.name]));
       }
     });

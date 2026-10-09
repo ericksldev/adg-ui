@@ -102,9 +102,9 @@
               class="badge bg-warning text-dark ms-1"
             >{{ 'saas.subscriptionInactiveBadge' | t }}</span>
           </td>
-          <td>{{ getPlanLabel(company.plan_type) }}</td>
+          <td>{{ getPlanLabel(company) }}</td>
           <td>{{ getBillingCycleLabel(company.billing_cycle) }}</td>
-          <td>{{ getHeadLimitForCompany(company) }}</td>
+          <td>{{ getHeadLimitForCompany(company) ?? ('common.notAvailable' | t) }}</td>
           <td>{{ getMembershipStatusLabel(company.membership_status) }}</td>
           <td class="app-table__cell-actions">
             <a class="btn btn-sm btn-outline-secondary me-1" [routerLink]="['/saas-management', company.uuid_company]">{{ 'saas.viewDetail' | t }}</a>

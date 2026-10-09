@@ -11,6 +11,7 @@ import { CorralWorkSessionWorkspaceComponent } from './pages/corral-work-session
 import { CorralWorkSessionDetailComponent } from './pages/corral-work-session-detail/corral-work-session-detail.component';
 import { CorralStepGridComponent } from './components/corral-step-grid/corral-step-grid.component';
 import { CorralActivityShortcutPageComponent } from './pages/corral-activity-shortcut/corral-activity-shortcut-page.component';
+import { PendingAnimalRegistrationListComponent } from './pages/pending-animal-registration-list/pending-animal-registration-list.component';
 
 @NgModule({
   declarations: [
@@ -21,6 +22,7 @@ import { CorralActivityShortcutPageComponent } from './pages/corral-activity-sho
     CorralWorkSessionWorkspaceComponent,
     CorralWorkSessionDetailComponent,
     CorralActivityShortcutPageComponent,
+    PendingAnimalRegistrationListComponent,
     CorralStepGridComponent
   ],
   imports: [CommonModule, FormsModule, SharedModule, CorralWorkSessionRoutingModule]

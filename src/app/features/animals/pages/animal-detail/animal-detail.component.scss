@@ -41,6 +41,39 @@
   color: var(--text-secondary);
 }
 
+.animal-detail__attendance-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.animal-detail__attendance-badge--present {
+  background: color-mix(in srgb, var(--success) 22%, var(--surface));
+  color: var(--success);
+}
+
+.animal-detail__attendance-badge--absent {
+  background: color-mix(in srgb, var(--danger, #b42318) 16%, var(--surface));
+  color: var(--danger, #b42318);
+}
+
+.animal-detail__history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.animal-detail__history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
 .animal-detail__soon-badge {
   display: inline-block;
   padding: 0.15rem 0.45rem;

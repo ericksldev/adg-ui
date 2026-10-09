@@ -17,6 +17,7 @@ import {
 } from '../../constants/corral-activities';
 import {
   createEmptyStepFindingPresets,
+  medicationPresetKey,
   MedicationPreset,
   StepFindingPresets
 } from '../../models/corral-finding-presets.model';
@@ -29,6 +30,7 @@ import {
   RowFindingState
 } from '../../models/corral-row-finding.model';
 import { CorralStepGridColumnDto, CorralStepGridDto, CorralStepGridRowDto } from '../../models/corral-work-session.model';
+import { PaddockOptionDto } from 'src/app/features/animals/services/animal-api.service';
 
 @Component({
   selector: 'app-corral-step-grid',
@@ -46,14 +48,18 @@ export class CorralStepGridComponent implements OnChanges {
   @Input() rowFindings: Record<string, RowFindingState> = {};
   @Input() presetValueSeparator = ' - ';
   @Input() showFindingColumns = true;
+  @Input() paddocks: PaddockOptionDto[] = [];
 
   @Output() gridChange = new EventEmitter<CorralStepGridDto>();
   @Output() saveRequested = new EventEmitter<CorralStepGridDto>();
   @Output() workspaceDraftChange = new EventEmitter<void>();
 
   @ViewChildren('dataCell') dataCells!: QueryList<ElementRef<HTMLElement>>;
+  @ViewChildren('gridRow') gridRows!: QueryList<ElementRef<HTMLTableRowElement>>;
 
   readonly sequentialSkeletonCount = 5;
+  readonly stayDestinationValue = '__stay__';
+  readonly destinationColumnKey = 'paddock_move';
 
   scannedSectionExpanded = true;
   pendingSectionExpanded = true;
@@ -65,10 +71,61 @@ export class CorralStepGridComponent implements OnChanges {
   private medicationDrafts: Record<string, { product: string; dose: string; unit: string }> = {};
   private medicationCustomExpanded: Record<string, boolean> = {};
   private conditionSelectDrafts: Record<string, CorralVisualConditionCode | ''> = {};
+  bulkDestination = '';
+  selectedAnimalUuids = new Set<string>();
+  densityPercent = 55;
 
-  constructor(private readonly i18n: I18nService) {}
+  private static readonly densityStorageKey = 'corral-grid-density';
+  private static readonly densityMin = 40;
+  private static readonly densityMax = 130;
+
+  constructor(private readonly i18n: I18nService) {
+    this.densityPercent = this.readDensityPercent();
+  }
+
+  get densityScale(): string {
+    return (this.densityPercent / 100).toFixed(2);
+  }
+
+  onDensityPercentChange(value: number | string): void {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+    const clamped = Math.min(
+      CorralStepGridComponent.densityMax,
+      Math.max(CorralStepGridComponent.densityMin, Math.round(parsed))
+    );
+    this.densityPercent = clamped;
+    try {
+      localStorage.setItem(CorralStepGridComponent.densityStorageKey, String(clamped));
+    } catch {
+      // Preference stays in memory when storage is unavailable.
+    }
+  }
+
+  private readDensityPercent(): number {
+    try {
+      const parsed = Number(localStorage.getItem(CorralStepGridComponent.densityStorageKey));
+      if (!Number.isFinite(parsed)) {
+        return this.densityPercent;
+      }
+      return Math.min(
+        CorralStepGridComponent.densityMax,
+        Math.max(CorralStepGridComponent.densityMin, Math.round(parsed))
+      );
+    } catch {
+      return this.densityPercent;
+    }
+  }
 
   columnLabel(column: CorralStepGridColumnDto): string {
+    if (column.value_type === 'paddock_current') {
+      return this.i18n.translate('paddockMove.currentPaddock');
+    }
+    if (column.value_type === 'paddock_destination') {
+      return this.i18n.translate('paddockMove.destination');
+    }
     return this.i18n.translate(`corralWorkSession.activity.${column.activity_code}`);
   }
 
@@ -86,6 +143,8 @@ export class CorralStepGridComponent implements OnChanges {
         this.medicationDrafts = {};
         this.medicationCustomExpanded = {};
         this.conditionSelectDrafts = {};
+        this.selectedAnimalUuids = new Set();
+        this.bulkDestination = '';
       }
     }
     if (changes['workMode'] && this.isQueueMode) {
@@ -94,12 +153,35 @@ export class CorralStepGridComponent implements OnChanges {
     }
   }
 
+  get hasPaddockDestination(): boolean {
+    return this.grid?.columns?.some((column) => column.value_type === 'paddock_destination') ?? false;
+  }
+
+  get selectedCount(): number {
+    return this.selectedAnimalUuids.size;
+  }
+
+  selectableRows(rows: CorralStepGridDto['rows'] | null | undefined): CorralStepGridDto['rows'] {
+    return (rows ?? this.editableRows).filter((row) => !this.isLocalRow(row.animal_uuid));
+  }
+
+  allSelected(rows: CorralStepGridDto['rows'] | null | undefined): boolean {
+    const selectable = this.selectableRows(rows);
+    return selectable.length > 0 && selectable.every((row) => this.selectedAnimalUuids.has(row.animal_uuid));
+  }
+
   get totalColumnCount(): number {
-    return this.grid.columns.length + 1 + (this.showFindingColumns ? 3 : 0);
+    const selectionColumn = this.hasPaddockDestination && !this.readonly ? 1 : 0;
+    return this.grid.columns.length + 1 + selectionColumn + (this.showFindingColumns ? 3 : 0);
   }
 
   get findingColumnSkeletonSlots(): number[] {
     return this.showFindingColumns ? [1, 2, 3] : [];
+  }
+
+  ensureScannedSectionExpanded(): void {
+    if (!this.isQueueMode) return;
+    this.scannedSectionExpanded = true;
   }
 
   toggleScannedSection(): void {
@@ -139,7 +221,7 @@ export class CorralStepGridComponent implements OnChanges {
   }
 
   get savableRows(): CorralStepGridDto['rows'] {
-    return this.editableRows.filter((row) => !this.isLocalRow(row.animal_uuid));
+    return this.editableRows;
   }
 
   getColumnPresetEntries(column: CorralStepGridColumnDto): GridColumnPresetEntry[] {
@@ -185,20 +267,95 @@ export class CorralStepGridComponent implements OnChanges {
     }
 
     if (column.value_type === 'boolean') {
-      if (typeof value === 'string' && value !== 'true' && value !== 'false') {
-        return value === preset.label;
-      }
-      const matchingPresets = this.getColumnPresetEntries(column).filter(
-        (entry) =>
-          (entry.value === 'true' && value === true) || (entry.value === 'false' && value === false)
-      );
-      return matchingPresets.length === 1 && matchingPresets[0].label === preset.label;
+      return this.isBooleanPresetSelected(column, preset, value);
     }
 
     if (column.value_type === 'number') {
       return Number(value) === Number(preset.value);
     }
     return String(value) === preset.value;
+  }
+
+  applyColumnDefaults(animalUuid: string): void {
+    if (this.readonly || !animalUuid) return;
+    const row = this.editableRows.find((item) => item.animal_uuid === animalUuid);
+    if (!row) return;
+
+    let changed = false;
+    for (const column of this.grid.columns ?? []) {
+      if (column.value_type === 'paddock_current' || column.value_type === 'paddock_destination') {
+        continue;
+      }
+      const preset = this.getColumnPresetEntries(column).find((entry) => entry.isDefault);
+      if (!preset || !this.isColumnValueEmpty(row.values[column.column_key])) {
+        continue;
+      }
+
+      if (column.value_type === 'medicine') {
+        row.values[column.column_key] = [preset.value];
+      } else if (column.value_type === 'boolean') {
+        row.values[column.column_key] = preset.label;
+      } else if (column.value_type === 'number') {
+        const numeric = Number(preset.value);
+        row.values[column.column_key] = Number.isFinite(numeric) ? numeric : preset.value;
+      } else {
+        row.values[column.column_key] = preset.value;
+      }
+      changed = true;
+    }
+
+    this.applyFindingDefaults(animalUuid);
+
+    if (changed) {
+      this.emitChange();
+    }
+  }
+
+  private applyFindingDefaults(animalUuid: string): void {
+    const finding = this.getFinding(animalUuid);
+    const next: RowFindingState = {
+      ...finding,
+      selectedObservationPresets: [...finding.selectedObservationPresets],
+      selectedConditionPresets: [...finding.selectedConditionPresets],
+      medications: [...finding.medications]
+    };
+    let changed = false;
+
+    const defaultObservation = this.findingPresets.defaultObservation?.trim();
+    if (
+      defaultObservation &&
+      !next.observation.trim() &&
+      next.selectedObservationPresets.length === 0 &&
+      this.findingPresets.observations.includes(defaultObservation)
+    ) {
+      next.selectedObservationPresets = [defaultObservation];
+      next.observation = defaultObservation;
+      changed = true;
+    }
+
+    const defaultCondition = this.findingPresets.defaultCondition;
+    if (
+      defaultCondition &&
+      !next.condition.trim() &&
+      next.selectedConditionPresets.length === 0 &&
+      this.findingPresets.conditions.includes(defaultCondition)
+    ) {
+      next.selectedConditionPresets = [defaultCondition];
+      next.condition = this.conditionLabel(defaultCondition);
+      changed = true;
+    }
+
+    const defaultMedication = this.findingPresets.medications.find(
+      (preset) => medicationPresetKey(preset) === this.findingPresets.defaultMedicationKey
+    );
+    if (defaultMedication && next.medications.length === 0) {
+      next.medications = [{ ...defaultMedication }];
+      changed = true;
+    }
+
+    if (changed) {
+      this.updateFinding(animalUuid, next);
+    }
   }
 
   applyCellPreset(animalUuid: string, column: CorralStepGridColumnDto, preset: GridColumnPresetEntry): void {
@@ -249,6 +406,75 @@ export class CorralStepGridComponent implements OnChanges {
     this.emitChange();
   }
 
+  currentPaddockLabel(row: CorralStepGridRowDto): string {
+    if (this.readonly && row.session_destination_paddock_name) {
+      return row.session_origin_paddock_name?.trim() || this.i18n.translate('paddockMove.noPaddock');
+    }
+    return row.current_paddock_name?.trim() || this.i18n.translate('paddockMove.noPaddock');
+  }
+
+  destinationLabel(row: CorralStepGridRowDto): string {
+    const recorded = row.session_destination_paddock_name?.trim();
+    if (recorded) return recorded;
+    const raw = this.rawDestination(row);
+    if (!raw) return this.i18n.translate('paddockMove.stay');
+    return this.paddocks.find((paddock) => paddock.paddock_uuid === raw)?.name ?? raw;
+  }
+
+  destinationValue(row: CorralStepGridRowDto): string {
+    const raw = this.rawDestination(row);
+    if (!raw) return '';
+    if (this.paddocks.some((paddock) => paddock.paddock_uuid === raw)) return raw;
+    const byName = this.paddocks.find(
+      (paddock) => paddock.name === raw || paddock.name === row.session_destination_paddock_name
+    );
+    return byName?.paddock_uuid ?? raw;
+  }
+
+  setDestination(row: CorralStepGridRowDto, paddockUuid: string): void {
+    if (this.readonly || this.isLocalRow(row.animal_uuid)) return;
+    this.writeDestination(row, paddockUuid);
+    this.emitChange();
+  }
+
+  isSelected(animalUuid: string): boolean {
+    return this.selectedAnimalUuids.has(animalUuid);
+  }
+
+  toggleRow(animalUuid: string, checked: boolean): void {
+    const next = new Set(this.selectedAnimalUuids);
+    if (checked) {
+      next.add(animalUuid);
+    } else {
+      next.delete(animalUuid);
+    }
+    this.selectedAnimalUuids = next;
+  }
+
+  setSelection(rows: CorralStepGridDto['rows'] | null | undefined, checked: boolean): void {
+    const next = new Set(this.selectedAnimalUuids);
+    for (const row of this.selectableRows(rows)) {
+      if (checked) {
+        next.add(row.animal_uuid);
+      } else {
+        next.delete(row.animal_uuid);
+      }
+    }
+    this.selectedAnimalUuids = next;
+  }
+
+  onBulkDestination(value: string): void {
+    if (!value || this.readonly) return;
+    const destination = value === this.stayDestinationValue ? '' : value;
+    for (const row of this.selectableRows(this.editableRows)) {
+      if (!this.selectedAnimalUuids.has(row.animal_uuid)) continue;
+      this.writeDestination(row, destination);
+    }
+    this.selectedAnimalUuids = new Set();
+    this.bulkDestination = '';
+    this.emitChange();
+  }
+
   onCellChange(animalUuid: string, columnKey: string, value: string, valueType: string): void {
     const row = this.editableRows.find((item) => item.animal_uuid === animalUuid);
     if (!row) return;
@@ -260,6 +486,24 @@ export class CorralStepGridComponent implements OnChanges {
       row.values[columnKey] = value === '' ? null : value;
     }
     this.emitChange();
+  }
+
+  booleanCellLabel(animalUuid: string, column: CorralStepGridColumnDto): string {
+    const value = this.rawCellValue(animalUuid, column.column_key);
+    if (this.isColumnValueEmpty(value)) {
+      return this.i18n.translate('common.notAvailable');
+    }
+    if (value === true || value === 'true') {
+      return this.i18n.translate('common.yes');
+    }
+    if (value === false || value === 'false') {
+      return this.i18n.translate('common.no');
+    }
+    return String(value);
+  }
+
+  isBooleanCellEmpty(animalUuid: string, column: CorralStepGridColumnDto): boolean {
+    return this.isColumnValueEmpty(this.rawCellValue(animalUuid, column.column_key));
   }
 
   getCellValue(animalUuid: string, columnKey: string): string {
@@ -274,9 +518,21 @@ export class CorralStepGridComponent implements OnChanges {
   focusRowByAnimalUuid(animalUuid: string): boolean {
     if (!this.editableRows.some((row) => row.animal_uuid === animalUuid)) return false;
     this.highlightAnimalUuid = animalUuid;
-    const firstCell = this.dataCells?.find((cell) => cell.nativeElement.dataset['animal'] === animalUuid);
-    firstCell?.nativeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    this.scrollRowIntoView(animalUuid);
     return true;
+  }
+
+  private scrollRowIntoView(animalUuid: string, attempt = 0): void {
+    const row = this.gridRows?.find((item) => item.nativeElement.dataset['animal'] === animalUuid);
+    const fallbackCell = this.dataCells?.find((cell) => cell.nativeElement.dataset['animal'] === animalUuid);
+    const target = row?.nativeElement ?? fallbackCell?.nativeElement;
+    if (!target) {
+      if (attempt < 4) {
+        setTimeout(() => this.scrollRowIntoView(animalUuid, attempt + 1));
+      }
+      return;
+    }
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
   focusRowByIdentifier(identifier: string): string | null {
@@ -307,6 +563,7 @@ export class CorralStepGridComponent implements OnChanges {
       animal_uuid: `local-${normalized}-${Date.now()}`,
       registration_number: normalized,
       chip_number: null,
+      missing_inventory: true,
       values
     };
     this.editableRows = [...this.editableRows, row];
@@ -321,6 +578,8 @@ export class CorralStepGridComponent implements OnChanges {
       ...row,
       values: this.normalizeRowValues(row.values)
     }));
+    this.selectedAnimalUuids = new Set();
+    this.bulkDestination = '';
     this.emitChange();
   }
 
@@ -349,7 +608,10 @@ export class CorralStepGridComponent implements OnChanges {
   }
 
   isLocalRow(animalUuid: string): boolean {
-    return animalUuid.startsWith('local-');
+    if (animalUuid.startsWith('local-')) return true;
+    return this.editableRows.some(
+      (row) => row.animal_uuid === animalUuid && row.missing_inventory === true
+    );
   }
 
   private normalizeRowValues(
@@ -368,14 +630,19 @@ export class CorralStepGridComponent implements OnChanges {
 
       if (column.value_type !== 'boolean') continue;
       const current = normalized[column.column_key];
-      if (typeof current !== 'boolean') continue;
+      if (typeof current === 'string' && current !== 'true' && current !== 'false') {
+        continue;
+      }
 
-      const matchingPresets = this.getColumnPresetEntries(column).filter(
-        (preset) =>
-          (preset.value === 'true' && current === true) || (preset.value === 'false' && current === false)
+      const matchingPresets = this.getColumnPresetEntries(column).filter((preset) =>
+        this.presetMatchesBoolean(preset, current)
       );
-      if (matchingPresets.length === 1) {
-        normalized[column.column_key] = matchingPresets[0].label;
+      const selected =
+        matchingPresets.length === 1
+          ? matchingPresets[0]
+          : matchingPresets.find((preset) => preset.isDefault);
+      if (selected) {
+        normalized[column.column_key] = selected.label;
       }
     }
     return normalized;
@@ -397,6 +664,48 @@ export class CorralStepGridComponent implements OnChanges {
     }
 
     return serialized;
+  }
+
+  private isBooleanPresetSelected(
+    column: CorralStepGridColumnDto,
+    preset: GridColumnPresetEntry,
+    value: unknown
+  ): boolean {
+    if (typeof value === 'string' && value !== 'true' && value !== 'false') {
+      return value === preset.label;
+    }
+    if (!this.presetMatchesBoolean(preset, value)) {
+      return false;
+    }
+    const matchingPresets = this.getColumnPresetEntries(column).filter((entry) =>
+      this.presetMatchesBoolean(entry, value)
+    );
+    if (matchingPresets.length === 1) {
+      return matchingPresets[0].label === preset.label;
+    }
+    return matchingPresets.find((entry) => entry.isDefault)?.label === preset.label;
+  }
+
+  private presetMatchesBoolean(preset: GridColumnPresetEntry, value: unknown): boolean {
+    const current = this.booleanFromCell(value);
+    if (current === null) return false;
+    return preset.value === (current ? 'true' : 'false');
+  }
+
+  private booleanFromCell(value: unknown): boolean | null {
+    if (value === true || value === 'true' || value === 1 || value === '1') return true;
+    if (value === false || value === 'false' || value === 0 || value === '0') return false;
+    return null;
+  }
+
+  private rawCellValue(animalUuid: string, columnKey: string): unknown {
+    const row = this.editableRows.find((item) => item.animal_uuid === animalUuid);
+    return row?.values[columnKey];
+  }
+
+  private isColumnValueEmpty(value: unknown): boolean {
+    if (value === null || value === undefined || value === '') return true;
+    return Array.isArray(value) && value.length === 0;
   }
 
   private emitChange(): void {
@@ -469,8 +778,8 @@ export class CorralStepGridComponent implements OnChanges {
   }
 
   isMedicationPresetSelected(animalUuid: string, preset: MedicationPreset): boolean {
-    const key = this.medicationPresetKey(preset);
-    return this.getFinding(animalUuid).medications.some((item) => this.medicationPresetKey(item) === key);
+    const key = medicationPresetKey(preset);
+    return this.getFinding(animalUuid).medications.some((item) => medicationPresetKey(item) === key);
   }
 
   toggleObservationPreset(animalUuid: string, text: string): void {
@@ -502,9 +811,9 @@ export class CorralStepGridComponent implements OnChanges {
   toggleMedicationPreset(animalUuid: string, preset: MedicationPreset): void {
     if (this.readonly) return;
     const finding = { ...this.getFinding(animalUuid) };
-    const key = this.medicationPresetKey(preset);
-    if (finding.medications.some((item) => this.medicationPresetKey(item) === key)) {
-      finding.medications = finding.medications.filter((item) => this.medicationPresetKey(item) !== key);
+    const key = medicationPresetKey(preset);
+    if (finding.medications.some((item) => medicationPresetKey(item) === key)) {
+      finding.medications = finding.medications.filter((item) => medicationPresetKey(item) !== key);
     } else {
       finding.medications = [...finding.medications, { ...preset }];
     }
@@ -536,8 +845,8 @@ export class CorralStepGridComponent implements OnChanges {
     };
 
     const finding = { ...this.getFinding(animalUuid) };
-    const key = this.medicationPresetKey(medication);
-    if (!finding.medications.some((item) => this.medicationPresetKey(item) === key)) {
+    const key = medicationPresetKey(medication);
+    if (!finding.medications.some((item) => medicationPresetKey(item) === key)) {
       finding.medications = [...finding.medications, medication];
       this.updateFinding(animalUuid, finding);
     }
@@ -553,12 +862,23 @@ export class CorralStepGridComponent implements OnChanges {
     this.updateFinding(animalUuid, finding);
   }
 
+  private rawDestination(row: CorralStepGridRowDto): string {
+    const value = row.values[this.destinationColumnKey];
+    if (value == null || value === '' || Array.isArray(value)) return '';
+    return String(value);
+  }
+
+  private writeDestination(row: CorralStepGridRowDto, paddockUuid: string): void {
+    if (!paddockUuid || paddockUuid === row.current_paddock_uuid) {
+      row.values[this.destinationColumnKey] = null;
+    } else {
+      row.values[this.destinationColumnKey] = paddockUuid;
+    }
+  }
+
   private updateFinding(animalUuid: string, state: RowFindingState): void {
     this.editableFindings[animalUuid] = state;
     this.workspaceDraftChange.emit();
   }
 
-  private medicationPresetKey(preset: MedicationPreset): string {
-    return `${preset.product}|${preset.dose ?? ''}|${preset.unit ?? ''}`;
-  }
 }

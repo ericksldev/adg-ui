@@ -1,6 +1,4 @@
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
-import { environment } from 'src/environments/environment';
-import * as firebase from 'firebase/app';
 import { BnNgIdleService } from 'bn-ng-idle';
 import { AuthenticationServiceService } from './core/services/authentication-service.service';
 import { NavigationEnd, Router } from '@angular/router';
@@ -17,6 +15,7 @@ export class AppComponent implements OnInit, OnDestroy {
   user: string | null = null;
   openSidebar = false;
   currentTheme: 'light' | 'dark' = 'light';
+  termsGate = false;
   private isDesktopView = window.innerWidth >= 992;
   
   constructor(
@@ -30,10 +29,9 @@ export class AppComponent implements OnInit, OnDestroy {
   private sessionPollingIntervalId: any = null;
 
   ngOnInit(): void {
-    this.initFirebase();
-   
     this.user = this.authenticationService.getUsername();
-    this.openSidebar = this.user !== null && this.isDesktopView;
+    this.syncTermsGate(this.router.url);
+    this.openSidebar = this.user !== null && this.isDesktopView && !this.termsGate;
 
     if (!this.authenticationService.isAuthenticated()) {
       this.authenticationService.clearSession();
@@ -49,13 +47,15 @@ export class AppComponent implements OnInit, OnDestroy {
         return;
       }
 
-      this.openSidebar = this.isDesktopView;
+      this.openSidebar = this.isDesktopView && !this.termsGate;
       this.syncMobileBodyScroll();
     });
 
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
-      .subscribe(() => {
+      .subscribe((event) => {
+        const navigation = event as NavigationEnd;
+        this.syncTermsGate(navigation.urlAfterRedirects);
         if (window.innerWidth < 992 && this.openSidebar) {
           this.openSidebar = false;
           this.syncMobileBodyScroll();
@@ -102,10 +102,6 @@ export class AppComponent implements OnInit, OnDestroy {
     }, 60 * 1000);
   }
 
-  initFirebase(): void {
-    firebase.initializeApp(environment.firebaseConfig);
-  }
-  
   toggleSidebarToParent(openSidebar:boolean){
     this.openSidebar = openSidebar;
     this.syncMobileBodyScroll();
@@ -116,7 +112,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const currentIsDesktopView = window.innerWidth >= 992;
     if (currentIsDesktopView !== this.isDesktopView) {
       this.isDesktopView = currentIsDesktopView;
-      this.openSidebar = this.user !== null && currentIsDesktopView;
+      this.openSidebar = this.user !== null && currentIsDesktopView && !this.termsGate;
     }
     this.syncMobileBodyScroll();
   }
@@ -136,6 +132,19 @@ export class AppComponent implements OnInit, OnDestroy {
         this.router.navigateByUrl('/login');
       }
     });
+  }
+
+  private syncTermsGate(url: string): void {
+    const wasTermsGate = this.termsGate;
+    this.termsGate = url.startsWith('/terms-acceptance');
+    if (this.termsGate) {
+      this.openSidebar = false;
+      return;
+    }
+
+    if (wasTermsGate && this.user && this.isDesktopView) {
+      this.openSidebar = true;
+    }
   }
 
   private syncMobileBodyScroll(): void {

@@ -36,8 +36,8 @@ export const normalizeUserRoles = (roles: unknown): UserRole[] => {
   );
 };
 
-export const COMPANY_PLAN_TYPES = ['ESSENTIAL', 'PROFESSIONAL', 'ENTERPRISE'] as const;
-export type CompanyPlanType = typeof COMPANY_PLAN_TYPES[number];
+/** Plan code stored on the company. Names and limits come from the SaaS catalog. */
+export type CompanyPlanType = string;
 
 export const BILLING_CYCLES = ['SEMESTRAL', 'ANNUAL'] as const;
 export type BillingCycle = typeof BILLING_CYCLES[number];

@@ -7,7 +7,9 @@ export {
   CORRAL_MULTI_RECORD_ACTIVITY_CODES,
   getCorralActivityDefinition,
   isCorralActivityCode,
+  isGridColumnActivity,
   isMultiRecordActivity,
+  isPaddockMoveActivity,
   type CorralActivityCode,
   type CorralActivityDefaultWorkMode
 } from '../../../shared/constants/corral-activities.constants';

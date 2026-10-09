@@ -1,5 +1,5 @@
 /**
- * Breed codes must match `adg-api/src/constants/cattle-breed.constants.ts`.
+ * Breed codes must match `vrete-api/src/constants/cattle-breed.constants.ts`.
  * UI labels use i18n keys `animal.breed.<code>`.
  */
 export const CATTLE_BREED_CODES = [

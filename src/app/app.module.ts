@@ -4,6 +4,7 @@ import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { LoginComponent } from './features/auth/pages/login/login.component';
+import { TermsAcceptanceComponent } from './features/auth/pages/terms-acceptance/terms-acceptance.component';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { CodeSenderModalComponent } from './shared/components/modals/code-sender-modal/code-sender-modal.component';
 import { FormsModule } from '@angular/forms';
@@ -24,6 +25,7 @@ registerLocaleData(localeEsAr, 'es-Ar');
   declarations: [
     AppComponent,
     LoginComponent,
+    TermsAcceptanceComponent,
     CodeSenderModalComponent,
     HomeComponent,
     NavbarComponent,

@@ -27,6 +27,30 @@ export function toHttpParams(query: ListQueryParams): HttpParams {
   if (query.sex && query.sex !== 'ALL') {
     params = params.set('sex', query.sex);
   }
+  if (query.ranch_uuid?.trim()) {
+    params = params.set('ranch_uuid', query.ranch_uuid.trim());
+  }
+  if (query.breed_code?.trim()) {
+    params = params.set('breed_code', query.breed_code.trim());
+  }
+  if (query.origin_type?.trim()) {
+    params = params.set('origin_type', query.origin_type.trim());
+  }
+  if (query.current_owner_uuid?.trim()) {
+    params = params.set('current_owner_uuid', query.current_owner_uuid.trim());
+  }
+  if (query.current_paddock_uuid?.trim()) {
+    params = params.set('current_paddock_uuid', query.current_paddock_uuid.trim());
+  }
+  if (query.birth_date_from?.trim()) {
+    params = params.set('birth_date_from', query.birth_date_from.trim());
+  }
+  if (query.birth_date_to?.trim()) {
+    params = params.set('birth_date_to', query.birth_date_to.trim());
+  }
+  if (query.exit_type?.trim()) {
+    params = params.set('exit_type', query.exit_type.trim());
+  }
   return params;
 }
 

@@ -1,10 +1,13 @@
 <div class="app-page-header d-flex flex-wrap align-items-center justify-content-between gap-2">
   <h2 class="app-page-title mb-0">{{ pageTitleKey | t }}</h2>
-  <a
-    *ngIf="canAnimalWrite"
-    class="btn btn-outline-danger btn-sm"
-    routerLink="/animal/deactivate/batch"
-  >{{ 'animal.batchDeactivateTitle' | t }}</a>
+  <div class="d-flex flex-wrap gap-2">
+    <a *ngIf="!isInactiveList" class="btn btn-outline-primary btn-sm" routerLink="/animal/attendance">{{ 'animal.attendance.title' | t }}</a>
+    <a
+      *ngIf="canAnimalWrite"
+      class="btn btn-outline-danger btn-sm"
+      routerLink="/animal/deactivate/batch"
+    >{{ 'animal.batchDeactivateTitle' | t }}</a>
+  </div>
 </div>
 
 <div class="app-card p-3 animal-list">
@@ -38,6 +41,129 @@
     </div>
   </div>
 
+  <details class="animal-list__filters-details small">
+    <summary class="animal-list__filters-summary">
+      {{ 'animal.listFiltersTitle' | t }}<span *ngIf="panelFilterCount"> ({{ panelFilterCount }})</span>
+    </summary>
+    <div class="animal-list__filters-grid mt-2">
+      <div>
+        <label class="form-label mb-1" for="animal-list-ranch">{{ 'animal.fieldRanch' | t }}</label>
+        <select
+          id="animal-list-ranch"
+          class="form-select form-select-sm"
+          [value]="selectedRanch"
+          (change)="updateRanchFilter($any($event.target).value)"
+        >
+          <option value="">{{ 'common.all' | t }}</option>
+          <option *ngFor="let ranch of ranchOptions" [value]="ranch.uuid_ranch">{{ ranch.name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label mb-1" for="animal-list-paddock">{{ 'animal.fieldPaddock' | t }}</label>
+        <select
+          id="animal-list-paddock"
+          class="form-select form-select-sm"
+          [value]="selectedPaddock"
+          [disabled]="!selectedRanch"
+          (change)="updatePaddockFilter($any($event.target).value)"
+        >
+          <option value="">{{ 'common.all' | t }}</option>
+          <option *ngFor="let paddock of paddockOptions" [value]="paddock.paddock_uuid">{{ paddock.name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label mb-1" for="animal-list-breed">{{ 'animal.fieldBreed' | t }}</label>
+        <select
+          id="animal-list-breed"
+          class="form-select form-select-sm"
+          [value]="selectedBreed"
+          (change)="updateBreedFilter($any($event.target).value)"
+        >
+          <option value="">{{ 'common.all' | t }}</option>
+          <option *ngFor="let code of breedCodes" [value]="code">{{ breedLabel(code) }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label mb-1" for="animal-list-owner">{{ 'animal.fieldOwner' | t }}</label>
+        <select
+          id="animal-list-owner"
+          class="form-select form-select-sm"
+          [value]="selectedOwner"
+          (change)="updateOwnerFilter($any($event.target).value)"
+        >
+          <option value="">{{ 'common.all' | t }}</option>
+          <option *ngFor="let owner of ownerOptions" [value]="owner.owner_uuid">{{ owner.full_name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label mb-1" for="animal-list-origin">{{ 'animal.fieldOriginType' | t }}</label>
+        <select
+          id="animal-list-origin"
+          class="form-select form-select-sm"
+          [value]="selectedOrigin"
+          (change)="updateOriginFilter($any($event.target).value)"
+        >
+          <option value="">{{ 'common.all' | t }}</option>
+          <option *ngFor="let origin of originOptions" [value]="origin">{{ originLabel(origin) }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label mb-1" for="animal-list-birth-from">{{ 'animal.listFilterBirthFrom' | t }}</label>
+        <input
+          id="animal-list-birth-from"
+          class="form-control form-control-sm"
+          type="date"
+          [value]="birthDateFrom"
+          (change)="updateBirthDateFrom($any($event.target).value)"
+        />
+      </div>
+      <div>
+        <label class="form-label mb-1" for="animal-list-birth-to">{{ 'animal.listFilterBirthTo' | t }}</label>
+        <input
+          id="animal-list-birth-to"
+          class="form-control form-control-sm"
+          type="date"
+          [value]="birthDateTo"
+          (change)="updateBirthDateTo($any($event.target).value)"
+        />
+      </div>
+      <div *ngIf="isInactiveList">
+        <label class="form-label mb-1" for="animal-list-exit-type">{{ 'animal.exitType' | t }}</label>
+        <select
+          id="animal-list-exit-type"
+          class="form-select form-select-sm"
+          [value]="selectedExitType"
+          (change)="updateExitTypeFilter($any($event.target).value)"
+        >
+          <option value="">{{ 'common.all' | t }}</option>
+          <option *ngFor="let exitType of exitTypeOptions" [value]="exitType.value">{{ exitType.labelKey | t }}</option>
+        </select>
+      </div>
+      <div class="animal-list__filters-actions">
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          [disabled]="filterChips.length === 0"
+          (click)="clearStructuredFilters()"
+        >{{ 'animal.listFiltersClear' | t }}</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="animal-list__chips" *ngIf="filterChips.length">
+    <button
+      *ngFor="let chip of filterChips"
+      type="button"
+      class="animal-list__chip"
+      [attr.aria-label]="'animal.listFilterRemove' | t"
+      [title]="'animal.listFilterRemove' | t"
+      (click)="clearFilter(chip.key)"
+    >
+      <span>{{ chip.label }}</span>
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+
   <details class="animal-list__columns-details small">
     <summary class="animal-list__columns-summary"> {{ 'animal.listOptionalColumnsTitle' | t }}</summary>
     <div class="animal-list__columns-panel mt-2">
@@ -51,15 +177,36 @@
         </button>
       </div>
       <div class="animal-list__columns-checks d-flex flex-wrap gap-2">
-        <div *ngFor="let col of optionalColumns" class="form-check form-check-inline mb-0">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            [id]="'listOptionalCol_' + col.key"
-            [checked]="isOptionalColumnVisible(col.key)"
-            (change)="onOptionalColumnToggle(col.key, $any($event.target).checked)"
-          />
-          <label class="form-check-label" [for]="'listOptionalCol_' + col.key">{{ col.labelKey | t }}</label>
+        <div *ngFor="let col of columnOptions" class="animal-list__column-check">
+          <div class="form-check form-check-inline mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              [id]="'listOptionalCol_' + col.key"
+              [checked]="isOptionalColumnVisible(col.key)"
+              (change)="onOptionalColumnToggle(col.key, $any($event.target).checked)"
+            />
+            <label class="form-check-label" [for]="'listOptionalCol_' + col.key">{{ col.labelKey | t }}</label>
+          </div>
+          <span
+            *ngIf="col.key === 'birthDate' && isOptionalColumnVisible('birthDate')"
+            class="animal-list__birth-mode"
+            role="group"
+            [attr.aria-label]="'animal.listBirthDisplayLabel' | t"
+          >
+            <button
+              type="button"
+              class="animal-list__birth-mode-option"
+              [class.animal-list__birth-mode-option--active]="birthDisplayMode === 'date'"
+              (click)="setBirthDisplayMode('date')"
+            >{{ 'animal.listBirthAsDate' | t }}</button>
+            <button
+              type="button"
+              class="animal-list__birth-mode-option"
+              [class.animal-list__birth-mode-option--active]="birthDisplayMode === 'age'"
+              (click)="setBirthDisplayMode('age')"
+            >{{ 'animal.listBirthAsAge' | t }}</button>
+          </span>
         </div>
       </div>
     </div>
@@ -76,7 +223,9 @@
         <th *ngIf="isColumnVisible('breed')" scope="col" class="text-center">{{ 'animal.fieldBreed' | t }}</th>
         <th *ngIf="isColumnVisible('sex')" scope="col" class="text-center">{{ 'animal.sex' | t }}</th>
         <th *ngIf="isColumnVisible('color')" scope="col" class="text-center">{{ 'animal.fieldColor' | t }}</th>
-        <th *ngIf="isColumnVisible('birthDate')" scope="col" class="text-center">{{ 'animal.fieldBirthDate' | t }}</th>
+        <th *ngIf="isColumnVisible('birthDate')" scope="col" class="text-center">
+          {{ (birthDisplayMode === 'age' ? 'animal.fieldAge' : 'animal.fieldBirthDate') | t }}
+        </th>
         <th *ngIf="isColumnVisible('originType')" scope="col" class="text-center">{{ 'animal.fieldOriginType' | t }}</th>
         <th *ngIf="isColumnVisible('ranch')" scope="col" class="text-center">{{ 'animal.fieldRanch' | t }}</th>
         <th *ngIf="isColumnVisible('owner')" scope="col" class="text-center">{{ 'animal.fieldOwner' | t }}</th>
@@ -84,9 +233,9 @@
         <th *ngIf="isColumnVisible('motherRegistration')" scope="col" class="text-center">{{ 'animal.fieldMotherRegistration' | t }}</th>
         <th *ngIf="isColumnVisible('fatherRegistration')" scope="col" class="text-center">{{ 'animal.fieldFatherRegistration' | t }}</th>
         <th *ngIf="isColumnVisible('currentStatus')" scope="col" class="text-center">{{ 'animal.fieldCurrentStatus' | t }}</th>
-        <th *ngIf="isInactiveList" scope="col" class="text-center">{{ 'animal.exitType' | t }}</th>
-        <th *ngIf="isInactiveList" scope="col" class="text-center">{{ 'animal.exitDate' | t }}</th>
-        <th *ngIf="isInactiveList" scope="col" class="text-center">{{ 'animal.exitReason' | t }}</th>
+        <th *ngIf="isColumnVisible('exitType')" scope="col" class="text-center">{{ 'animal.exitType' | t }}</th>
+        <th *ngIf="isColumnVisible('exitDate')" scope="col" class="text-center">{{ 'animal.exitDate' | t }}</th>
+        <th *ngIf="isColumnVisible('exitReason')" scope="col" class="text-center">{{ 'animal.exitReason' | t }}</th>
         <th *ngIf="isColumnVisible('description')" scope="col" class="text-center">{{ 'animal.fieldDescription' | t }}</th>
         <th scope="col" class="text-center">{{ 'common.actions' | t }}</th>
       </tr>
@@ -103,7 +252,10 @@
         <td *ngIf="isColumnVisible('breed')" class="text-center">{{ breedLabel(item.breed_code) }}</td>
         <td *ngIf="isColumnVisible('sex')" class="text-center">{{ item.sex === 'MALE' ? ('animal.male' | t) : ('animal.female' | t) }}</td>
         <td *ngIf="isColumnVisible('color')" class="text-center">{{ item.color || ('common.notAvailable' | t) }}</td>
-        <td *ngIf="isColumnVisible('birthDate')" class="text-center">{{ item.birth_date ? (item.birth_date | date:'yyyy-MM-dd':'UTC') : '—' }}</td>
+        <td *ngIf="isColumnVisible('birthDate')" class="text-center">
+          <ng-container *ngIf="birthDisplayMode === 'date'">{{ item.birth_date ? (item.birth_date | date:'yyyy-MM-dd':'UTC') : '—' }}</ng-container>
+          <ng-container *ngIf="birthDisplayMode === 'age'">{{ ageLabel(item.birth_date) }}</ng-container>
+        </td>
         <td *ngIf="isColumnVisible('originType')" class="text-center">{{ originLabel(item.origin_type) }}</td>
         <td *ngIf="isColumnVisible('ranch')" class="text-center">{{ ranchLabel(item.ranch_uuid) }}</td>
         <td *ngIf="isColumnVisible('owner')" class="text-center">{{ ownerLabel(item.current_owner_uuid) }}</td>
@@ -111,11 +263,11 @@
         <td *ngIf="isColumnVisible('motherRegistration')" class="text-center">{{ parentRegistrationLabel(item.mother_animal_uuid) }}</td>
         <td *ngIf="isColumnVisible('fatherRegistration')" class="text-center">{{ parentRegistrationLabel(item.father_animal_uuid) }}</td>
         <td *ngIf="isColumnVisible('currentStatus')" class="text-center">{{ statusLabel(item.current_status) }}</td>
-        <td *ngIf="isInactiveList" class="text-center">{{ exitTypeLabel(item.last_exit?.exit_type) }}</td>
-        <td *ngIf="isInactiveList" class="text-center">
+        <td *ngIf="isColumnVisible('exitType')" class="text-center">{{ exitTypeLabel(item.last_exit?.exit_type) }}</td>
+        <td *ngIf="isColumnVisible('exitDate')" class="text-center">
           {{ item.last_exit?.exit_date ? (item.last_exit?.exit_date | date:'yyyy-MM-dd':'UTC') : '—' }}
         </td>
-        <td *ngIf="isInactiveList" class="text-center">{{ item.last_exit?.reason || ('common.notAvailable' | t) }}</td>
+        <td *ngIf="isColumnVisible('exitReason')" class="text-center">{{ item.last_exit?.reason || ('common.notAvailable' | t) }}</td>
         <td *ngIf="isColumnVisible('description')" class="text-center animal-list__description-cell">{{ item.description || ('common.notAvailable' | t) }}</td>
         <td class="app-table__cell-actions text-center">
           <a

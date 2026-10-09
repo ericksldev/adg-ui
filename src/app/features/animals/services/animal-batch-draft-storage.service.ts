@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { SessionService } from 'src/app/core/services/session.service';
-import { ANIMAL_BATCH_STORAGE_PREFIX } from '../constants/animal-batch.constants';
+import { readLocalStorageMigrating, removeLocalStorageWithLegacy } from 'src/app/core/utils/legacy-local-storage';
+import { ANIMAL_BATCH_STORAGE_PREFIX, ANIMAL_BATCH_STORAGE_PREFIX_LEGACY } from '../constants/animal-batch.constants';
 import {
   ANIMAL_BATCH_DRAFT_ROW_KEYS,
   ANIMAL_BATCH_DRAFT_VERSION,
@@ -22,21 +23,22 @@ function isDraftRow(value: unknown): value is AnimalBatchDraftRow {
 export class AnimalBatchDraftStorageService {
   constructor(private readonly sessionService: SessionService) {}
 
-  private storageKey(): string | null {
+  private storageKey(prefix: string): string | null {
     const company = this.sessionService.getUuidCompany();
     const username = this.sessionService.getUsername();
     if (!company?.trim() || !username?.trim()) {
       return null;
     }
-    return `${ANIMAL_BATCH_STORAGE_PREFIX}_${company}_${username}`;
+    return `${prefix}_${company}_${username}`;
   }
 
   load(): AnimalBatchDraftSnapshot | null {
-    const key = this.storageKey();
-    if (!key) {
+    const key = this.storageKey(ANIMAL_BATCH_STORAGE_PREFIX);
+    const legacyKey = this.storageKey(ANIMAL_BATCH_STORAGE_PREFIX_LEGACY);
+    if (!key || !legacyKey) {
       return null;
     }
-    const raw = localStorage.getItem(key);
+    const raw = readLocalStorageMigrating(key, legacyKey);
     if (!raw) {
       return null;
     }
@@ -58,7 +60,7 @@ export class AnimalBatchDraftStorageService {
   }
 
   save(snapshot: AnimalBatchDraftSnapshot): void {
-    const key = this.storageKey();
+    const key = this.storageKey(ANIMAL_BATCH_STORAGE_PREFIX);
     if (!key) {
       return;
     }
@@ -66,10 +68,11 @@ export class AnimalBatchDraftStorageService {
   }
 
   clear(): void {
-    const key = this.storageKey();
-    if (!key) {
+    const key = this.storageKey(ANIMAL_BATCH_STORAGE_PREFIX);
+    const legacyKey = this.storageKey(ANIMAL_BATCH_STORAGE_PREFIX_LEGACY);
+    if (!key || !legacyKey) {
       return;
     }
-    localStorage.removeItem(key);
+    removeLocalStorageWithLegacy(key, legacyKey);
   }
 }

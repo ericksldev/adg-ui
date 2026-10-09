@@ -35,6 +35,9 @@ export interface LoginResponse {
       uuid_company: string;
     };
     session: unknown;
+    terms?: {
+      access_granted: boolean;
+    };
   };
   error?: string;
 }

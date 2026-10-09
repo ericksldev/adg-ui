@@ -1,13 +1,42 @@
-<div class="corral-step-grid">
+<div class="corral-step-grid" [style.--grid-scale]="densityScale">
+  <div class="corral-step-grid__density">
+    <span class="corral-step-grid__density-mark corral-step-grid__density-mark--sm" aria-hidden="true">A</span>
+    <input
+      type="range"
+      min="40"
+      max="130"
+      step="5"
+      [ngModel]="densityPercent"
+      (ngModelChange)="onDensityPercentChange($event)"
+      [attr.aria-label]="'corralWorkSession.gridDensity' | t"
+      [attr.title]="'corralWorkSession.gridDensity' | t"
+    />
+    <span class="corral-step-grid__density-mark corral-step-grid__density-mark--lg" aria-hidden="true">A</span>
+  </div>
+  <div class="corral-step-grid__bulk" *ngIf="!readonly && hasPaddockDestination && selectedCount > 0">
+    <span class="corral-step-grid__bulk-label">{{ 'paddockMove.selectionHint' | t:{ count: selectedCount } }}</span>
+    <select
+      class="form-select form-select-sm corral-step-grid__bulk-select"
+      [ngModel]="bulkDestination"
+      (ngModelChange)="onBulkDestination($event)"
+      [disabled]="readonly"
+    >
+      <option value="">{{ 'paddockMove.chooseDestination' | t }}</option>
+      <option [value]="stayDestinationValue">{{ 'paddockMove.stay' | t }}</option>
+      <option *ngFor="let paddock of paddocks" [value]="paddock.paddock_uuid">{{ paddock.name }}</option>
+    </select>
+  </div>
+
   <ng-container *ngIf="!isQueueMode">
     <div class="table-responsive corral-step-grid__scroll">
       <table class="table table-sm table-bordered corral-step-grid__table mb-0">
         <thead>
-          <ng-container *ngTemplateOutlet="headTemplate"></ng-container>
+          <ng-container *ngTemplateOutlet="headTemplate; context: { rows: editableRows }"></ng-container>
         </thead>
         <tbody>
           <ng-container *ngIf="showSequentialSkeleton">
             <tr *ngFor="let slot of sequentialSkeletonSlots" class="corral-step-grid__skeleton-row">
+              <th *ngIf="hasPaddockDestination && !readonly" class="corral-step-grid__check"></th>
               <th scope="row" class="corral-step-grid__sticky-col corral-step-grid__reg text-muted">—</th>
               <td *ngFor="let col of grid.columns">
                 <input class="form-control form-control-sm corral-step-grid__cell-input" disabled />
@@ -46,7 +75,7 @@
         <div class="table-responsive corral-step-grid__scroll corral-step-grid__scroll--section">
           <table class="table table-sm table-bordered corral-step-grid__table mb-0">
             <thead>
-              <ng-container *ngTemplateOutlet="headTemplate"></ng-container>
+              <ng-container *ngTemplateOutlet="headTemplate; context: { rows: queueScannedRows }"></ng-container>
             </thead>
             <tbody>
               <ng-container *ngIf="queueScannedRows.length > 0; else scannedEmpty">
@@ -85,7 +114,7 @@
         <div class="table-responsive corral-step-grid__scroll corral-step-grid__scroll--section">
           <table class="table table-sm table-bordered corral-step-grid__table mb-0">
             <thead>
-              <ng-container *ngTemplateOutlet="headTemplate"></ng-container>
+              <ng-container *ngTemplateOutlet="headTemplate; context: { rows: queuePendingRows }"></ng-container>
             </thead>
             <tbody>
               <ng-container *ngIf="queuePendingRows.length > 0; else pendingEmpty">
@@ -111,7 +140,16 @@
 </div>
 
 <ng-template #rowsTemplate let-rows="rows">
-  <tr *ngFor="let row of rows" [ngClass]="rowClass(row.animal_uuid)">
+  <tr #gridRow *ngFor="let row of rows" [attr.data-animal]="row.animal_uuid" [ngClass]="rowClass(row.animal_uuid)">
+    <td *ngIf="hasPaddockDestination && !readonly" class="corral-step-grid__check">
+      <input
+        *ngIf="!isLocalRow(row.animal_uuid)"
+        type="checkbox"
+        [ngModel]="isSelected(row.animal_uuid)"
+        (ngModelChange)="toggleRow(row.animal_uuid, $event)"
+        [disabled]="readonly"
+      />
+    </td>
     <th scope="row" class="corral-step-grid__sticky-col corral-step-grid__reg">
       <span class="corral-step-grid__reg-number">{{ row.registration_number }}</span>
       <span *ngIf="row.chip_number" class="corral-step-grid__reg-chip">{{ row.chip_number }}</span>
@@ -132,6 +170,24 @@
   <div class="corral-step-grid__cell-inner">
     <ng-container [ngSwitch]="col.value_type">
       <ng-container *ngSwitchCase="'medicine'">
+        <div
+          class="corral-step-grid__cell-presets"
+          *ngIf="getColumnPresetEntries(col).length > 0"
+          [ngClass]="responsivePresetContainerClass(getColumnPresetEntries(col).length)"
+        >
+          <button
+            type="button"
+            *ngFor="let preset of getColumnPresetEntries(col)"
+            class="corral-step-grid__cell-preset"
+            [class.corral-step-grid__cell-preset--active]="isCellPresetActive(row.animal_uuid, col, preset)"
+            (click)="applyCellPreset(row.animal_uuid, col, preset)"
+            [disabled]="readonly"
+            [attr.data-animal]="row.animal_uuid"
+            #dataCell
+          >
+            <span class="corral-step-grid__cell-preset-label">{{ preset.label }}</span>
+          </button>
+        </div>
         <div class="corral-step-grid__tag-list" *ngIf="getCellList(row.animal_uuid, col.column_key).length > 0">
           <span
             *ngFor="let item of getCellList(row.animal_uuid, col.column_key); let i = index"
@@ -149,27 +205,55 @@
             </button>
           </span>
         </div>
-        <div
-          class="corral-step-grid__cell-presets"
-          *ngIf="getColumnPresetEntries(col).length > 0"
-          [ngClass]="responsivePresetContainerClass(getColumnPresetEntries(col).length)"
-        >
-          <button
-            type="button"
-            *ngFor="let preset of getColumnPresetEntries(col)"
-            class="corral-step-grid__cell-preset"
-            [class.corral-step-grid__cell-preset--active]="isCellPresetActive(row.animal_uuid, col, preset)"
-            (click)="applyCellPreset(row.animal_uuid, col, preset)"
-            [disabled]="readonly"
-            [attr.data-animal]="row.animal_uuid"
-            #dataCell
-          >
-            {{ preset.label }}
-          </button>
-        </div>
       </ng-container>
 
       <ng-container *ngSwitchCase="'boolean'">
+        <span
+          *ngIf="readonly || getColumnPresetEntries(col).length === 0"
+          class="corral-step-grid__bool-value"
+          [class.corral-step-grid__bool-value--empty]="isBooleanCellEmpty(row.animal_uuid, col)"
+        >
+          {{ booleanCellLabel(row.animal_uuid, col) }}
+        </span>
+        <div
+          class="corral-step-grid__cell-presets"
+          *ngIf="!readonly && getColumnPresetEntries(col).length > 0"
+          [ngClass]="responsivePresetContainerClass(getColumnPresetEntries(col).length)"
+        >
+          <button
+            type="button"
+            *ngFor="let preset of getColumnPresetEntries(col)"
+            class="corral-step-grid__cell-preset"
+            [class.corral-step-grid__cell-preset--active]="isCellPresetActive(row.animal_uuid, col, preset)"
+            (click)="applyCellPreset(row.animal_uuid, col, preset)"
+            [disabled]="readonly"
+            [attr.data-animal]="row.animal_uuid"
+            #dataCell
+          >
+            <span class="corral-step-grid__cell-preset-label">{{ preset.label }}</span>
+          </button>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'paddock_current'">
+        <span class="corral-step-grid__paddock-current">{{ currentPaddockLabel(row) }}</span>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'paddock_destination'">
+        <span *ngIf="readonly" class="corral-step-grid__paddock-current">{{ destinationLabel(row) }}</span>
+        <select
+          *ngIf="!readonly"
+          class="form-select form-select-sm corral-step-grid__paddock-select"
+          [ngModel]="destinationValue(row)"
+          (ngModelChange)="setDestination(row, $event)"
+          [disabled]="isLocalRow(row.animal_uuid)"
+        >
+          <option value="">{{ 'paddockMove.stay' | t }}</option>
+          <option *ngFor="let paddock of paddocks" [value]="paddock.paddock_uuid">{{ paddock.name }}</option>
+        </select>
+      </ng-container>
+
+      <ng-container *ngSwitchDefault>
         <div
           class="corral-step-grid__cell-presets"
           *ngIf="getColumnPresetEntries(col).length > 0"
@@ -185,24 +269,7 @@
             [attr.data-animal]="row.animal_uuid"
             #dataCell
           >
-            {{ preset.label }}
-          </button>
-        </div>
-      </ng-container>
-
-      <ng-container *ngSwitchDefault>
-        <div class="corral-step-grid__cell-presets" *ngIf="getColumnPresetEntries(col).length > 0">
-          <button
-            type="button"
-            *ngFor="let preset of getColumnPresetEntries(col)"
-            class="corral-step-grid__cell-preset"
-            [class.corral-step-grid__cell-preset--active]="isCellPresetActive(row.animal_uuid, col, preset)"
-            (click)="applyCellPreset(row.animal_uuid, col, preset)"
-            [disabled]="readonly"
-            [attr.data-animal]="row.animal_uuid"
-            #dataCell
-          >
-            {{ preset.label }}
+            <span class="corral-step-grid__cell-preset-label">{{ preset.label }}</span>
           </button>
         </div>
         <input
@@ -219,8 +286,16 @@
   </div>
 </ng-template>
 
-<ng-template #headTemplate>
+<ng-template #headTemplate let-rows="rows">
   <tr>
+    <th *ngIf="hasPaddockDestination && !readonly" class="corral-step-grid__check">
+      <input
+        type="checkbox"
+        [ngModel]="allSelected(rows)"
+        (ngModelChange)="setSelection(rows, $event)"
+        [disabled]="readonly || selectableRows(rows).length === 0"
+      />
+    </th>
     <th class="corral-step-grid__sticky-col">{{ 'animal.fieldRegistrationNumber' | t }}</th>
     <th *ngFor="let col of grid.columns" class="corral-step-grid__col-label">{{ columnLabel(col) }}</th>
     <ng-container *ngIf="showFindingColumns">
@@ -234,7 +309,11 @@
 <ng-template #findingCellsTemplate let-row="row">
   <td class="corral-step-grid__finding-cell">
     <div class="corral-step-grid__cell-inner">
-      <div class="corral-step-grid__cell-presets" *ngIf="findingPresets.observations.length > 0">
+      <div
+        class="corral-step-grid__cell-presets"
+        *ngIf="findingPresets.observations.length > 0"
+        [ngClass]="responsivePresetContainerClass(findingPresets.observations.length)"
+      >
         <button
           type="button"
           *ngFor="let obs of findingPresets.observations"
@@ -243,7 +322,7 @@
           (click)="toggleObservationPreset(row.animal_uuid, obs)"
           [disabled]="readonly"
         >
-          {{ obs }}
+          <span class="corral-step-grid__cell-preset-label">{{ obs }}</span>
         </button>
       </div>
       <input
@@ -258,7 +337,11 @@
 
   <td class="corral-step-grid__finding-cell">
     <div class="corral-step-grid__cell-inner">
-      <div class="corral-step-grid__cell-presets" *ngIf="findingPresets.conditions.length > 0">
+      <div
+        class="corral-step-grid__cell-presets"
+        *ngIf="findingPresets.conditions.length > 0"
+        [ngClass]="responsivePresetContainerClass(findingPresets.conditions.length)"
+      >
         <button
           type="button"
           *ngFor="let code of findingPresets.conditions"
@@ -267,7 +350,7 @@
           (click)="toggleConditionPreset(row.animal_uuid, code)"
           [disabled]="readonly"
         >
-          {{ conditionLabel(code) }}
+          <span class="corral-step-grid__cell-preset-label">{{ conditionLabel(code) }}</span>
         </button>
       </div>
       <select
@@ -283,24 +366,7 @@
   </td>
 
   <td class="corral-step-grid__finding-cell corral-step-grid__finding-cell--medication">
-    <div class="corral-step-grid__cell-inner">
-      <div class="corral-step-grid__tag-list" *ngIf="getFinding(row.animal_uuid).medications.length > 0">
-        <span
-          *ngFor="let med of getFinding(row.animal_uuid).medications; let i = index"
-          class="corral-step-grid__tag"
-        >
-          <span class="corral-step-grid__tag-label">{{ medicationPresetLabel(med) }}</span>
-          <button
-            type="button"
-            class="corral-step-grid__tag-remove"
-            (click)="removeFindingMedication(row.animal_uuid, i)"
-            [disabled]="readonly"
-            [attr.aria-label]="'corralWorkSession.removeMedication' | t"
-          >
-            ×
-          </button>
-        </span>
-      </div>
+      <div class="corral-step-grid__cell-inner">
       <div class="corral-step-grid__med-options">
         <div class="corral-step-grid__med-options-row">
           <div
@@ -315,7 +381,7 @@
               (click)="toggleMedicationPreset(row.animal_uuid, med)"
               [disabled]="readonly"
             >
-              {{ medicationPresetLabel(med) }}
+              <span class="corral-step-grid__cell-preset-label">{{ medicationPresetLabel(med) }}</span>
             </button>
           </div>
           <button
@@ -367,6 +433,23 @@
             +
           </button>
         </div>
+      </div>
+      <div class="corral-step-grid__tag-list" *ngIf="getFinding(row.animal_uuid).medications.length > 0">
+        <span
+          *ngFor="let med of getFinding(row.animal_uuid).medications; let i = index"
+          class="corral-step-grid__tag"
+        >
+          <span class="corral-step-grid__tag-label">{{ medicationPresetLabel(med) }}</span>
+          <button
+            type="button"
+            class="corral-step-grid__tag-remove"
+            (click)="removeFindingMedication(row.animal_uuid, i)"
+            [disabled]="readonly"
+            [attr.aria-label]="'corralWorkSession.removeMedication' | t"
+          >
+            ×
+          </button>
+        </span>
       </div>
     </div>
   </td>

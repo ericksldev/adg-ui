@@ -4,11 +4,7 @@ import { catchError, takeUntil } from 'rxjs/operators';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
 import { hasPermission, Permission } from 'src/app/shared/constants/permissions';
-import {
-  normalizeBillingCycle,
-  normalizeCompanyPlanType,
-  PLAN_HEAD_LIMIT
-} from 'src/app/shared/constants/subscription.constants';
+import { normalizeBillingCycle } from 'src/app/shared/constants/subscription.constants';
 import { CompanyManagement, CompanyUser, RanchSummary } from '../../models/company-management.model';
 import { SaasManagementService } from '../../services/saas-management.service';
 
@@ -57,11 +53,14 @@ export class CompanyTenantOverviewComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  planTypeI18nSuffix(plan: string | undefined): string {
-    if (!plan) {
-      return 'essential';
+  planDisplayName(company: CompanyManagement): string {
+    if (company.plan?.name) {
+      return company.plan.name;
     }
-    return normalizeCompanyPlanType(plan).toLowerCase();
+    if (!company.plan_type?.trim()) {
+      return this.i18nService.translate('common.notAvailable');
+    }
+    return company.plan_type;
   }
 
   billingCycleI18nSuffix(cycle: string | undefined): string {
@@ -71,8 +70,8 @@ export class CompanyTenantOverviewComponent implements OnInit, OnDestroy {
     return normalizeBillingCycle(cycle).toLowerCase();
   }
 
-  getAnimalHeadLimit(plan: string | undefined): number {
-    return PLAN_HEAD_LIMIT[normalizeCompanyPlanType(plan ?? 'ESSENTIAL')];
+  getAnimalHeadLimit(company: CompanyManagement): number | null {
+    return company.plan?.limits?.ANIMALS ?? null;
   }
 
   private loadOverview(uuidCompany: string): void {

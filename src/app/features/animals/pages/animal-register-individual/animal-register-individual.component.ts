@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of, Subject } from 'rxjs';
 import { catchError, finalize, switchMap, takeUntil } from 'rxjs/operators';
 import { I18nService } from 'src/app/core/services/i18n.service';
@@ -32,6 +33,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
   feedback: { type: 'success' | 'error'; message: string } | null = null;
   saving = false;
   loadingRanchDependencies = false;
+  fromPendingRegistration = false;
 
   ranchRows: RanchOption[] = [];
   breedRows: BreedOptionDto[] = [];
@@ -47,7 +49,9 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     private readonly i18n: I18nService,
     private readonly sessionService: SessionService,
     private readonly userManagementService: UserManagementService,
-    private readonly animalApi: AnimalApiService
+    private readonly animalApi: AnimalApiService,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router
   ) {
     this.form = this.fb.group({
       ranchUuid: ['', Validators.required],
@@ -92,6 +96,10 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    const pendingRanch = String(this.route.snapshot.queryParamMap.get('ranchUuid') ?? '').trim();
+    const pendingNumber = String(this.route.snapshot.queryParamMap.get('registrationNumber') ?? '').trim();
+    this.fromPendingRegistration = this.route.snapshot.queryParamMap.get('fromPending') === '1';
+
     const company = this.sessionService.getUuidCompany();
     forkJoin({
       ranches: this.userManagementService.getRanches(company ?? undefined).pipe(catchError(() => of([]))),
@@ -143,6 +151,13 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
       .get('registrationNumber')
       ?.valueChanges.pipe(takeUntil(this.destroy$))
       .subscribe(() => this.clearRegistrationDuplicateError());
+
+    if (pendingRanch || pendingNumber) {
+      this.form.patchValue({
+        ranchUuid: pendingRanch,
+        registrationNumber: pendingNumber
+      });
+    }
   }
 
   get ranchSelected(): boolean {
@@ -297,6 +312,10 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     this.animalApi.createAnimal(payload).subscribe({
       next: () => {
         this.saving = false;
+        if (this.fromPendingRegistration) {
+          void this.router.navigate(['/corral-work-session/pending-registrations']);
+          return;
+        }
         let message = this.i18n.translate('animal.individualSaveSuccess');
         if (hadUnresolvedParents) {
           message = `${message} ${this.i18n.translate('animal.parentNotLinkedOnSave')}`;

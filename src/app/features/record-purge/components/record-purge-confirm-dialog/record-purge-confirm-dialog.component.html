@@ -1,0 +1,44 @@
+<div class="modal-header">
+  <h5 class="modal-title">{{ 'recordPurge.confirmTitle' | t }}</h5>
+  <button type="button" class="btn-close" [attr.aria-label]="'common.cancel' | t" (click)="activeModal.dismiss()"></button>
+</div>
+
+<div class="modal-body" *ngIf="step === 1">
+  <p class="mb-2">{{ 'recordPurge.confirmStep1' | t }}</p>
+  <p class="fw-semibold mb-2">{{ title }}</p>
+  <div class="d-flex flex-wrap gap-1 mb-2" *ngIf="activityCodes.length">
+    <span class="badge text-bg-light border" *ngFor="let code of activityCodes">
+      {{ ('corralWorkSession.activity.' + code) | t }}
+    </span>
+  </div>
+  <ul class="mb-0">
+    <li *ngFor="let reason of reasons">{{ ('recordPurge.reason.' + reason) | t }}</li>
+  </ul>
+</div>
+
+<div class="modal-body" *ngIf="step === 2">
+  <p class="text-danger mb-2">{{ 'recordPurge.confirmStep2' | t }}</p>
+  <p class="mb-2">{{ 'recordPurge.confirmTypeLabel' | t }} <code>{{ confirmToken }}</code></p>
+  <input
+    class="form-control"
+    type="text"
+    [value]="typedToken"
+    (input)="typedToken = $any($event.target).value"
+    autocomplete="off"
+  />
+</div>
+
+<div class="modal-footer">
+  <button type="button" class="btn btn-outline-secondary" (click)="activeModal.dismiss()">
+    {{ 'common.cancel' | t }}
+  </button>
+  <button *ngIf="step === 2" type="button" class="btn btn-outline-secondary" (click)="back()">
+    {{ 'recordPurge.confirmBack' | t }}
+  </button>
+  <button *ngIf="step === 1" type="button" class="btn btn-danger" (click)="continue()">
+    {{ 'recordPurge.confirmContinue' | t }}
+  </button>
+  <button *ngIf="step === 2" type="button" class="btn btn-danger" [disabled]="!tokenMatches" (click)="confirm()">
+    {{ 'recordPurge.confirmDelete' | t }}
+  </button>
+</div>

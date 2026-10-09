@@ -13,7 +13,7 @@ import { PaddockDetailComponent } from './pages/paddock-detail/paddock-detail.co
 import { PaddockEditComponent } from './pages/paddock-edit/paddock-edit.component';
 
 const ownerPermissions = [Permission.OWNER_READ];
-const paddockPermissions = [Permission.RANCH_READ];
+const paddockPermissions = [Permission.PADDOCK_READ];
 
 const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'owners' },

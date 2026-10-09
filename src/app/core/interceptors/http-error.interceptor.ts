@@ -27,7 +27,21 @@ export class HttpErrorInterceptor implements HttpInterceptor {
         }
 
         if (error.status === 403) {
-          this.router.navigate(['/home']);
+          const name = (error.error as { error?: { name?: string } } | undefined)?.error?.name;
+          const blocksApplication = name === 'TermsAcceptanceRequired'
+            || name === 'OrganizationMembershipRequired'
+            || name === 'TermsAcceptanceCheckFailed'
+            || name === 'MembershipExpired'
+            || name === 'CompanyInactive';
+          const isTermsRequest = req.url.includes('/terms/status')
+            || req.url.includes('/terms/current')
+            || req.url.includes('/terms/accept');
+
+          if (!isTermsRequest && blocksApplication && !this.router.url.startsWith('/terms-acceptance')) {
+            this.router.navigate(['/terms-acceptance']);
+          } else if (!isTermsRequest && !blocksApplication) {
+            this.router.navigate(['/home']);
+          }
         }
 
         return throwError(() => error);

@@ -3,21 +3,19 @@ import { ActivatedRoute } from '@angular/router';
 import {
   BillingCycle,
   BILLING_CYCLES,
-  CompanyPlanType,
-  COMPANY_PLAN_TYPES,
   PAYMENT_METHODS,
   PaymentMethod
 } from 'src/app/shared/constants/domain.constants';
 import {
-  getSubscriptionChargeUsd,
-  normalizeBillingCycle,
-  normalizeCompanyPlanType,
-  PLAN_HEAD_LIMIT
+  chargeForBillingCycle,
+  normalizeBillingCycle
 } from 'src/app/shared/constants/subscription.constants';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { notAvailableLabel } from 'src/app/core/utils/i18n-display.util';
 import { CompanyManagement, CompanyPaidActivationPayload, CompanyPayment } from '../../models/company-management.model';
+import { SaasPlan } from '../../models/saas-plan.model';
 import { SaasManagementService } from '../../services/saas-management.service';
+import { SaasPlanApiService } from '../../services/saas-plan-api.service';
 
 @Component({
   selector: 'app-company-activation',
@@ -27,10 +25,10 @@ import { SaasManagementService } from '../../services/saas-management.service';
 export class CompanyActivationComponent implements OnInit {
   company: CompanyManagement | null = null;
   payments: CompanyPayment[] = [];
+  activePlans: SaasPlan[] = [];
   errorMessage = '';
   isLoading = false;
 
-  readonly planTypes: CompanyPlanType[] = [...COMPANY_PLAN_TYPES];
   readonly billingCycles: BillingCycle[] = [...BILLING_CYCLES];
   readonly paymentMethods: PaymentMethod[] = [...PAYMENT_METHODS];
 
@@ -40,9 +38,10 @@ export class CompanyActivationComponent implements OnInit {
     notes: '',
     paid_at: new Date().toISOString().slice(0, 10),
     period_start: new Date().toISOString().slice(0, 10),
-    plan_type: 'ESSENTIAL',
+    plan_type: '',
     billing_cycle: 'ANNUAL',
-    amount: getSubscriptionChargeUsd('ESSENTIAL', 'ANNUAL')
+    amount: 0,
+    exchange_rate: null
   };
 
   trialForm = {
@@ -53,6 +52,7 @@ export class CompanyActivationComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly saasManagementService: SaasManagementService,
+    private readonly saasPlanApi: SaasPlanApiService,
     private readonly i18nService: I18nService
   ) {}
 
@@ -62,17 +62,43 @@ export class CompanyActivationComponent implements OnInit {
       this.errorMessage = this.i18nService.translate('errors.loadCompanies');
       return;
     }
-    this.loadCompany(uuidCompany);
+    this.loadActivePlans(uuidCompany);
+  }
+
+  get selectedPlan(): SaasPlan | undefined {
+    return this.activePlans.find((plan) => plan.code === this.paymentForm.plan_type);
   }
 
   get estimatedPeriodChargeUsd(): number {
-    return getSubscriptionChargeUsd(this.paymentForm.plan_type, this.paymentForm.billing_cycle);
+    const plan = this.selectedPlan;
+    if (!plan) {
+      return 0;
+    }
+    return chargeForBillingCycle(plan.annual_price, normalizeBillingCycle(this.paymentForm.billing_cycle));
+  }
+
+  get estimatedCurrency(): string {
+    return this.selectedPlan?.currency || 'USD';
+  }
+
+  get estimatedPeriodChargeBob(): number {
+    return this.toBolivianos(this.estimatedPeriodChargeUsd);
+  }
+
+  get paymentAmountBob(): number {
+    return this.toBolivianos(Number(this.paymentForm.amount));
   }
 
   get planHeadLimitHint(): string {
-    const plan = normalizeCompanyPlanType(this.paymentForm.plan_type);
-    const limit = PLAN_HEAD_LIMIT[plan];
-    return this.i18nService.translate('saas.planHeadLimitHint', { limit });
+    const plan = this.selectedPlan;
+    if (!plan) {
+      return '';
+    }
+    return this.i18nService.translate('saas.planLimitsHint', {
+      users: plan.limits.USERS ?? 0,
+      animals: plan.limits.ANIMALS ?? 0,
+      activities: plan.limits.ACTIVITY_RECORDS ?? 0
+    });
   }
 
   get hasActivePaidSubscription(): boolean {
@@ -87,6 +113,10 @@ export class CompanyActivationComponent implements OnInit {
 
   get isPaidActivationFormLocked(): boolean {
     return this.hasActivePaidSubscription;
+  }
+
+  get canRegisterPayment(): boolean {
+    return this.getActivationPaymentValidationErrorKey() === null;
   }
 
   createPayment(): void {
@@ -109,7 +139,11 @@ export class CompanyActivationComponent implements OnInit {
       next: () => {
         if (this.company) {
           this.company.membership_status = 'ACTIVE';
-          this.company.plan_type = normalizeCompanyPlanType(this.paymentForm.plan_type);
+          this.company.plan_type = payload.plan_type;
+          const selected = this.activePlans.find((plan) => plan.code === payload.plan_type);
+          if (selected) {
+            this.company.plan = selected;
+          }
           this.company.billing_cycle = normalizeBillingCycle(this.paymentForm.billing_cycle);
           this.loadPayments(this.company.uuid_company);
         }
@@ -139,12 +173,15 @@ export class CompanyActivationComponent implements OnInit {
     });
   }
 
-  getPlanLabel(plan: CompanyPlanType | string | undefined): string {
+  getPlanLabel(plan: SaasPlan | string | undefined): string {
     if (!plan) {
       return notAvailableLabel(this.i18nService);
     }
-    const key = normalizeCompanyPlanType(String(plan)).toLowerCase();
-    return this.i18nService.translate(`saas.planType.${key}`);
+    if (typeof plan !== 'string') {
+      return plan.name;
+    }
+    const match = this.activePlans.find((item) => item.code === plan);
+    return match?.name || plan;
   }
 
   getBillingCycleLabel(cycle: BillingCycle | string | undefined): string {
@@ -160,8 +197,7 @@ export class CompanyActivationComponent implements OnInit {
   }
 
   private getActivationPaymentValidationErrorKey(): string | null {
-    const plan = normalizeCompanyPlanType(this.paymentForm.plan_type);
-    if (!this.paymentForm.plan_type || !this.planTypes.includes(plan)) {
+    if (!this.paymentForm.plan_type || !this.selectedPlan) {
       return 'saas.validation.activationPlanRequired';
     }
     const cycle = normalizeBillingCycle(this.paymentForm.billing_cycle);
@@ -183,30 +219,69 @@ export class CompanyActivationComponent implements OnInit {
     if (!Number.isFinite(amount) || amount <= 0) {
       return 'saas.validation.activationAmountInvalid';
     }
+    const exchangeRate = Number(this.paymentForm.exchange_rate);
+    if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+      return 'saas.validation.activationExchangeRateInvalid';
+    }
     return null;
   }
 
   private buildActivationPaymentPayload(): CompanyPaidActivationPayload {
     const reference = (this.paymentForm.payment_reference ?? '').toString().trim();
     const notes = (this.paymentForm.notes ?? '').toString().trim();
-    const plan = normalizeCompanyPlanType(this.paymentForm.plan_type);
     const cycle = normalizeBillingCycle(this.paymentForm.billing_cycle);
     return {
       ...this.paymentForm,
-      plan_type: plan,
+      plan_type: this.paymentForm.plan_type,
       billing_cycle: cycle,
       amount: Number(this.paymentForm.amount),
+      exchange_rate: Number(this.paymentForm.exchange_rate),
       payment_reference: reference.length > 0 ? reference : null,
       notes: notes.length > 0 ? notes : null
     };
   }
 
-  private loadCompany(uuidCompany: string): void {
+  private loadActivePlans(uuidCompany: string): void {
     this.isLoading = true;
+    this.saasPlanApi.list('active').subscribe({
+      next: (plans) => {
+        this.activePlans = this.sortPlansBasicToHighest(plans);
+        this.loadCompany(uuidCompany);
+      },
+      error: () => {
+        this.errorMessage = this.i18nService.translate('saasPlans.loadError');
+        this.isLoading = false;
+      }
+    });
+  }
+
+  private sortPlansBasicToHighest(plans: SaasPlan[]): SaasPlan[] {
+    return [...plans].sort((left, right) => {
+      const priceDiff = Number(left.annual_price) - Number(right.annual_price);
+      if (priceDiff !== 0) {
+        return priceDiff;
+      }
+      const animalsDiff = (left.limits.ANIMALS ?? 0) - (right.limits.ANIMALS ?? 0);
+      if (animalsDiff !== 0) {
+        return animalsDiff;
+      }
+      return left.name.localeCompare(right.name);
+    });
+  }
+
+  private toBolivianos(amountUsd: number): number {
+    const rate = Number(this.paymentForm.exchange_rate);
+    if (!Number.isFinite(rate) || rate <= 0 || !Number.isFinite(amountUsd)) {
+      return 0;
+    }
+    return Math.round((amountUsd * rate + Number.EPSILON) * 100) / 100;
+  }
+
+  private loadCompany(uuidCompany: string): void {
     this.saasManagementService.getCompany(uuidCompany).subscribe({
       next: (company) => {
         this.company = company;
-        this.paymentForm.plan_type = normalizeCompanyPlanType(this.company.plan_type);
+        this.paymentForm.plan_type = this.activePlans[0]?.code ?? '';
         this.paymentForm.billing_cycle = normalizeBillingCycle(this.company.billing_cycle);
         this.paymentForm.amount = this.estimatedPeriodChargeUsd;
         this.loadPayments(uuidCompany);

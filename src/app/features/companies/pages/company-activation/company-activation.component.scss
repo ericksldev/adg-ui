@@ -15,7 +15,8 @@
 }
 
 .company-activation__fieldset:disabled .btn.btn-primary,
-.company-activation__fieldset[disabled] .btn.btn-primary {
+.company-activation__fieldset[disabled] .btn.btn-primary,
+.company-activation__fieldset .btn.btn-primary:disabled {
   background-color: var(--surface-secondary, #6c757d);
   border-color: var(--surface-border, #6c757d);
   color: var(--text-secondary, #fff);

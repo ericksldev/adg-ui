@@ -13,6 +13,7 @@ import { AnimalBatchRegisterComponent } from './pages/animal-batch-register/anim
 import { AnimalDetailComponent } from './pages/animal-detail/animal-detail.component';
 import { AnimalEditComponent } from './pages/animal-edit/animal-edit.component';
 import { AnimalRegisterIndividualComponent } from './pages/animal-register-individual/animal-register-individual.component';
+import { AnimalAttendanceComponent } from './pages/animal-attendance/animal-attendance.component';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { SharedModule } from 'src/app/shared/shared.module';
 
@@ -27,7 +28,8 @@ import { SharedModule } from 'src/app/shared/shared.module';
     AnimalBatchDeactivateComponent,
     AnimalRegisterIndividualComponent,
     AnimalDetailComponent,
-    AnimalEditComponent
+    AnimalEditComponent,
+    AnimalAttendanceComponent
   ],
   imports: [
     CommonModule,

@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, finalize, of } from 'rxjs';
+import { pageNumbers } from 'src/app/shared/utils/list-query.util';
 import { translateApiError } from 'src/app/core/utils/api-error.util';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
@@ -48,6 +49,11 @@ export class CorralWorkSessionLoadAnimalsComponent implements OnInit {
   inventorySearch = '';
   inventoryLoading = false;
   inventoryAnimals: AnimalListItem[] = [];
+  inventoryTotal = 0;
+  inventoryTotalPages = 1;
+  inventoryPage = 1;
+  inventoryPageSize = 10;
+  readonly inventoryPageSizeOptions = [10, 25, 50, 100];
   selectedManualUuids = new Set<string>();
 
   preview: CorralSessionAnimalsPreviewDto | null = null;
@@ -179,17 +185,46 @@ export class CorralWorkSessionLoadAnimalsComponent implements OnInit {
     this.stepAnimalAssignments.clear();
   }
 
-  loadInventory(): void {
+  get inventoryPageNumbers(): number[] {
+    return pageNumbers(this.inventoryTotalPages);
+  }
+
+  onInventoryPageSizeChange(value: string | number): void {
+    if (value === 'all') {
+      if (this.inventoryPageSize === 0) return;
+      this.inventoryPageSize = 0;
+    } else {
+      const next = typeof value === 'number' ? value : Number.parseInt(value, 10);
+      if (!this.inventoryPageSizeOptions.includes(next) || next === this.inventoryPageSize) return;
+      this.inventoryPageSize = next;
+    }
+    this.inventoryPage = 1;
+    this.loadInventory();
+  }
+
+  goToInventoryPage(page: number): void {
+    if (this.inventoryPageSize <= 0 || page < 1 || page > this.inventoryTotalPages || page === this.inventoryPage) {
+      return;
+    }
+    this.inventoryPage = page;
+    this.loadInventory();
+  }
+
+  loadInventory(reset = false): void {
+    if (reset) {
+      this.inventoryPage = 1;
+    }
     this.inventoryLoading = true;
     this.animalService
       .getAnimals({
-        page: 1,
-        size: 200,
+        page: this.inventoryPageSize > 0 ? this.inventoryPage : 1,
+        size: this.inventoryPageSize > 0 ? this.inventoryPageSize : 0,
         search: this.inventorySearch.trim() || undefined,
         sex: 'ALL',
         status: 'active',
         sortBy: 'registration_number',
-        order: 'ASC'
+        order: 'ASC',
+        ranch_uuid: this.session?.ranch_uuid
       })
       .pipe(
         finalize(() => {
@@ -198,13 +233,17 @@ export class CorralWorkSessionLoadAnimalsComponent implements OnInit {
       )
       .subscribe({
         next: (result) => {
-          const ranchUuid = this.session?.ranch_uuid;
-          this.inventoryAnimals = ranchUuid
-            ? result.items.filter((a) => a.ranch_uuid === ranchUuid || !a.ranch_uuid)
-            : result.items;
+          this.inventoryAnimals = result.items;
+          this.inventoryTotal = result.pagination?.totalItems ?? this.inventoryAnimals.length;
+          this.inventoryTotalPages = Math.max(result.pagination?.totalPages ?? 1, 1);
+          if (this.inventoryPage > this.inventoryTotalPages) {
+            this.inventoryPage = this.inventoryTotalPages;
+          }
         },
         error: () => {
           this.inventoryAnimals = [];
+          this.inventoryTotal = 0;
+          this.inventoryTotalPages = 1;
         }
       });
   }

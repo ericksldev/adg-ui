@@ -1,18 +1,18 @@
 # Angular dev server only. Run from this directory: `docker compose up`
 # Optional: copy `compose.env.example` to `compose.env` and run `docker compose --env-file compose.env up`
-# Default UI port on the host: 4730 (override with ADG_UI_PORT).
+# Default UI port on the host: 4730 (override with VRETE_UI_PORT).
 
-name: adg-ui
+name: vrete-ui
 
 services:
   ui:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: adg-ui
+    container_name: vrete-ui
     restart: "no"
     ports:
-      - "${ADG_UI_PORT:-4730}:${ADG_UI_PORT:-4730}"
+      - "${VRETE_UI_PORT:-4730}:${VRETE_UI_PORT:-4730}"
     environment:
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
@@ -23,14 +23,17 @@ services:
       - --host
       - 0.0.0.0
       - --port
-      - "${ADG_UI_PORT:-4730}"
+      - "${VRETE_UI_PORT:-4730}"
       - --poll
       - "2000"
     volumes:
       - .:/app
-      - adg_ui_node_modules:/app/node_modules
+      - vrete_ui_node_modules:/app/node_modules
     stdin_open: true
     tty: true
 
 volumes:
-  adg_ui_node_modules:
+  vrete_ui_node_modules:
+    # Existing volume. The Docker volume rename is deferred.
+    external: true
+    name: adg-ui_adg_ui_node_modules

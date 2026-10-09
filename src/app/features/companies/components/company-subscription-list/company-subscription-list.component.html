@@ -13,8 +13,15 @@
     </thead>
     <tbody>
       <tr *ngFor="let sub of subscriptions">
-        <td>{{ ('saas.planType.' + planTypeI18nSuffix(sub.plan_type)) | t }}</td>
-        <td>{{ sub.amount }}</td>
+        <td>
+          <div>{{ planLabel(sub.plan_type) }}</div>
+          <div class="text-muted" *ngIf="hasLockedLimits(sub)">{{ lockedLimitsLabel(sub) }}</div>
+        </td>
+        <td>
+          <div>{{ sub.currency }} {{ sub.amount | number:'1.2-2' }}</div>
+          <div *ngIf="sub.amount_bob != null">BOB {{ sub.amount_bob | number:'1.2-2' }}</div>
+          <div class="text-muted" *ngIf="sub.exchange_rate != null">{{ 'saas.exchangeRateShort' | t }} {{ sub.exchange_rate }}</div>
+        </td>
         <td>{{ displayPaymentMethod(sub.payment_method) }}</td>
         <td>{{ sub.status }}</td>
         <td>{{ (sub.period_start || sub.paid_at) | date:'yyyy-MM-dd' }}</td>

@@ -3,8 +3,10 @@ import { BehaviorSubject } from 'rxjs';
 import { JwtPayload, SessionData } from '../../shared/models/auth.model';
 import { normalizeUserRoles, UserRole } from '../../shared/constants/domain.constants';
 import { decodeJwtPayload } from '../utils/decode-jwt-payload';
+import { readLocalStorageMigrating, removeLocalStorageWithLegacy } from '../utils/legacy-local-storage';
 
-const SESSION_KEY = 'adg_session';
+const SESSION_KEY = 'vrete_session';
+const SESSION_KEY_LEGACY = 'adg_session';
 
 @Injectable({
   providedIn: 'root'
@@ -55,7 +57,7 @@ export class SessionService {
   }
 
   clearSession(): void {
-    localStorage.removeItem(SESSION_KEY);
+    removeLocalStorageWithLegacy(SESSION_KEY, SESSION_KEY_LEGACY);
     localStorage.removeItem('user_name');
     localStorage.removeItem('user_token');
     localStorage.removeItem('user_role');
@@ -72,7 +74,7 @@ export class SessionService {
   }
 
   private readSession(): SessionData | null {
-    const rawSession = localStorage.getItem(SESSION_KEY);
+    const rawSession = readLocalStorageMigrating(SESSION_KEY, SESSION_KEY_LEGACY);
     if (!rawSession) {
       return null;
     }

@@ -1,16 +1,16 @@
 <div
   class="app-shell"
-  [class.app-shell--authenticated]="user != null"
+  [class.app-shell--authenticated]="user != null && !termsGate"
   [ngClass]="{'theme-light': currentTheme === 'light', 'theme-dark': currentTheme === 'dark'}"
 >
   <app-navbar
-    *ngIf="user != null"
+    *ngIf="user != null && !termsGate"
     [isSidebarOpen]="openSidebar"
     (toggleSidebarToParent)="toggleSidebarToParent($event)"
     (themeChanged)="onThemeChange($event)"
   ></app-navbar>
 
-  <div class="app-layout" *ngIf="user != null; else guestLayout">
+  <div class="app-layout" *ngIf="user != null && !termsGate; else guestLayout">
     <button type="button" class="app-sidebar-backdrop" [class.show]="openSidebar" (click)="openSidebar = false" [attr.aria-label]="'nav.closeSidebar' | t"></button>
     <app-sidebar [classApplied]="openSidebar" (sidebarLinkClicked)="openSidebar = false"></app-sidebar>
     <main class="app-main">

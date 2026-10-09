@@ -14,7 +14,10 @@ import {
   CreateCorralWorkSessionPayload,
   SaveCorralStepGridPayload,
   UpsertCorralFindingPayload,
-  AnimalLookupDto
+  AnimalLookupDto,
+  AnimalCorralWorkHistoryDto,
+  PendingAnimalRegistrationDto,
+  ApplyPaddockDistributionResultDto
 } from '../models/corral-work-session.model';
 
 interface ApiItemResponse<T> {
@@ -34,6 +37,16 @@ export class CorralWorkSessionApiService {
   private readonly baseUrl = `${environment.urlApi}/corral-work-session`;
 
   constructor(private readonly http: HttpClient) {}
+
+  listPendingRegistrations(query?: { ranch_uuid?: string }): Observable<PendingAnimalRegistrationDto[]> {
+    let params = new HttpParams();
+    if (query?.ranch_uuid) {
+      params = params.set('ranch_uuid', query.ranch_uuid);
+    }
+    return this.http
+      .get<ApiListResponse<PendingAnimalRegistrationDto>>(`${this.baseUrl}/pending-registrations`, { params })
+      .pipe(map((r) => r.data ?? []));
+  }
 
   listSessions(query?: {
     ranch_uuid?: string;
@@ -77,6 +90,20 @@ export class CorralWorkSessionApiService {
       .pipe(map((r) => r.data));
   }
 
+  addUnregisteredStepAnimal(
+    sessionUuid: string,
+    stepUuid: string,
+    identifier: string
+  ): Observable<CorralStepGridDto> {
+    const normalized = identifier.replace(/[\u0000-\u001F\u007F]/g, '').trim();
+    return this.http
+      .post<ApiItemResponse<CorralStepGridDto>>(
+        `${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/unregistered-animals`,
+        { identifier: normalized }
+      )
+      .pipe(map((r) => r.data));
+  }
+
   scanStepAnimal(sessionUuid: string, stepUuid: string, identifier: string): Observable<CorralStepGridDto> {
     const normalized = identifier.replace(/[\u0000-\u001F\u007F]/g, '').trim();
     return this.http
@@ -114,6 +141,14 @@ export class CorralWorkSessionApiService {
       .pipe(map((r) => r.data));
   }
 
+  getAnimalWorkHistory(sessionUuid: string, animalUuid: string): Observable<AnimalCorralWorkHistoryDto> {
+    return this.http
+      .get<ApiItemResponse<AnimalCorralWorkHistoryDto>>(
+        `${this.baseUrl}/${sessionUuid}/animals/${animalUuid}/history`
+      )
+      .pipe(map((r) => r.data));
+  }
+
   lookupAnimal(sessionUuid: string, identifier: string): Observable<AnimalLookupDto> {
     const normalized = identifier.replace(/[\u0000-\u001F\u007F]/g, '').trim();
     const params = new HttpParams().set('identifier', normalized);
@@ -145,6 +180,19 @@ export class CorralWorkSessionApiService {
       .patch<ApiItemResponse<CorralStepGridDto>>(
         `${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/work-mode`,
         { work_mode: workMode }
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  applyPaddockDistribution(
+    sessionUuid: string,
+    stepUuid: string,
+    moves: Array<{ animal_uuid: string; destination_paddock_uuid: string }>
+  ): Observable<ApplyPaddockDistributionResultDto> {
+    return this.http
+      .post<ApiItemResponse<ApplyPaddockDistributionResultDto>>(
+        `${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/paddock-distribution`,
+        { moves }
       )
       .pipe(map((r) => r.data));
   }

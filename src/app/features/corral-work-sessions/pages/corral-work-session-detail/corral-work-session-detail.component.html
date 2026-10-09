@@ -183,7 +183,9 @@
           *ngIf="activeGrid"
           [grid]="activeGrid"
           [readonly]="true"
+          [paddocks]="paddocks"
           [workMode]="activeGrid.work_mode || 'SCAN_DYNAMIC'"
+          [queueScannedUuids]="activeGrid.scanned_animal_uuids || []"
         ></app-corral-step-grid>
       </ng-container>
     </div>

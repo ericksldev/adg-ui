@@ -3,6 +3,10 @@
     <h2 class="app-page-title mb-0">{{ 'animal.individualRegisterTitle' | t }}</h2>
   </div>
 
+  <div *ngIf="fromPendingRegistration" class="alert alert-info" role="status">
+    {{ 'animal.pendingRegistrationHint' | t }}
+  </div>
+
   <div *ngIf="feedback" class="alert" [ngClass]="feedback.type === 'success' ? 'alert-success' : 'alert-danger'" role="status">
     {{ feedback.message }}
   </div>

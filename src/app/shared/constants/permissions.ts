@@ -24,6 +24,14 @@ export enum Permission {
   ANIMAL_WRITE = 'ANIMAL_WRITE',
   ANIMAL_WORK_SESSION_READ = 'ANIMAL_WORK_SESSION_READ',
   ANIMAL_WORK_SESSION_WRITE = 'ANIMAL_WORK_SESSION_WRITE',
+  SAAS_PLAN_READ = 'SAAS_PLAN_READ',
+  SAAS_PLAN_WRITE = 'SAAS_PLAN_WRITE',
+  TERMS_VERSION_READ = 'TERMS_VERSION_READ',
+  TERMS_VERSION_WRITE = 'TERMS_VERSION_WRITE',
+  /** Ver candidatos a borrado permanente y la auditoria (solo administrador). */
+  RECORD_PURGE_READ = 'RECORD_PURGE_READ',
+  /** Borrar de forma permanente un candidato (solo administrador). */
+  RECORD_PURGE_WRITE = 'RECORD_PURGE_WRITE',
 }
 
 const PERMISSION_ROLE_MAP: Record<Permission, UserRole[]> = {
@@ -35,16 +43,22 @@ const PERMISSION_ROLE_MAP: Record<Permission, UserRole[]> = {
   [Permission.USER_WRITE]: ['administrator', 'saas_owner'],
   [Permission.RANCH_READ]: ['ranch_staff', 'administrator', 'saas_owner'],
   [Permission.RANCH_WRITE]: ['administrator', 'saas_owner'],
-  [Permission.PADDOCK_READ]: ['ranch_staff', 'administrator', 'saas_owner'],
-  [Permission.PADDOCK_WRITE]: ['ranch_staff', 'administrator', 'saas_owner'],
-  [Permission.OWNER_READ]: ['ranch_staff', 'administrator', 'saas_owner'],
-  [Permission.OWNER_WRITE]: ['ranch_staff', 'administrator', 'saas_owner'],
+  [Permission.PADDOCK_READ]: ['ranch_staff', 'administrator'],
+  [Permission.PADDOCK_WRITE]: ['ranch_staff', 'administrator'],
+  [Permission.OWNER_READ]: ['ranch_staff', 'administrator'],
+  [Permission.OWNER_WRITE]: ['ranch_staff', 'administrator'],
   [Permission.MEMBERSHIP_READ]: ['administrator', 'saas_owner'],
   [Permission.MEMBERSHIP_WRITE]: ['administrator', 'saas_owner'],
-  [Permission.ANIMAL_READ]: ['ranch_staff', 'administrator', 'saas_owner'],
-  [Permission.ANIMAL_WRITE]: ['ranch_staff', 'administrator', 'saas_owner'],
-  [Permission.ANIMAL_WORK_SESSION_READ]: ['ranch_staff', 'administrator', 'saas_owner'],
-  [Permission.ANIMAL_WORK_SESSION_WRITE]: ['ranch_staff', 'administrator', 'saas_owner'],
+  [Permission.ANIMAL_READ]: ['ranch_staff', 'administrator'],
+  [Permission.ANIMAL_WRITE]: ['ranch_staff', 'administrator'],
+  [Permission.ANIMAL_WORK_SESSION_READ]: ['ranch_staff', 'administrator'],
+  [Permission.ANIMAL_WORK_SESSION_WRITE]: ['ranch_staff', 'administrator'],
+  [Permission.SAAS_PLAN_READ]: ['saas_owner'],
+  [Permission.SAAS_PLAN_WRITE]: ['saas_owner'],
+  [Permission.TERMS_VERSION_READ]: ['saas_owner'],
+  [Permission.TERMS_VERSION_WRITE]: ['saas_owner'],
+  [Permission.RECORD_PURGE_READ]: ['administrator'],
+  [Permission.RECORD_PURGE_WRITE]: ['administrator'],
 };
 
 export const hasPermission = (roles: UserRole[] | string[], permission: Permission): boolean => {

@@ -8,6 +8,10 @@
     </div>
   </div>
 
+  <div *ngIf="fromPendingRegistrations" class="alert alert-info" role="status">
+    {{ 'animal.pendingBatchHint' | t }}
+  </div>
+
   <div class="animal-batch-hints app-card p-2 mb-3" role="note">
     <details #batchHintsDetails class="animal-batch-excel-details animal-batch-hints-details small text-muted" open>
       <summary class="animal-batch-excel-summary"> {{ 'animal.batchHintsDetailsTitle' | t }}</summary>

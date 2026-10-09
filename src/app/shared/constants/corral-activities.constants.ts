@@ -10,6 +10,8 @@ export interface CorralActivityDefinition {
   valueType: CorralActivityValueType;
   multiRecord: boolean;
   historyTarget?: string;
+  /** Dedicated workspace panel. Omitted from the generic step grid. */
+  skipGridColumn?: boolean;
 }
 
 /** Single source of truth for corral activity codes (UI + API). */
@@ -74,6 +76,15 @@ export const CORRAL_ACTIVITY_CATALOG: readonly CorralActivityDefinition[] = [
     columnLabel: 'Inspection',
     valueType: 'text',
     multiRecord: false
+  },
+  {
+    code: 'PADDOCK_MOVE',
+    icon: 'bi-arrow-left-right',
+    defaultWorkMode: 'PRELOADED_SEARCH',
+    columnLabel: 'Paddock',
+    valueType: 'text',
+    multiRecord: false,
+    historyTarget: 'animal_movements'
   }
 ] as const;
 
@@ -107,6 +118,15 @@ export const CORRAL_MULTI_RECORD_ACTIVITY_CODES: CorralActivityCode[] = CORRAL_A
 
 export function isMultiRecordActivity(code: CorralActivityCode | string): boolean {
   return CORRAL_MULTI_RECORD_ACTIVITY_CODES.includes(code as CorralActivityCode);
+}
+
+export function isGridColumnActivity(code: string): boolean {
+  const definition = getCorralActivityDefinition(code);
+  return Boolean(definition && !definition.skipGridColumn);
+}
+
+export function isPaddockMoveActivity(code: string | null | undefined): boolean {
+  return code === 'PADDOCK_MOVE';
 }
 
 export const CORRAL_ACTIVITY_HISTORY_TARGET: Partial<Record<CorralActivityCode, string>> =

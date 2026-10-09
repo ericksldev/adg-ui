@@ -1,0 +1,180 @@
+.terms-gate {
+  min-height: 100vh;
+  background: var(--background);
+  padding: 1.5rem 1rem 2rem;
+}
+
+.terms-gate__card {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 1.25rem;
+  background: var(--surface);
+  border-top: 4px solid var(--primary);
+}
+
+.terms-gate__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.terms-gate__brand {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+
+.terms-gate__provider {
+  margin: 0.15rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
+.terms-gate__logout {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 0;
+}
+
+.terms-gate__card > h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+}
+
+.terms-gate__notice {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.terms-gate__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+.terms-gate__meta dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.terms-gate__meta dd {
+  margin: 0.15rem 0 0;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.terms-gate__document {
+  max-height: min(58vh, 640px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary);
+  padding: 1.35rem 1.6rem 1.5rem;
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+:host ::ng-deep .terms-gate__document h1,
+:host ::ng-deep .terms-gate__document h2,
+:host ::ng-deep .terms-gate__document h3 {
+  font-family: inherit;
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+:host ::ng-deep .terms-gate__document h1 {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+:host ::ng-deep .terms-gate__document h2,
+:host ::ng-deep .terms-gate__document h3 {
+  margin: 0.85rem 0 0.3rem;
+  padding: 0;
+  border: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:host ::ng-deep .terms-gate__document p {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  text-align: justify;
+  hyphens: auto;
+}
+
+:host ::ng-deep .terms-gate__document ul {
+  margin: 0.15rem 0 0.55rem;
+  padding-left: 1.15rem;
+}
+
+:host ::ng-deep .terms-gate__document li {
+  margin-bottom: 0.15rem;
+  font-size: 0.78rem;
+}
+
+:host ::ng-deep .terms-gate__document hr {
+  margin: 0.7rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+:host ::ng-deep .terms-gate__document strong {
+  font-weight: 700;
+}
+
+.terms-gate__actions {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.terms-gate__checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.terms-gate__checkbox input {
+  margin-top: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+}
+
+.terms-gate__retry {
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .terms-gate {
+    padding: 0.75rem 0.5rem 1.5rem;
+  }
+
+  .terms-gate__card {
+    padding: 1rem;
+  }
+
+  .terms-gate__document {
+    max-height: 50vh;
+  }
+}

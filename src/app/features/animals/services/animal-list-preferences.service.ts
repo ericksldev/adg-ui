@@ -1,11 +1,18 @@
 import { Injectable } from '@angular/core';
 import { SessionService } from 'src/app/core/services/session.service';
+import { readLocalStorageMigrating } from 'src/app/core/utils/legacy-local-storage';
 import {
+  ANIMAL_LIST_BIRTH_DISPLAY_STORAGE_PREFIX,
+  ANIMAL_LIST_BIRTH_DISPLAY_STORAGE_PREFIX_LEGACY,
   ANIMAL_LIST_COLUMNS_STORAGE_PREFIX,
+  ANIMAL_LIST_COLUMNS_STORAGE_PREFIX_LEGACY,
+  ANIMAL_LIST_DEFAULT_BIRTH_DISPLAY,
   ANIMAL_LIST_DEFAULT_OPTIONAL_VISIBILITY,
   ANIMAL_LIST_DEFAULT_PAGE_SIZE,
   ANIMAL_LIST_PAGE_SIZE_OPTIONS,
   ANIMAL_LIST_PAGE_SIZE_STORAGE_PREFIX,
+  ANIMAL_LIST_PAGE_SIZE_STORAGE_PREFIX_LEGACY,
+  AnimalBirthDisplayMode,
   AnimalListOptionalColumnKey
 } from '../constants/animal-list.constants';
 
@@ -16,11 +23,7 @@ export class AnimalListPreferencesService {
   constructor(private readonly sessionService: SessionService) {}
 
   loadOptionalColumnVisibility(): Record<AnimalListOptionalColumnKey, boolean> {
-    const key = this.columnsStorageKey();
-    if (!key) {
-      return { ...ANIMAL_LIST_DEFAULT_OPTIONAL_VISIBILITY };
-    }
-    const raw = localStorage.getItem(key);
+    const raw = this.readScoped(ANIMAL_LIST_COLUMNS_STORAGE_PREFIX, ANIMAL_LIST_COLUMNS_STORAGE_PREFIX_LEGACY);
     if (!raw) {
       return { ...ANIMAL_LIST_DEFAULT_OPTIONAL_VISIBILITY };
     }
@@ -41,11 +44,7 @@ export class AnimalListPreferencesService {
   }
 
   loadPageSize(): number {
-    const key = this.pageSizeStorageKey();
-    if (!key) {
-      return ANIMAL_LIST_DEFAULT_PAGE_SIZE;
-    }
-    const raw = localStorage.getItem(key);
+    const raw = this.readScoped(ANIMAL_LIST_PAGE_SIZE_STORAGE_PREFIX, ANIMAL_LIST_PAGE_SIZE_STORAGE_PREFIX_LEGACY);
     if (!raw) {
       return ANIMAL_LIST_DEFAULT_PAGE_SIZE;
     }
@@ -64,12 +63,32 @@ export class AnimalListPreferencesService {
     localStorage.setItem(key, String(size));
   }
 
+  loadBirthDisplayMode(): AnimalBirthDisplayMode {
+    const raw = this.readScoped(
+      ANIMAL_LIST_BIRTH_DISPLAY_STORAGE_PREFIX,
+      ANIMAL_LIST_BIRTH_DISPLAY_STORAGE_PREFIX_LEGACY
+    );
+    return raw === 'age' || raw === 'date' ? raw : ANIMAL_LIST_DEFAULT_BIRTH_DISPLAY;
+  }
+
+  saveBirthDisplayMode(mode: AnimalBirthDisplayMode): void {
+    const key = this.birthDisplayStorageKey();
+    if (!key) {
+      return;
+    }
+    localStorage.setItem(key, mode);
+  }
+
   private columnsStorageKey(): string | null {
     return this.userScopedKey(ANIMAL_LIST_COLUMNS_STORAGE_PREFIX);
   }
 
   private pageSizeStorageKey(): string | null {
     return this.userScopedKey(ANIMAL_LIST_PAGE_SIZE_STORAGE_PREFIX);
+  }
+
+  private birthDisplayStorageKey(): string | null {
+    return this.userScopedKey(ANIMAL_LIST_BIRTH_DISPLAY_STORAGE_PREFIX);
   }
 
   private userScopedKey(prefix: string): string | null {
@@ -79,5 +98,14 @@ export class AnimalListPreferencesService {
       return null;
     }
     return `${prefix}_${company}_${username}`;
+  }
+
+  private readScoped(prefix: string, legacyPrefix: string): string | null {
+    const key = this.userScopedKey(prefix);
+    const legacyKey = this.userScopedKey(legacyPrefix);
+    if (!key || !legacyKey) {
+      return null;
+    }
+    return readLocalStorageMigrating(key, legacyKey);
   }
 }
