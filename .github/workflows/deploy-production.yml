@@ -1,0 +1,204 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: vrete-ui-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    name: Build and publish static site
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Publish to S3
+        env:
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          if [ -z "${S3_BUCKET_NAME}" ]; then
+            echo "Missing required GitHub secret: S3_BUCKET_NAME"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          bucket = os.environ["S3_BUCKET_NAME"]
+          dist = Path("dist/vrete-ui")
+          index_path = dist / "index.html"
+          if not index_path.is_file():
+              raise SystemExit("Build output not found: dist/vrete-ui/index.html")
+
+          placeholder = "REPLACE_WITH_PRODUCTION_API_URL"
+          for path in dist.rglob("*"):
+              if path.is_file() and placeholder in path.read_text(encoding="utf-8", errors="ignore"):
+                  raise SystemExit(
+                      "PRODUCTION_API_URL still contains REPLACE_WITH_PRODUCTION_API_URL. "
+                      "Set the production API URL before deploying."
+                  )
+
+          hashed_name = re.compile(r"\.[0-9a-f]{8,}\.(?:js|css)$", re.IGNORECASE)
+          long_cache = "public, max-age=31536000, immutable"
+          revalidate = "public, max-age=0, must-revalidate"
+          index_cache = "no-cache, no-store, must-revalidate"
+          local_keys = set()
+
+          for path in dist.rglob("*"):
+              if not path.is_file():
+                  continue
+              key = path.relative_to(dist).as_posix()
+              local_keys.add(key)
+              destination = f"s3://{bucket}/{key}"
+              command = ["aws", "s3", "cp", str(path), destination, "--metadata-directive", "REPLACE"]
+              if path.name == "index.html":
+                  command.extend([
+                      "--cache-control", index_cache,
+                      "--content-type", "text/html; charset=utf-8",
+                  ])
+              elif hashed_name.search(path.name):
+                  command.extend(["--cache-control", long_cache])
+              else:
+                  command.extend(["--cache-control", revalidate])
+              subprocess.run(command, check=True)
+
+          token = None
+          remote_keys = []
+          while True:
+              command = ["aws", "s3api", "list-objects-v2", "--bucket", bucket, "--output", "json"]
+              if token:
+                  command.extend(["--continuation-token", token])
+              listed = json.loads(subprocess.check_output(command))
+              for item in listed.get("Contents", []):
+                  remote_keys.append(item["Key"])
+              if not listed.get("IsTruncated"):
+                  break
+              token = listed.get("NextContinuationToken")
+
+          stale = [{"Key": key} for key in remote_keys if key not in local_keys]
+          for offset in range(0, len(stale), 1000):
+              chunk = stale[offset:offset + 1000]
+              subprocess.run(
+                  [
+                      "aws", "s3api", "delete-objects",
+                      "--bucket", bucket,
+                      "--delete", json.dumps({"Objects": chunk, "Quiet": True}),
+                  ],
+                  check=True,
+              )
+          PY
+
+      - name: Configure CloudFront SPA fallback
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFRONT_DISTRIBUTION_ID}" ]; then
+            echo "Missing required GitHub secret: CLOUDFRONT_DISTRIBUTION_ID"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          distribution_id = os.environ["CLOUDFRONT_DISTRIBUTION_ID"]
+          payload = json.loads(subprocess.check_output([
+              "aws", "cloudfront", "get-distribution-config",
+              "--id", distribution_id,
+              "--output", "json",
+          ]))
+          config = payload["DistributionConfig"]
+          desired = [
+              {
+                  "ErrorCode": 403,
+                  "ResponsePagePath": "/index.html",
+                  "ResponseCode": "200",
+                  "ErrorCachingMinTTL": 0,
+              },
+              {
+                  "ErrorCode": 404,
+                  "ResponsePagePath": "/index.html",
+                  "ResponseCode": "200",
+                  "ErrorCachingMinTTL": 0,
+              },
+          ]
+          current_items = (config.get("CustomErrorResponses") or {}).get("Items") or []
+          preserved = [item for item in current_items if item.get("ErrorCode") not in (403, 404)]
+          merged = preserved + desired
+
+          def signature(items):
+              return sorted(
+                  (
+                      item.get("ErrorCode"),
+                      item.get("ResponsePagePath"),
+                      str(item.get("ResponseCode")),
+                      item.get("ErrorCachingMinTTL"),
+                  )
+                  for item in items
+              )
+
+          if signature(current_items) == signature(merged):
+              print("CloudFront already returns /index.html with status 200 for 403 and 404.")
+              raise SystemExit(0)
+
+          config["CustomErrorResponses"] = {"Quantity": len(merged), "Items": merged}
+          config_path = "distribution-config.json"
+          with open(config_path, "w", encoding="utf-8") as handle:
+              json.dump(config, handle)
+          subprocess.run(
+              [
+                  "aws", "cloudfront", "update-distribution",
+                  "--id", distribution_id,
+                  "--if-match", payload["ETag"],
+                  "--distribution-config", f"file://{config_path}",
+              ],
+              check=True,
+          )
+          os.remove(config_path)
+          PY
+
+      - name: Invalidate CloudFront
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          set -euo pipefail
+          aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*"
