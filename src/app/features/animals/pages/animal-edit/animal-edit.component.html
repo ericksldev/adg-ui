@@ -103,6 +103,15 @@
           </select>
         </div>
         <div class="col-12">
+          <span class="form-label small mb-1 d-block">{{ 'livestockCategory.column' | t }}</span>
+          <app-category-multi-select
+            [options]="categorySelectOptions"
+            [selectedIds]="selectedCategoryIdList"
+            [placeholder]="'livestockCategory.selectPlaceholder' | t"
+            (selectedIdsChange)="onCategoriesChange($event)"
+          ></app-category-multi-select>
+        </div>
+        <div class="col-12">
           <label class="form-label small mb-1" for="description">{{ 'animal.fieldDescription' | t }}</label>
           <textarea id="description" class="form-control form-control-sm" rows="2" formControlName="description"></textarea>
         </div>

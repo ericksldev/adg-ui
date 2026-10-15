@@ -3,7 +3,7 @@ export const ANIMAL_BATCH_MAX_ROW_SLOTS = 500;
 export const ANIMAL_BATCH_DEFAULT_ROW_SLOTS = 10;
 /** Bumped when draft row shape changes (invalidates old localStorage drafts). */
 export const ANIMAL_BATCH_STORAGE_PREFIX = 'vrete_animal_batch_draft_v5';
-export const ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX = 'vrete_animal_batch_visible_cols_v3';
+export const ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX = 'vrete_animal_batch_visible_cols_v4';
 export const ANIMAL_BATCH_STORAGE_PREFIX_LEGACY = 'adg_animal_batch_draft_v5';
 export const ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX_LEGACY = 'adg_animal_batch_visible_cols_v3';
 export const ANIMAL_BATCH_PERSIST_DEBOUNCE_MS = 400;
@@ -17,6 +17,7 @@ export type AnimalBatchOptionalColumnKey =
   | 'currentPaddockUuid'
   | 'color'
   | 'originType'
+  | 'categories'
   | 'description';
 
 export interface AnimalBatchOptionalColumnDef {
@@ -33,6 +34,7 @@ export const ANIMAL_BATCH_OPTIONAL_COLUMNS: readonly AnimalBatchOptionalColumnDe
   { key: 'currentPaddockUuid', labelKey: 'animal.fieldPaddock' },
   { key: 'color', labelKey: 'animal.fieldColor' },
   { key: 'originType', labelKey: 'animal.fieldOriginType' },
+  { key: 'categories', labelKey: 'livestockCategory.column' },
   { key: 'description', labelKey: 'animal.fieldDescription' }
 ] as const;
 
@@ -45,5 +47,6 @@ export const ANIMAL_BATCH_DEFAULT_OPTIONAL_COLUMN_VISIBILITY: Record<AnimalBatch
   currentPaddockUuid: true,
   color: true,
   originType: true,
+  categories: false,
   description: true
 };

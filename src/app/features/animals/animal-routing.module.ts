@@ -11,6 +11,7 @@ import { AnimalEditComponent } from './pages/animal-edit/animal-edit.component';
 import { AnimalBatchDeactivateComponent } from './pages/animal-batch-deactivate/animal-batch-deactivate.component';
 import { AnimalRegisterIndividualComponent } from './pages/animal-register-individual/animal-register-individual.component';
 import { AnimalAttendanceComponent } from './pages/animal-attendance/animal-attendance.component';
+import { AnimalCategoryOrganizeComponent } from './pages/animal-category-organize/animal-category-organize.component';
 
 const readPermissions = [Permission.ANIMAL_READ];
 const writePermissions = [Permission.ANIMAL_WRITE];
@@ -68,6 +69,15 @@ const routes: Routes = [
         data: {
           permissions: writePermissions,
           breadcrumb: 'breadcrumbs.animalBatchRegister'
+        }
+      },
+      {
+        path: 'categories',
+        component: AnimalCategoryOrganizeComponent,
+        canActivate: [PermissionGuard],
+        data: {
+          permissions: writePermissions,
+          breadcrumb: 'breadcrumbs.animalCategories'
         }
       },
       {

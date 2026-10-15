@@ -1,0 +1,58 @@
+<div class="app-page-header">
+  <h3 class="app-page-title mb-1">{{ 'livestockCategory.title' | t }}</h3>
+  <p class="text-muted small mb-0">{{ 'livestockCategory.subtitle' | t }}</p>
+</div>
+
+<p class="text-danger" *ngIf="errorMessage">{{ errorMessage }}</p>
+<div class="text-muted py-3" *ngIf="isLoading">{{ 'common.loading' | t }}</div>
+
+<section class="app-card p-3" *ngIf="!isLoading">
+  <h4 class="h6">{{ 'livestockCategory.catalog' | t }}</h4>
+  <form *ngIf="canWrite" class="row g-2 align-items-end mb-3" (ngSubmit)="createCategory()">
+    <div class="col-md-3">
+      <label class="form-label">{{ 'livestockCategory.name' | t }}</label>
+      <input class="form-control form-control-sm" name="name" [(ngModel)]="categoryForm.name" required />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">{{ 'livestockCategory.description' | t }}</label>
+      <input class="form-control form-control-sm" name="description" [(ngModel)]="categoryForm.description" />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">{{ 'livestockCategory.type' | t }}</label>
+      <select class="form-select form-select-sm" name="category_type" [(ngModel)]="categoryForm.category_type">
+        <option value="PRODUCTIVE">PRODUCTIVE</option>
+        <option value="SELECTION">SELECTION</option>
+        <option value="CUSTOM">CUSTOM</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-primary btn-sm" type="submit">{{ 'livestockCategory.create' | t }}</button>
+    </div>
+  </form>
+  <div class="app-table">
+    <table class="table table-sm table-striped mb-0">
+      <thead>
+        <tr>
+          <th>{{ 'livestockCategory.name' | t }}</th>
+          <th>{{ 'livestockCategory.type' | t }}</th>
+          <th>{{ 'livestockCategory.scope' | t }}</th>
+          <th>{{ 'livestockCategory.status' | t }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let category of categories">
+          <td>{{ category.name }}</td>
+          <td>{{ category.category_type }}</td>
+          <td>{{ category.is_system ? ('livestockCategory.system' | t) : ('livestockCategory.company' | t) }}</td>
+          <td>{{ category.is_active ? ('livestockCategory.active' | t) : ('livestockCategory.inactive' | t) }}</td>
+          <td>
+            <button *ngIf="canWrite && category.is_active" type="button" class="btn btn-sm btn-outline-secondary" (click)="deactivateCategory(category)">
+              {{ 'livestockCategory.deactivate' | t }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

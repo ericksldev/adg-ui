@@ -13,7 +13,7 @@
   </div>
 
   <div class="animal-batch-hints app-card p-2 mb-3" role="note">
-    <details #batchHintsDetails class="animal-batch-excel-details animal-batch-hints-details small text-muted" open>
+    <details #batchHintsDetails class="animal-batch-excel-details animal-batch-hints-details small text-muted">
       <summary class="animal-batch-excel-summary"> {{ 'animal.batchHintsDetailsTitle' | t }}</summary>
       <ul class="animal-batch-hints-list mb-0 mt-1">
         <li>{{ 'animal.batchHintDraft' | t }}</li>
@@ -31,6 +31,10 @@
     {{ feedback.message }}
   </div>
 
+  <div *ngIf="selectIssueCount > 0" class="alert alert-warning">
+    {{ 'animal.batchSelectIssuesSummary' | t: { count: selectIssueCount } }}
+  </div>
+
   <input
     #excelFileInput
     type="file"
@@ -41,65 +45,81 @@
 
   <div class="app-card p-0 animal-batch-table-card mb-3">
     <div class="animal-batch-table-head">
-      <div class="animal-batch-bar">
-        <div class="animal-batch-bar__zone animal-batch-bar__zone--start">
-          <label class="form-label mb-0 small text-nowrap" for="batchRowSlots">{{ 'animal.batchRowSlotsLabel' | t }}</label>
-          <input
-            id="batchRowSlots"
-            class="form-control form-control-sm animal-batch-bar__num"
-            type="number"
-            [min]="minSlots"
-            [max]="maxSlots"
-            [(ngModel)]="requestedSlotCount"
-            [ngModelOptions]="{ standalone: true }"
-          />
-          <button type="button" class="btn btn-primary btn-sm" (click)="applyRequestedSlotCount()">
-            {{ 'animal.batchApplySlots' | t }}
-          </button>
-        </div>
-
-        <div class="animal-batch-bar__zone animal-batch-bar__zone--center">
-          <label class="form-label mb-0 small text-nowrap" for="batchModelRow">{{ 'animal.batchModelRowLabel' | t }}</label>
-          <input
-            id="batchModelRow"
-            class="form-control form-control-sm animal-batch-bar__num"
-            type="number"
-            [min]="1"
-            [max]="rows.length"
-            [(ngModel)]="modelRowNumber"
-            [ngModelOptions]="{ standalone: true }"
-          />
-          <label class="form-label mb-0 small text-nowrap" for="batchTargetRows">{{ 'animal.batchTargetRowsLabel' | t }}</label>
-          <input
-            id="batchTargetRows"
-            class="form-control form-control-sm animal-batch-bar__targets"
-            type="text"
-            [(ngModel)]="targetRowsSpec"
-            [ngModelOptions]="{ standalone: true }"
-            [attr.placeholder]="'animal.batchTargetRowsPlaceholder' | t"
-            [attr.title]="'animal.batchTargetRowsHint' | t"
-          />
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="applyModelRowToOthers()" [disabled]="rows.length < 2">
-            {{ 'animal.batchApplyModelRow' | t }}
-          </button>
-          <div class="form-check mb-0 animal-batch-bar__check">
-            <input id="batchCopyOnlyEmpty" class="form-check-input" type="checkbox" [(ngModel)]="copyOnlyEmptyTargets" [ngModelOptions]="{ standalone: true }" />
-            <label class="form-check-label small" for="batchCopyOnlyEmpty">{{ 'animal.batchCopyOnlyEmpty' | t }}</label>
+      <div class="animal-batch-toolbar">
+        <div class="animal-batch-toolbar__top">
+          <div class="animal-batch-toolbar__slots">
+            <label class="animal-batch-toolbar__label" for="batchRowSlots" [attr.title]="'animal.batchRowSlotsTitle' | t">{{ 'animal.batchRowSlotsLabel' | t }}</label>
+            <input
+              id="batchRowSlots"
+              class="form-control form-control-sm animal-batch-toolbar__num"
+              type="number"
+              [min]="minSlots"
+              [max]="maxSlots"
+              [(ngModel)]="requestedSlotCount"
+              [ngModelOptions]="{ standalone: true }"
+              [attr.title]="'animal.batchRowSlotsTitle' | t"
+            />
+            <button type="button" class="animal-batch-toolbar__btn animal-batch-toolbar__btn--solid" (click)="applyRequestedSlotCount()">
+              {{ 'animal.batchApplySlots' | t }}
+            </button>
           </div>
-          <div class="form-check mb-0 animal-batch-bar__check">
-            <input id="batchCopyFullRow" class="form-check-input" type="checkbox" [(ngModel)]="copyFullRow" [ngModelOptions]="{ standalone: true }" />
-            <label class="form-check-label small" for="batchCopyFullRow">{{ 'animal.batchCopyFullRow' | t }}</label>
+
+          <div class="animal-batch-toolbar__actions">
+            <button type="button" class="animal-batch-toolbar__btn animal-batch-toolbar__btn--ghost" (click)="downloadExcelTemplate()" [disabled]="templateDownloading || savingBatch">
+              <i class="bi bi-download" aria-hidden="true"></i>
+              {{ (templateDownloading ? 'common.loading' : 'animal.batchDownloadTemplate') | t }}
+            </button>
+            <button type="button" class="animal-batch-toolbar__btn animal-batch-toolbar__btn--ghost" (click)="openExcelPicker()">
+              <i class="bi bi-upload" aria-hidden="true"></i>
+              {{ 'animal.batchImportExcel' | t }}
+            </button>
+            <button type="button" class="animal-batch-toolbar__btn animal-batch-toolbar__btn--danger" (click)="clearBatchTable()" [disabled]="savingBatch">
+              <i class="bi bi-trash" aria-hidden="true"></i>
+              {{ 'animal.batchClearTable' | t }}
+            </button>
           </div>
         </div>
 
-        <div class="animal-batch-bar__zone animal-batch-bar__zone--end">
-          <button type="button" class="btn btn-outline-primary btn-sm" (click)="openExcelPicker()">
-            {{ 'animal.batchImportExcel' | t }}
-          </button>
-          <button type="button" class="btn btn-outline-danger btn-sm" (click)="clearBatchTable()" [disabled]="savingBatch">
-            {{ 'animal.batchClearTable' | t }}
-          </button>
-        </div>
+        <details class="animal-batch-copy">
+          <summary class="animal-batch-copy__summary">
+            <i class="bi bi-chevron-down animal-batch-copy__chevron" aria-hidden="true"></i>
+            <span class="animal-batch-copy__title">{{ 'animal.batchCopySectionTitle' | t }}</span>
+          </summary>
+          <div class="animal-batch-copy__body">
+            <label class="animal-batch-toolbar__label" for="batchModelRow" [attr.title]="'animal.batchModelRowTitle' | t">{{ 'animal.batchModelRowLabel' | t }}</label>
+            <input
+              id="batchModelRow"
+              class="form-control form-control-sm animal-batch-toolbar__num"
+              type="number"
+              [min]="1"
+              [max]="rows.length"
+              [(ngModel)]="modelRowNumber"
+              [ngModelOptions]="{ standalone: true }"
+              [attr.title]="'animal.batchModelRowTitle' | t"
+            />
+            <label class="animal-batch-toolbar__label" for="batchTargetRows">{{ 'animal.batchTargetRowsLabel' | t }}</label>
+            <input
+              id="batchTargetRows"
+              class="form-control form-control-sm animal-batch-toolbar__targets"
+              type="text"
+              [(ngModel)]="targetRowsSpec"
+              [ngModelOptions]="{ standalone: true }"
+              [attr.placeholder]="'animal.batchTargetRowsPlaceholder' | t"
+              [attr.title]="'animal.batchTargetRowsHint' | t"
+            />
+            <button type="button" class="animal-batch-toolbar__btn animal-batch-toolbar__btn--solid" (click)="applyModelRowToOthers()" [disabled]="rows.length < 2">
+              {{ 'animal.batchApplyModelRow' | t }}
+            </button>
+            <div class="form-check mb-0 animal-batch-toolbar__check">
+              <input id="batchCopyOnlyEmpty" class="form-check-input" type="checkbox" [(ngModel)]="copyOnlyEmptyTargets" [ngModelOptions]="{ standalone: true }" />
+              <label class="form-check-label" for="batchCopyOnlyEmpty">{{ 'animal.batchCopyOnlyEmpty' | t }}</label>
+            </div>
+            <div class="form-check mb-0 animal-batch-toolbar__check">
+              <input id="batchCopyFullRow" class="form-check-input" type="checkbox" [(ngModel)]="copyFullRow" [ngModelOptions]="{ standalone: true }" />
+              <label class="form-check-label" for="batchCopyFullRow">{{ 'animal.batchCopyFullRow' | t }}</label>
+            </div>
+          </div>
+        </details>
       </div>
 
       <details class="animal-batch-columns-details small">
@@ -354,6 +374,26 @@
                 </button>
               </th>
               <th
+                *ngIf="isOptionalColumnVisible('categories')"
+                scope="col"
+                class="animal-batch-th-with-action"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('categories')"
+              >
+                <span class="animal-batch-th-label" [attr.title]="'animal.batchCategoriesHint' | t"
+                  >{{ 'livestockCategory.column' | t }} <span class="animal-batch-optional-hint">{{ 'animal.optionalParenShort' | t }}</span></span
+                >
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm animal-batch-col-clear"
+                  [attr.title]="'animal.batchClearColumn' | t"
+                  [attr.aria-label]="('animal.batchClearColumn' | t) + ' ' + ('livestockCategory.column' | t)"
+                  [disabled]="!columnHasData('categories') || savingBatch"
+                  (click)="clearBatchColumn('categories')"
+                >
+                  <i class="bi bi-eraser" aria-hidden="true"></i>
+                </button>
+              </th>
+              <th
                 *ngIf="isOptionalColumnVisible('description')"
                 scope="col"
                 class="animal-batch-th-with-action"
@@ -400,27 +440,32 @@
               </td>
               <td
                 class="animal-batch-cell"
+                [class.animal-batch-cell--issue]="selectIssue(i, 'ranchUuid')"
                 [class.animal-batch-cell--selected]="isCellSelected(i, 'ranchUuid')"
                 [class.animal-batch-cell--active]="isActiveCell(i, 'ranchUuid')"
                 (mousedown)="onBatchCellMouseDown($event, i, 'ranchUuid')"
                 (mouseenter)="onBatchCellMouseEnter(i, 'ranchUuid')"
               >
-                <select class="form-select animal-batch-control" formControlName="ranchUuid" (change)="onRanchChange(i)">
+                <select class="form-select animal-batch-control" formControlName="ranchUuid" (change)="onBatchSelectChange(i, 'ranchUuid')">
                   <option value="">{{ 'animal.selectRanch' | t }}</option>
                   <option *ngFor="let r of ranchRows" [value]="r.uuid_ranch">{{ r.name }}</option>
                 </select>
+                <ng-container *ngTemplateOutlet="selectIssueTpl; context: { row: i, key: 'ranchUuid' }"></ng-container>
               </td>
               <td
                 class="animal-batch-cell"
+                [class.animal-batch-cell--issue]="selectIssue(i, 'sex')"
                 [class.animal-batch-cell--selected]="isCellSelected(i, 'sex')"
                 [class.animal-batch-cell--active]="isActiveCell(i, 'sex')"
                 (mousedown)="onBatchCellMouseDown($event, i, 'sex')"
                 (mouseenter)="onBatchCellMouseEnter(i, 'sex')"
               >
-                <select class="form-select animal-batch-control" formControlName="sex">
+                <select class="form-select animal-batch-control" formControlName="sex" (change)="onBatchSelectChange(i, 'sex')">
+                  <option value="">{{ 'animal.selectSex' | t }}</option>
                   <option value="MALE">{{ 'animal.male' | t }}</option>
                   <option value="FEMALE">{{ 'animal.female' | t }}</option>
                 </select>
+                <ng-container *ngTemplateOutlet="selectIssueTpl; context: { row: i, key: 'sex' }"></ng-container>
               </td>
               <td
                 class="animal-batch-cell"
@@ -434,16 +479,18 @@
               <td
                 *ngIf="isOptionalColumnVisible('breedCode')"
                 class="animal-batch-cell"
+                [class.animal-batch-cell--issue]="selectIssue(i, 'breedCode')"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('breedCode')"
                 [class.animal-batch-cell--selected]="isCellSelected(i, 'breedCode')"
                 [class.animal-batch-cell--active]="isActiveCell(i, 'breedCode')"
                 (mousedown)="onBatchCellMouseDown($event, i, 'breedCode')"
                 (mouseenter)="onBatchCellMouseEnter(i, 'breedCode')"
               >
-                <select class="form-select animal-batch-control" formControlName="breedCode">
+                <select class="form-select animal-batch-control" formControlName="breedCode" (change)="onBatchSelectChange(i, 'breedCode')">
                   <option value="">{{ 'animal.selectBreed' | t }}</option>
                   <option *ngFor="let c of breedCodes" [value]="c">{{ breedLabel(c) }}</option>
                 </select>
+                <ng-container *ngTemplateOutlet="selectIssueTpl; context: { row: i, key: 'breedCode' }"></ng-container>
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('chipNumber')"
@@ -481,30 +528,34 @@
               <td
                 *ngIf="isOptionalColumnVisible('currentOwnerUuid')"
                 class="animal-batch-cell"
+                [class.animal-batch-cell--issue]="selectIssue(i, 'currentOwnerUuid')"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentOwnerUuid')"
                 [class.animal-batch-cell--selected]="isCellSelected(i, 'currentOwnerUuid')"
                 [class.animal-batch-cell--active]="isActiveCell(i, 'currentOwnerUuid')"
                 (mousedown)="onBatchCellMouseDown($event, i, 'currentOwnerUuid')"
                 (mouseenter)="onBatchCellMouseEnter(i, 'currentOwnerUuid')"
               >
-                <select class="form-select animal-batch-control" formControlName="currentOwnerUuid">
+                <select class="form-select animal-batch-control" formControlName="currentOwnerUuid" (change)="onBatchSelectChange(i, 'currentOwnerUuid')">
                   <option value="">{{ 'animal.optionNone' | t }}</option>
                   <option *ngFor="let o of ownerRows" [value]="o.owner_uuid">{{ o.full_name }}</option>
                 </select>
+                <ng-container *ngTemplateOutlet="selectIssueTpl; context: { row: i, key: 'currentOwnerUuid' }"></ng-container>
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('currentPaddockUuid')"
                 class="animal-batch-cell"
+                [class.animal-batch-cell--issue]="selectIssue(i, 'currentPaddockUuid')"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('currentPaddockUuid')"
                 [class.animal-batch-cell--selected]="isCellSelected(i, 'currentPaddockUuid')"
                 [class.animal-batch-cell--active]="isActiveCell(i, 'currentPaddockUuid')"
                 (mousedown)="onBatchCellMouseDown($event, i, 'currentPaddockUuid')"
                 (mouseenter)="onBatchCellMouseEnter(i, 'currentPaddockUuid')"
               >
-                <select class="form-select animal-batch-control" formControlName="currentPaddockUuid">
+                <select class="form-select animal-batch-control" formControlName="currentPaddockUuid" (change)="onBatchSelectChange(i, 'currentPaddockUuid')">
                   <option value="">{{ ctrl.get('ranchUuid')?.value ? ('animal.optionNone' | t) : ('animal.selectRanchFirst' | t) }}</option>
                   <option *ngFor="let p of paddockOptionsForRow(i)" [value]="p.paddock_uuid">{{ p.name }}</option>
                 </select>
+                <ng-container *ngTemplateOutlet="selectIssueTpl; context: { row: i, key: 'currentPaddockUuid' }"></ng-container>
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('color')"
@@ -520,18 +571,38 @@
               <td
                 *ngIf="isOptionalColumnVisible('originType')"
                 class="animal-batch-cell"
+                [class.animal-batch-cell--issue]="selectIssue(i, 'originType')"
                 [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('originType')"
                 [class.animal-batch-cell--selected]="isCellSelected(i, 'originType')"
                 [class.animal-batch-cell--active]="isActiveCell(i, 'originType')"
                 (mousedown)="onBatchCellMouseDown($event, i, 'originType')"
                 (mouseenter)="onBatchCellMouseEnter(i, 'originType')"
               >
-                <select class="form-select animal-batch-control" formControlName="originType">
+                <select class="form-select animal-batch-control" formControlName="originType" (change)="onBatchSelectChange(i, 'originType')">
+                  <option value="">{{ 'animal.selectOrigin' | t }}</option>
                   <option value="UNKNOWN">{{ 'animal.originUnknown' | t }}</option>
                   <option value="BIRTH">{{ 'animal.originBirth' | t }}</option>
                   <option value="PURCHASE">{{ 'animal.originPurchase' | t }}</option>
                   <option value="TRANSFER">{{ 'animal.originTransfer' | t }}</option>
                 </select>
+                <ng-container *ngTemplateOutlet="selectIssueTpl; context: { row: i, key: 'originType' }"></ng-container>
+              </td>
+              <td
+                *ngIf="isOptionalColumnVisible('categories')"
+                class="animal-batch-cell"
+                [class.animal-batch-col-optional-start]="isFirstVisibleOptionalColumn('categories')"
+                [class.animal-batch-cell--selected]="isCellSelected(i, 'categories')"
+                [class.animal-batch-cell--active]="isActiveCell(i, 'categories')"
+                (mousedown)="onBatchCellMouseDown($event, i, 'categories')"
+                (mouseenter)="onBatchCellMouseEnter(i, 'categories')"
+              >
+                <app-category-multi-select
+                  [compact]="true"
+                  [options]="categorySelectOptions"
+                  [selectedIds]="categoryIdsForRow(i)"
+                  [placeholder]="'livestockCategory.selectPlaceholder' | t"
+                  (selectedIdsChange)="onRowCategoriesChange(i, $event)"
+                ></app-category-multi-select>
               </td>
               <td
                 *ngIf="isOptionalColumnVisible('description')"
@@ -548,6 +619,27 @@
           </tbody>
         </table>
       </div>
+      <ng-template #selectIssueTpl let-row="row" let-key="key">
+        <div *ngIf="selectIssue(row, key) as issue" class="animal-batch-select-issue" (mousedown)="$event.stopPropagation()">
+          <span class="animal-batch-select-issue__text" [attr.title]="selectIssueMessage(issue)">{{ selectIssueMessage(issue) }}</span>
+          <button
+            *ngIf="issue.suggestionValue"
+            type="button"
+            class="animal-batch-select-issue__action"
+            (click)="applySelectSuggestion(row, key)"
+          >
+            {{ 'animal.batchUseSuggestion' | t: { name: issue.suggestionLabel || '' } }}
+          </button>
+          <button
+            *ngIf="canDismissSelectIssue(key)"
+            type="button"
+            class="animal-batch-select-issue__action"
+            (click)="dismissSelectIssue(row, key)"
+          >
+            {{ 'animal.batchDismissSelectIssue' | t }}
+          </button>
+        </div>
+      </ng-template>
     </form>
   </div>
 </div>

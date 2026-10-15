@@ -1,0 +1,9 @@
+:host {
+  display: block;
+}
+
+@media (max-width: 767.98px) {
+  .app-table {
+    overflow-x: auto;
+  }
+}

@@ -18,4 +18,5 @@ export interface AnimalListItem {
   description?: string | null;
   current_status?: string;
   last_exit?: AnimalLastExit | null;
+  categories?: { category_uuid: string; name?: string }[];
 }

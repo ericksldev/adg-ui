@@ -98,6 +98,42 @@
         </ul>
       </section>
 
+      <section class="app-card p-3 mb-3">
+        <h3 class="h6 mb-2">{{ 'livestockCategory.animalTitle' | t }}</h3>
+        <p class="text-danger small" *ngIf="categoryError">{{ categoryError }}</p>
+        <p class="text-muted small" *ngIf="!assignments.length">{{ 'livestockCategory.empty' | t }}</p>
+        <ul class="list-unstyled mb-3" *ngIf="assignments.length">
+          <li class="d-flex flex-wrap justify-content-between gap-2 mb-1" *ngFor="let assignment of assignments">
+            <span>{{ assignment.name }}</span>
+            <button *ngIf="canAnimalWrite && isActive" type="button" class="btn btn-sm btn-outline-secondary" (click)="removeCategory(assignment.category_uuid)">
+              {{ 'livestockCategory.remove' | t }}
+            </button>
+          </li>
+        </ul>
+        <form *ngIf="canAnimalWrite && isActive" class="row g-2 align-items-end mb-3" (ngSubmit)="assignCategory()">
+          <div class="col-md-5">
+            <app-category-multi-select
+              [options]="assignableCategoryOptions"
+              [selectedIds]="selectedCategoryIds"
+              [placeholder]="'livestockCategory.selectPlaceholder' | t"
+              (selectedIdsChange)="selectedCategoryIds = $event"
+            ></app-category-multi-select>
+          </div>
+          <div class="col-md-4">
+            <input class="form-control form-control-sm" name="categoryReason" [(ngModel)]="categoryReason" [placeholder]="'livestockCategory.reason' | t" />
+          </div>
+          <div class="col-md-3">
+            <button class="btn btn-sm btn-primary" type="submit">{{ 'livestockCategory.assign' | t }}</button>
+          </div>
+        </form>
+        <h4 class="h6">{{ 'livestockCategory.history' | t }}</h4>
+        <ul class="list-unstyled small mb-0">
+          <li *ngFor="let entry of categoryHistory">
+            {{ entry.recorded_at | date:'yyyy-MM-dd' }} — {{ entry.action }} {{ entry.category_name }}
+          </li>
+        </ul>
+      </section>
+
       <section class="app-card p-3">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
           <h3 class="h6 mb-0">{{ 'animal.attendance.title' | t }}</h3>

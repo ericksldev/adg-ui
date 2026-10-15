@@ -23,6 +23,7 @@ export const ANIMAL_BATCH_TABLE_COLUMNS: readonly AnimalBatchColumnDef[] = [
   { key: 'currentPaddockUuid', labelKey: 'animal.fieldPaddock', optional: true },
   { key: 'color', labelKey: 'animal.fieldColor', optional: true },
   { key: 'originType', labelKey: 'animal.fieldOriginType', optional: true },
+  { key: 'categories', labelKey: 'livestockCategory.column', optional: true },
   { key: 'description', labelKey: 'animal.fieldDescription', optional: true }
 ] as const;
 

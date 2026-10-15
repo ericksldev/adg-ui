@@ -65,8 +65,12 @@ export class SidebarComponent {
     return this.hasPermission(Permission.PADDOCK_READ);
   }
 
+  get canAccessLivestockCategories(): boolean {
+    return this.hasPermission(Permission.LIVESTOCK_CATEGORY_READ);
+  }
+
   get hasConfigurationSection(): boolean {
-    return this.canAccessOwners || this.canAccessPaddocks;
+    return this.canAccessOwners || this.canAccessPaddocks || this.canAccessLivestockCategories;
   }
 
   get canAccessRecordPurge(): boolean {

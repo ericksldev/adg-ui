@@ -12,6 +12,7 @@ export interface ListQueryParams {
   origin_type?: string;
   current_owner_uuid?: string;
   current_paddock_uuid?: string;
+  category_uuid?: string;
   birth_date_from?: string;
   birth_date_to?: string;
   exit_type?: string;

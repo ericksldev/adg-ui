@@ -39,6 +39,41 @@ export function emptyBatchDraftRow(): AnimalBatchDraftRow {
     color: '',
     birthDate: '',
     originType: '',
+    categories: '',
     description: ''
   };
+}
+
+export function matchBatchCategoryIds(
+  raw: string,
+  catalog: readonly { category_uuid: string; name: string }[]
+): { ids: string[]; unknown: string[] } {
+  const fold = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+  const byName = new Map(catalog.map((item) => [fold(item.name), item.category_uuid]));
+  const byId = new Map(catalog.map((item) => [item.category_uuid, item.category_uuid]));
+  const ids: string[] = [];
+  const unknown: string[] = [];
+  const seen = new Set<string>();
+  for (const label of String(raw ?? '').split(/[,;|]/)) {
+    const name = label.trim();
+    if (!name) {
+      continue;
+    }
+    const id = byId.get(name) ?? byName.get(fold(name));
+    if (!id) {
+      unknown.push(name);
+      continue;
+    }
+    if (!seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  return { ids, unknown };
 }

@@ -182,6 +182,19 @@
           </div>
         </div>
 
+        <div class="col-12">
+          <span class="form-label small mb-1 d-block">
+            {{ 'livestockCategory.column' | t }}
+            <span class="text-muted fw-normal animal-optional-mark">{{ 'animal.optionalParen' | t }}</span>
+          </span>
+          <app-category-multi-select
+            [options]="categorySelectOptions"
+            [selectedIds]="selectedCategoryIdList"
+            [placeholder]="'livestockCategory.selectPlaceholder' | t"
+            (selectedIdsChange)="onCategoriesChange($event)"
+          ></app-category-multi-select>
+        </div>
+
         <div class="col-12 col-md-6">
           <label class="form-label small mb-1" for="color">
             {{ 'animal.fieldColor' | t }}

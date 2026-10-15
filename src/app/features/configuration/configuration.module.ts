@@ -13,6 +13,7 @@ import { PaddockCreateComponent } from './pages/paddock-create/paddock-create.co
 import { PaddockDetailComponent } from './pages/paddock-detail/paddock-detail.component';
 import { PaddockEditComponent } from './pages/paddock-edit/paddock-edit.component';
 import { PaddockFormComponent } from './components/paddock-form/paddock-form.component';
+import { LivestockCategoryAdminComponent } from './pages/livestock-category-admin/livestock-category-admin.component';
 
 @NgModule({
   declarations: [
@@ -25,7 +26,8 @@ import { PaddockFormComponent } from './components/paddock-form/paddock-form.com
     PaddockCreateComponent,
     PaddockDetailComponent,
     PaddockEditComponent,
-    PaddockFormComponent
+    PaddockFormComponent,
+    LivestockCategoryAdminComponent
   ],
   imports: [CommonModule, FormsModule, SharedModule, ConfigurationRoutingModule]
 })

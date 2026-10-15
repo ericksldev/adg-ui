@@ -36,6 +36,14 @@ export class AnimalModuleNavComponent {
       exact: true
     },
     {
+      id: 'categories',
+      labelKey: 'animal.nav.categories',
+      descriptionKey: 'animal.nav.categoriesDescription',
+      route: '/animal/categories',
+      iconClass: 'bi-tags',
+      requiresWrite: true
+    },
+    {
       id: 'register-individual',
       labelKey: 'animal.nav.registerIndividual',
       descriptionKey: 'animal.nav.registerIndividualDescription',

@@ -1,15 +1,22 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
-import { Subject } from 'rxjs';
+import { forkJoin, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
 import { hasPermission, Permission } from 'src/app/shared/constants/permissions';
 import { AnimalDeactivateDialogComponent } from '../../components/animal-deactivate-dialog/animal-deactivate-dialog.component';
+import { CategoryMultiSelectOption } from '../../components/category-multi-select/category-multi-select.component';
 import { AnimalDetail } from '../../models/animal-detail.model';
 import { AnimalAttendanceRow } from '../../models/animal-attendance.model';
 import { AnimalService } from '../../services/animal.service';
+import { LivestockCategoryApiService } from 'src/app/features/configuration/services/livestock-category-api.service';
+import {
+  AnimalCategoryAssignment,
+  AnimalCategoryHistoryEntry,
+  LivestockCategory
+} from 'src/app/features/configuration/models/livestock-category.model';
 import {
   animalBreedLabelKey,
   animalExitTypeLabelKey,
@@ -25,6 +32,12 @@ import {
 export class AnimalDetailComponent implements OnInit, OnDestroy {
   animal: AnimalDetail | null = null;
   attendance: AnimalAttendanceRow | null = null;
+  assignments: AnimalCategoryAssignment[] = [];
+  categoryHistory: AnimalCategoryHistoryEntry[] = [];
+  availableCategories: LivestockCategory[] = [];
+  selectedCategoryIds: string[] = [];
+  categoryReason = '';
+  categoryError = '';
   isLoading = true;
   attendanceLoading = false;
   errorMessage = '';
@@ -36,6 +49,7 @@ export class AnimalDetailComponent implements OnInit, OnDestroy {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly animalService: AnimalService,
+    private readonly livestockCategoryApi: LivestockCategoryApiService,
     private readonly sessionService: SessionService,
     private readonly i18nService: I18nService,
     private readonly modalService: NgbModal
@@ -47,6 +61,13 @@ export class AnimalDetailComponent implements OnInit, OnDestroy {
 
   get isActive(): boolean {
     return this.animal?.is_active !== false;
+  }
+
+  get assignableCategoryOptions(): CategoryMultiSelectOption[] {
+    const assigned = new Set(this.assignments.map((assignment) => assignment.category_uuid));
+    return this.availableCategories
+      .filter((category) => !assigned.has(category.category_uuid))
+      .map((category) => ({ value: category.category_uuid, label: category.name }));
   }
 
   ngOnInit(): void {
@@ -128,11 +149,66 @@ export class AnimalDetailComponent implements OnInit, OnDestroy {
         this.animal = row;
         this.isLoading = false;
         this.loadAttendance(row.ranch_uuid, row.animal_uuid);
+        this.loadCategories(row.animal_uuid);
       },
       error: () => {
         this.errorMessage = this.i18nService.translate('animal.detailNotFound');
         this.isLoading = false;
       }
+    });
+  }
+
+  assignCategory(): void {
+    if (!this.animal || !this.selectedCategoryIds.length) {
+      return;
+    }
+    const animalUuid = this.animal.animal_uuid;
+    const reason = this.categoryReason || null;
+    forkJoin(this.selectedCategoryIds.map((categoryUuid) => this.livestockCategoryApi.assign(animalUuid, categoryUuid, reason))).subscribe({
+      next: () => {
+        this.selectedCategoryIds = [];
+        this.categoryReason = '';
+        this.loadCategories(animalUuid);
+      },
+      error: (error) => {
+        this.categoryError = error?.error?.description || this.i18nService.translate('livestockCategory.loadError');
+      }
+    });
+  }
+
+  removeCategory(categoryUuid: string): void {
+    if (!this.animal) {
+      return;
+    }
+    this.livestockCategoryApi.remove(this.animal.animal_uuid, categoryUuid, this.categoryReason || null).subscribe({
+      next: () => this.loadCategories(this.animal!.animal_uuid),
+      error: (error) => {
+        this.categoryError = error?.error?.description || this.i18nService.translate('livestockCategory.loadError');
+      }
+    });
+  }
+
+  private loadCategories(animalUuid: string): void {
+    this.categoryError = '';
+    this.livestockCategoryApi.listAnimalCategories(animalUuid).subscribe({
+      next: (rows) => {
+        this.assignments = rows;
+      },
+      error: () => {
+        this.categoryError = this.i18nService.translate('livestockCategory.loadError');
+      }
+    });
+    this.livestockCategoryApi.listHistory(animalUuid).subscribe({
+      next: (rows) => {
+        this.categoryHistory = rows;
+      },
+      error: () => undefined
+    });
+    this.livestockCategoryApi.listCategories(false).subscribe({
+      next: (rows) => {
+        this.availableCategories = rows;
+      },
+      error: () => undefined
     });
   }
 

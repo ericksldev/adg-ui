@@ -11,9 +11,11 @@ import { PaddockListComponent } from './pages/paddock-list/paddock-list.componen
 import { PaddockCreateComponent } from './pages/paddock-create/paddock-create.component';
 import { PaddockDetailComponent } from './pages/paddock-detail/paddock-detail.component';
 import { PaddockEditComponent } from './pages/paddock-edit/paddock-edit.component';
+import { LivestockCategoryAdminComponent } from './pages/livestock-category-admin/livestock-category-admin.component';
 
 const ownerPermissions = [Permission.OWNER_READ];
 const paddockPermissions = [Permission.PADDOCK_READ];
+const livestockCategoryPermissions = [Permission.LIVESTOCK_CATEGORY_READ];
 
 const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'owners' },
@@ -78,6 +80,15 @@ const routes: Routes = [
     data: {
       permissions: paddockPermissions,
       breadcrumb: 'breadcrumbs.paddockDetail'
+    }
+  },
+  {
+    path: 'livestock-categories',
+    component: LivestockCategoryAdminComponent,
+    canActivate: [AutenticacionGuard, PermissionGuard],
+    data: {
+      permissions: livestockCategoryPermissions,
+      breadcrumb: 'breadcrumbs.livestockCategories'
     }
   },
   {

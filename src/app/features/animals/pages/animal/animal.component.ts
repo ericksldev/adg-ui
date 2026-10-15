@@ -22,6 +22,8 @@ import {
   AnimalListColumnKey,
   AnimalListOptionalColumnKey
 } from '../../constants/animal-list.constants';
+import { LivestockCategory } from 'src/app/features/configuration/models/livestock-category.model';
+import { LivestockCategoryApiService } from 'src/app/features/configuration/services/livestock-category-api.service';
 import { AnimalListItem } from '../../models/animal.model';
 import { AnimalApiService, OwnerOptionDto, PaddockOptionDto } from '../../services/animal-api.service';
 import { AnimalListPreferencesService } from '../../services/animal-list-preferences.service';
@@ -41,6 +43,7 @@ type AnimalListFilterKey =
   | 'breed'
   | 'owner'
   | 'origin'
+  | 'category'
   | 'birthFrom'
   | 'birthTo'
   | 'exitType';
@@ -67,6 +70,8 @@ export class AnimalComponent implements OnInit, OnDestroy {
   selectedBreed = '';
   selectedOwner = '';
   selectedOrigin = '';
+  selectedCategory = '';
+  categoryOptions: LivestockCategory[] = [];
   birthDateFrom = '';
   birthDateTo = '';
   selectedExitType = '';
@@ -105,6 +110,7 @@ export class AnimalComponent implements OnInit, OnDestroy {
   constructor(
     private readonly animalService: AnimalService,
     private readonly animalApi: AnimalApiService,
+    private readonly livestockCategoryApi: LivestockCategoryApiService,
     private readonly userManagementService: UserManagementService,
     private readonly listPreferences: AnimalListPreferencesService,
     private readonly sessionService: SessionService,
@@ -140,12 +146,14 @@ export class AnimalComponent implements OnInit, OnDestroy {
     const company = this.sessionService.getUuidCompany();
     forkJoin({
       ranches: this.userManagementService.getRanches(company ?? undefined).pipe(catchError(() => of([]))),
-      owners: this.animalApi.getOwners().pipe(catchError(() => of([])))
+      owners: this.animalApi.getOwners().pipe(catchError(() => of([]))),
+      categories: this.livestockCategoryApi.listCategories(false).pipe(catchError(() => of([] as LivestockCategory[])))
     })
       .pipe(takeUntil(this.destroy$))
-      .subscribe(({ ranches, owners }) => {
+      .subscribe(({ ranches, owners, categories }) => {
         this.ranchOptions = [...ranches].sort((a, b) => a.name.localeCompare(b.name));
         this.ownerOptions = [...owners].sort((a, b) => a.full_name.localeCompare(b.full_name));
+        this.categoryOptions = [...categories].sort((a, b) => a.name.localeCompare(b.name));
         this.ranchNameByUuid = new Map(ranches.map((r: RanchOption) => [r.uuid_ranch, r.name]));
         this.ownerNameByUuid = new Map(owners.map((o: OwnerOptionDto) => [o.owner_uuid, o.full_name]));
       });
@@ -352,6 +360,12 @@ export class AnimalComponent implements OnInit, OnDestroy {
     this.loadAnimals();
   }
 
+  updateCategoryFilter(value: string): void {
+    this.selectedCategory = value;
+    this.page = 1;
+    this.loadAnimals();
+  }
+
   updateBirthDateFrom(value: string): void {
     this.birthDateFrom = value;
     this.page = 1;
@@ -377,6 +391,7 @@ export class AnimalComponent implements OnInit, OnDestroy {
       this.selectedBreed,
       this.selectedOwner,
       this.selectedOrigin,
+      this.selectedCategory,
       this.birthDateFrom,
       this.birthDateTo,
       this.isInactiveList ? this.selectedExitType : ''
@@ -419,6 +434,14 @@ export class AnimalComponent implements OnInit, OnDestroy {
       chips.push({
         key: 'origin',
         label: `${this.i18n.translate('animal.fieldOriginType')}: ${this.originLabel(this.selectedOrigin)}`
+      });
+    }
+    if (this.selectedCategory) {
+      const categoryName = this.categoryOptions.find((category) => category.category_uuid === this.selectedCategory)?.name
+        ?? this.selectedCategory;
+      chips.push({
+        key: 'category',
+        label: `${this.i18n.translate('livestockCategory.column')}: ${categoryName}`
       });
     }
     if (this.birthDateFrom) {
@@ -464,6 +487,9 @@ export class AnimalComponent implements OnInit, OnDestroy {
       case 'origin':
         this.selectedOrigin = '';
         break;
+      case 'category':
+        this.selectedCategory = '';
+        break;
       case 'birthFrom':
         this.birthDateFrom = '';
         break;
@@ -503,6 +529,7 @@ export class AnimalComponent implements OnInit, OnDestroy {
         ranch_uuid: this.selectedRanch || undefined,
         breed_code: this.selectedBreed || undefined,
         origin_type: this.selectedOrigin || undefined,
+        category_uuid: this.selectedCategory || undefined,
         current_owner_uuid: this.selectedOwner || undefined,
         current_paddock_uuid: this.selectedPaddock || undefined,
         birth_date_from: this.birthDateFrom || undefined,
@@ -534,6 +561,7 @@ export class AnimalComponent implements OnInit, OnDestroy {
     this.selectedBreed = '';
     this.selectedOwner = '';
     this.selectedOrigin = '';
+    this.selectedCategory = '';
     this.birthDateFrom = '';
     this.birthDateTo = '';
     this.selectedExitType = '';

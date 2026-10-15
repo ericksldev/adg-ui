@@ -21,4 +21,5 @@ export interface AnimalDetail {
   created_at?: string | null;
   updated_at?: string | null;
   last_exit?: AnimalLastExit | null;
+  categories?: { category_uuid: string; name?: string }[];
 }

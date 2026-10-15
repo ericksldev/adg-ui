@@ -12,7 +12,10 @@ import {
 import { RanchOption } from 'src/app/features/users/models/user-management.model';
 import { UserManagementService } from 'src/app/features/users/services/user-management.service';
 import { SearchableSelectOption } from 'src/app/shared/components/searchable-select/searchable-select.component';
+import { CategoryMultiSelectOption } from '../../components/category-multi-select/category-multi-select.component';
 import { AnimalCreatePayload } from '../../models/animal-create-payload.model';
+import { LivestockCategoryApiService } from 'src/app/features/configuration/services/livestock-category-api.service';
+import { LivestockCategory } from 'src/app/features/configuration/models/livestock-category.model';
 import {
   AnimalApiService,
   BreedOptionDto,
@@ -41,6 +44,8 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
   paddockOptions: PaddockOptionDto[] = [];
   motherOptions: ParentOptionDto[] = [];
   fatherOptions: ParentOptionDto[] = [];
+  categoryOptions: LivestockCategory[] = [];
+  selectedCategoryIds = new Set<string>();
 
   private readonly destroy$ = new Subject<void>();
 
@@ -51,7 +56,8 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     private readonly userManagementService: UserManagementService,
     private readonly animalApi: AnimalApiService,
     private readonly route: ActivatedRoute,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly livestockCategoryApi: LivestockCategoryApiService
   ) {
     this.form = this.fb.group({
       ranchUuid: ['', Validators.required],
@@ -112,6 +118,15 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
         this.breedRows = breeds;
         this.ownerRows = owners;
       });
+
+    this.livestockCategoryApi.listCategories(false).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (categories) => {
+        this.categoryOptions = categories;
+      },
+      error: () => {
+        this.categoryOptions = [];
+      }
+    });
 
     this.form
       .get('ranchUuid')
@@ -240,6 +255,18 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     return this.i18n.translate(`animal.breed.${code}`);
   }
 
+  get categorySelectOptions(): CategoryMultiSelectOption[] {
+    return this.categoryOptions.map((category) => ({ value: category.category_uuid, label: category.name }));
+  }
+
+  get selectedCategoryIdList(): string[] {
+    return [...this.selectedCategoryIds];
+  }
+
+  onCategoriesChange(ids: string[]): void {
+    this.selectedCategoryIds = new Set(ids);
+  }
+
   submit(): void {
     this.feedback = null;
     this.form.markAllAsTouched();
@@ -310,18 +337,20 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
 
     this.saving = true;
     this.animalApi.createAnimal(payload).subscribe({
-      next: () => {
-        this.saving = false;
-        if (this.fromPendingRegistration) {
-          void this.router.navigate(['/corral-work-session/pending-registrations']);
+      next: (created) => {
+        const animalUuid = (created as { animal_uuid?: string } | null)?.animal_uuid;
+        const categoryIds = [...this.selectedCategoryIds];
+        if (!animalUuid || categoryIds.length === 0) {
+          this.finishCreate(hadUnresolvedParents);
           return;
         }
-        let message = this.i18n.translate('animal.individualSaveSuccess');
-        if (hadUnresolvedParents) {
-          message = `${message} ${this.i18n.translate('animal.parentNotLinkedOnSave')}`;
-        }
-        this.feedback = { type: 'success', message };
-        this.resetForm();
+        forkJoin(categoryIds.map((id) => this.livestockCategoryApi.assign(animalUuid, id, null))).subscribe({
+          next: () => this.finishCreate(hadUnresolvedParents),
+          error: () => {
+            this.saving = false;
+            this.feedback = { type: 'error', message: this.i18n.translate('livestockCategory.loadError') };
+          }
+        });
       },
       error: (err) => {
         this.saving = false;
@@ -338,10 +367,25 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     });
   }
 
+  private finishCreate(hadUnresolvedParents: boolean): void {
+    this.saving = false;
+    if (this.fromPendingRegistration) {
+      void this.router.navigate(['/corral-work-session/pending-registrations']);
+      return;
+    }
+    let message = this.i18n.translate('animal.individualSaveSuccess');
+    if (hadUnresolvedParents) {
+      message = `${message} ${this.i18n.translate('animal.parentNotLinkedOnSave')}`;
+    }
+    this.feedback = { type: 'success', message };
+    this.resetForm();
+  }
+
   private resetForm(): void {
     this.paddockOptions = [];
     this.motherOptions = [];
     this.fatherOptions = [];
+    this.selectedCategoryIds = new Set();
     this.form.reset({
       ranchUuid: '',
       registrationNumber: '',

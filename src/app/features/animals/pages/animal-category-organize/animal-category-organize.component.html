@@ -1,0 +1,116 @@
+<div class="app-page-header">
+  <h2 class="app-page-title mb-1">{{ 'livestockCategory.organizeTitle' | t }}</h2>
+  <p class="text-muted small mb-0">{{ 'livestockCategory.organizeSubtitle' | t }}</p>
+</div>
+
+<div *ngIf="feedback" class="alert" [ngClass]="feedback.type === 'success' ? 'alert-success' : 'alert-danger'" role="status">
+  {{ feedback.message }}
+</div>
+
+<div class="app-card p-3 mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-4">
+      <label class="form-label small mb-1" for="organize-search">{{ 'common.search' | t }}</label>
+      <input
+        id="organize-search"
+        class="form-control form-control-sm"
+        type="search"
+        [value]="searchTerm"
+        (input)="updateSearch($any($event.target).value)"
+        [placeholder]="'common.search' | t"
+      />
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label small mb-1" for="organize-ranch">{{ 'animal.fieldRanch' | t }}</label>
+      <select id="organize-ranch" class="form-select form-select-sm" [value]="selectedRanch" (change)="updateRanch($any($event.target).value)">
+        <option value="">{{ 'common.all' | t }}</option>
+        <option *ngFor="let ranch of ranchOptions" [value]="ranch.uuid_ranch">{{ ranch.name }}</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label small mb-1" for="organize-category">{{ 'livestockCategory.column' | t }}</label>
+      <select id="organize-category" class="form-select form-select-sm" [value]="selectedCategory" (change)="updateCategory($any($event.target).value)">
+        <option value="">{{ 'common.all' | t }}</option>
+        <option value="none">{{ 'livestockCategory.unassigned' | t }}</option>
+        <option *ngFor="let category of categoryOptions" [value]="category.category_uuid">{{ category.name }}</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="app-card p-3 mb-3" *ngIf="canAnimalWrite">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-6">
+      <span class="form-label small mb-1 d-block">{{ 'livestockCategory.organizeApply' | t }}</span>
+      <app-category-multi-select
+        [options]="categorySelectOptions"
+        [selectedIds]="actionCategoryIds"
+        [placeholder]="'livestockCategory.selectPlaceholder' | t"
+        (selectedIdsChange)="actionCategoryIds = $event"
+      ></app-category-multi-select>
+    </div>
+    <div class="col-12 col-md-6 d-flex flex-wrap gap-2">
+      <button
+        type="button"
+        class="btn btn-primary btn-sm"
+        [disabled]="saving || !selectedAnimalIds.size || !actionCategoryIds.length"
+        (click)="applyCategories('assign')"
+      >
+        {{ 'livestockCategory.organizeAssign' | t }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm"
+        [disabled]="saving || !selectedAnimalIds.size || !actionCategoryIds.length"
+        (click)="applyCategories('remove')"
+      >
+        {{ 'livestockCategory.organizeRemove' | t }}
+      </button>
+      <span class="small text-muted align-self-center">{{ 'livestockCategory.organizeSelected' | t: { count: selectedAnimalIds.size } }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="app-card p-0">
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th *ngIf="canAnimalWrite" scope="col" class="text-center" style="width: 2.5rem">
+            <input type="checkbox" [checked]="allPageSelected" (change)="togglePage($any($event.target).checked)" />
+          </th>
+          <th scope="col">{{ 'animal.fieldRegistrationNumber' | t }}</th>
+          <th scope="col">{{ 'livestockCategory.column' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="isLoading">
+          <td [attr.colspan]="canAnimalWrite ? 3 : 2" class="text-muted p-3">{{ 'common.loading' | t }}</td>
+        </tr>
+        <tr *ngIf="!isLoading && !animals.length">
+          <td [attr.colspan]="canAnimalWrite ? 3 : 2" class="text-muted p-3">{{ 'animal.empty' | t }}</td>
+        </tr>
+        <tr *ngFor="let animal of animals">
+          <td *ngIf="canAnimalWrite" class="text-center">
+            <input
+              type="checkbox"
+              [checked]="isAnimalSelected(animal.animal_uuid)"
+              (change)="toggleAnimal(animal.animal_uuid, $any($event.target).checked)"
+            />
+          </td>
+          <td>
+            <a [routerLink]="['/animal', animal.animal_uuid]">{{ animal.registration_number }}</a>
+          </td>
+          <td>{{ categoryNames(animal) || ('livestockCategory.unassigned' | t) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="d-flex justify-content-between align-items-center gap-2 p-2" *ngIf="totalPages > 1">
+    <span class="small text-muted">{{ totalItems }}</span>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="page <= 1" (click)="goToPage(page - 1)">&laquo;</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="page >= totalPages" (click)="goToPage(page + 1)">&raquo;</button>
+    </div>
+  </div>
+</div>

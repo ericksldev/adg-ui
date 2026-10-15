@@ -17,6 +17,7 @@ export interface AnimalBatchDraftRow {
   color: string;
   birthDate: string;
   originType: AnimalOriginType | '';
+  categories: string;
   description: string;
 }
 
@@ -33,10 +34,11 @@ export const ANIMAL_BATCH_DRAFT_ROW_KEYS: (keyof AnimalBatchDraftRow)[] = [
   'color',
   'birthDate',
   'originType',
+  'categories',
   'description'
 ];
 
-export const ANIMAL_BATCH_DRAFT_VERSION = 6 as const;
+export const ANIMAL_BATCH_DRAFT_VERSION = 7 as const;
 
 export interface AnimalBatchDraftSnapshot {
   version: typeof ANIMAL_BATCH_DRAFT_VERSION;

@@ -17,6 +17,9 @@ import {
   ParentOptionDto
 } from '../../services/animal-api.service';
 import { AnimalService } from '../../services/animal.service';
+import { LivestockCategoryApiService } from 'src/app/features/configuration/services/livestock-category-api.service';
+import { CategoryMultiSelectOption } from '../../components/category-multi-select/category-multi-select.component';
+import { LivestockCategory } from 'src/app/features/configuration/models/livestock-category.model';
 
 @Component({
   selector: 'app-animal-edit',
@@ -38,6 +41,9 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
   paddockOptions: PaddockOptionDto[] = [];
   motherOptions: ParentOptionDto[] = [];
   fatherOptions: ParentOptionDto[] = [];
+  categoryOptions: LivestockCategory[] = [];
+  selectedCategoryIds = new Set<string>();
+  private initialCategoryIds = new Set<string>();
 
   private readonly destroy$ = new Subject<void>();
 
@@ -47,7 +53,8 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
     private readonly router: Router,
     private readonly i18n: I18nService,
     private readonly animalService: AnimalService,
-    private readonly animalApi: AnimalApiService
+    private readonly animalApi: AnimalApiService,
+    private readonly livestockCategoryApi: LivestockCategoryApiService
   ) {
     this.form = this.fb.group({
       registrationNumber: [{ value: '', disabled: true }, Validators.required],
@@ -101,6 +108,15 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
         this.ownerRows = owners;
       });
 
+    this.livestockCategoryApi.listCategories(false).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (categories) => {
+        this.categoryOptions = categories;
+      },
+      error: () => {
+        this.categoryOptions = [];
+      }
+    });
+
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       const id = params.get('animalUuid');
       if (!id) {
@@ -118,6 +134,18 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
 
   breedLabel(code: string): string {
     return this.i18n.translate(`animal.breed.${code}`);
+  }
+
+  get categorySelectOptions(): CategoryMultiSelectOption[] {
+    return this.categoryOptions.map((category) => ({ value: category.category_uuid, label: category.name }));
+  }
+
+  get selectedCategoryIdList(): string[] {
+    return [...this.selectedCategoryIds];
+  }
+
+  onCategoriesChange(ids: string[]): void {
+    this.selectedCategoryIds = new Set(ids);
   }
 
   submit(): void {
@@ -170,9 +198,7 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
     this.saving = true;
     this.animalService.updateAnimal(this.animal.animal_uuid, payload).subscribe({
       next: () => {
-        this.saving = false;
-        this.feedback = { type: 'success', message: this.i18n.translate('animal.editSaveSuccess') };
-        void this.router.navigate(['/animal', this.animal!.animal_uuid]);
+        this.syncCategories(this.animal!.animal_uuid);
       },
       error: (err) => {
         this.saving = false;
@@ -197,6 +223,7 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
         this.animal = row;
         this.patchForm(row);
         this.loadRanchDependencies(row.ranch_uuid);
+        this.loadAssignedCategories(row.animal_uuid);
         this.isLoading = false;
       },
       error: () => {
@@ -204,6 +231,45 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
         this.isLoading = false;
       }
     });
+  }
+
+  private loadAssignedCategories(animalUuid: string): void {
+    this.livestockCategoryApi.listAnimalCategories(animalUuid).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (rows) => {
+        this.selectedCategoryIds = new Set(rows.map((row) => row.category_uuid));
+        this.initialCategoryIds = new Set(this.selectedCategoryIds);
+      },
+      error: () => {
+        this.selectedCategoryIds = new Set();
+        this.initialCategoryIds = new Set();
+      }
+    });
+  }
+
+  private syncCategories(animalUuid: string): void {
+    const toAdd = [...this.selectedCategoryIds].filter((id) => !this.initialCategoryIds.has(id));
+    const toRemove = [...this.initialCategoryIds].filter((id) => !this.selectedCategoryIds.has(id));
+    const calls = [
+      ...toAdd.map((id) => this.livestockCategoryApi.assign(animalUuid, id, null)),
+      ...toRemove.map((id) => this.livestockCategoryApi.remove(animalUuid, id, null))
+    ];
+    if (calls.length === 0) {
+      this.finishSave(animalUuid);
+      return;
+    }
+    forkJoin(calls).subscribe({
+      next: () => this.finishSave(animalUuid),
+      error: () => {
+        this.saving = false;
+        this.feedback = { type: 'error', message: this.i18n.translate('livestockCategory.loadError') };
+      }
+    });
+  }
+
+  private finishSave(animalUuid: string): void {
+    this.saving = false;
+    this.feedback = { type: 'success', message: this.i18n.translate('animal.editSaveSuccess') };
+    void this.router.navigate(['/animal', animalUuid]);
   }
 
   private patchForm(row: AnimalDetail): void {

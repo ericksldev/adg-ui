@@ -15,7 +15,8 @@ export type AnimalListColumnKey =
   | 'fatherRegistration'
   | 'exitType'
   | 'exitDate'
-  | 'exitReason';
+  | 'exitReason'
+  | 'categories';
 
 export type AnimalListOptionalColumnKey = Exclude<AnimalListColumnKey, 'registrationNumber'>;
 
@@ -50,7 +51,8 @@ export const ANIMAL_LIST_TABLE_COLUMNS: readonly AnimalListColumnDef[] = [
   { key: 'exitType', labelKey: 'animal.exitType', optional: true, inactiveOnly: true },
   { key: 'exitDate', labelKey: 'animal.exitDate', optional: true, inactiveOnly: true },
   { key: 'exitReason', labelKey: 'animal.exitReason', optional: true, inactiveOnly: true },
-  { key: 'description', labelKey: 'animal.fieldDescription', optional: true }
+  { key: 'description', labelKey: 'animal.fieldDescription', optional: true },
+  { key: 'categories', labelKey: 'livestockCategory.column', optional: true }
 ] as const;
 
 export interface AnimalListOptionalColumnDef {
@@ -79,14 +81,15 @@ export const ANIMAL_LIST_DEFAULT_OPTIONAL_VISIBILITY: Record<AnimalListOptionalC
   exitType: true,
   exitDate: true,
   exitReason: true,
-  description: false
+  description: false,
+  categories: false
 };
 
 export const ANIMAL_LIST_DEFAULT_BIRTH_DISPLAY: AnimalBirthDisplayMode = 'date';
 
 export const ANIMAL_LIST_PAGE_SIZE_OPTIONS: readonly number[] = [10, 25, 50, 100] as const;
 export const ANIMAL_LIST_DEFAULT_PAGE_SIZE = 10;
-export const ANIMAL_LIST_COLUMNS_STORAGE_PREFIX = 'vrete_animal_list_visible_cols_v1';
+export const ANIMAL_LIST_COLUMNS_STORAGE_PREFIX = 'vrete_animal_list_visible_cols_v2';
 export const ANIMAL_LIST_PAGE_SIZE_STORAGE_PREFIX = 'vrete_animal_list_page_size_v1';
 export const ANIMAL_LIST_BIRTH_DISPLAY_STORAGE_PREFIX = 'vrete_animal_list_birth_display_v1';
 export const ANIMAL_LIST_COLUMNS_STORAGE_PREFIX_LEGACY = 'adg_animal_list_visible_cols_v1';

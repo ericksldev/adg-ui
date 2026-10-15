@@ -8,7 +8,9 @@ export const EXCEL_BIRTH_DATE_HEADERS = [
   'fecha_nacimiento',
   'fecha_de_nacimiento',
   'nacimiento',
-  'fecha_nac'
+  'fecha_nac',
+  'data_nascimento',
+  'data_de_nascimento'
 ] as const;
 
 function pad2(n: number): string {

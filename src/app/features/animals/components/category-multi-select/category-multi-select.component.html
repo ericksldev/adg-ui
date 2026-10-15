@@ -1,0 +1,24 @@
+<div class="category-multi-select" [class.category-multi-select--compact]="compact">
+  <button
+    type="button"
+    class="form-control text-start category-multi-select__trigger"
+    [class.form-control-sm]="compact"
+    [class.category-multi-select__trigger--empty]="!summary"
+    [disabled]="disabled"
+    (mousedown)="toggleOpen($event)"
+  >
+    <span class="category-multi-select__label">{{ summary || placeholder }}</span>
+  </button>
+</div>
+<div #panel class="category-multi-select__panel" *ngIf="open" [style.top.px]="panelTop" [style.left.px]="panelLeft" [style.width.px]="panelWidth">
+  <p class="category-multi-select__empty text-muted" *ngIf="!options.length">{{ placeholder }}</p>
+  <button
+    type="button"
+    class="category-multi-select__option"
+    *ngFor="let option of options"
+    (mousedown)="onOptionMouseDown($event, option.value)"
+  >
+    <i class="bi" [ngClass]="isSelected(option.value) ? 'bi-check-square-fill' : 'bi-square'" aria-hidden="true"></i>
+    <span>{{ option.label }}</span>
+  </button>
+</div>

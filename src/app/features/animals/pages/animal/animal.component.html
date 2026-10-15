@@ -108,6 +108,18 @@
         </select>
       </div>
       <div>
+        <label class="form-label mb-1" for="animal-list-category">{{ 'livestockCategory.column' | t }}</label>
+        <select
+          id="animal-list-category"
+          class="form-select form-select-sm"
+          [value]="selectedCategory"
+          (change)="updateCategoryFilter($any($event.target).value)"
+        >
+          <option value="">{{ 'common.all' | t }}</option>
+          <option *ngFor="let category of categoryOptions" [value]="category.category_uuid">{{ category.name }}</option>
+        </select>
+      </div>
+      <div>
         <label class="form-label mb-1" for="animal-list-birth-from">{{ 'animal.listFilterBirthFrom' | t }}</label>
         <input
           id="animal-list-birth-from"
@@ -237,6 +249,7 @@
         <th *ngIf="isColumnVisible('exitDate')" scope="col" class="text-center">{{ 'animal.exitDate' | t }}</th>
         <th *ngIf="isColumnVisible('exitReason')" scope="col" class="text-center">{{ 'animal.exitReason' | t }}</th>
         <th *ngIf="isColumnVisible('description')" scope="col" class="text-center">{{ 'animal.fieldDescription' | t }}</th>
+        <th *ngIf="isColumnVisible('categories')" scope="col" class="text-center">{{ 'livestockCategory.column' | t }}</th>
         <th scope="col" class="text-center">{{ 'common.actions' | t }}</th>
       </tr>
       </thead>
@@ -269,6 +282,10 @@
         </td>
         <td *ngIf="isColumnVisible('exitReason')" class="text-center">{{ item.last_exit?.reason || ('common.notAvailable' | t) }}</td>
         <td *ngIf="isColumnVisible('description')" class="text-center animal-list__description-cell">{{ item.description || ('common.notAvailable' | t) }}</td>
+        <td *ngIf="isColumnVisible('categories')" class="text-center">
+          <span *ngIf="!item.categories?.length">{{ 'common.notAvailable' | t }}</span>
+          <span *ngFor="let category of item.categories; let last = last">{{ category.name }}<span *ngIf="!last">, </span></span>
+        </td>
         <td class="app-table__cell-actions text-center">
           <a
             *ngIf="item.animal_uuid"

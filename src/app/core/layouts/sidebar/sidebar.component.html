@@ -46,6 +46,9 @@
                 <li *ngIf="canAccessPaddocks">
                     <a routerLink="/configuration/paddocks" routerLinkActive="active" (click)="closeSidebarOnMobile()"><i class="bi bi-grid-3x3-gap me-2"></i>{{ 'sidebar.paddocks' | t }}</a>
                 </li>
+                <li *ngIf="canAccessLivestockCategories">
+                    <a routerLink="/configuration/livestock-categories" routerLinkActive="active" (click)="closeSidebarOnMobile()"><i class="bi bi-tags me-2"></i>{{ 'sidebar.livestockCategories' | t }}</a>
+                </li>
             </ng-container>
             <ng-container *ngIf="canAccessFieldOps">
                 <li class="sidebar-header">{{ 'sidebar.fieldOps' | t }}</li>
