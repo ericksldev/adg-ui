@@ -49,19 +49,21 @@
         <div class="animal-batch-toolbar__top">
           <div class="animal-batch-toolbar__slots">
             <label class="animal-batch-toolbar__label" for="batchRowSlots" [attr.title]="'animal.batchRowSlotsTitle' | t">{{ 'animal.batchRowSlotsLabel' | t }}</label>
-            <input
+            <select
               id="batchRowSlots"
-              class="form-control form-control-sm animal-batch-toolbar__num"
-              type="number"
-              [min]="minSlots"
-              [max]="maxSlots"
-              [(ngModel)]="requestedSlotCount"
-              [ngModelOptions]="{ standalone: true }"
+              class="form-select form-select-sm animal-batch-toolbar__page-size"
+              [value]="pageSize"
+              (change)="onPageSizeChange($any($event.target).value)"
               [attr.title]="'animal.batchRowSlotsTitle' | t"
-            />
-            <button type="button" class="animal-batch-toolbar__btn animal-batch-toolbar__btn--solid" (click)="applyRequestedSlotCount()">
-              {{ 'animal.batchApplySlots' | t }}
+            >
+              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+            </select>
+            <button type="button" class="animal-batch-toolbar__btn animal-batch-toolbar__btn--ghost" (click)="addEmptyRows()" [disabled]="savingBatch">
+              {{ 'animal.batchAddRows' | t }}
             </button>
+            <span class="animal-batch-toolbar__label" *ngIf="draftReady">
+              {{ 'animal.batchShowing' | t:{ from: showingFrom, to: showingTo, total: totalDataRows } }}
+            </span>
           </div>
 
           <div class="animal-batch-toolbar__actions">
@@ -92,7 +94,7 @@
               class="form-control form-control-sm animal-batch-toolbar__num"
               type="number"
               [min]="1"
-              [max]="rows.length"
+              [max]="totalDataRows || 1"
               [(ngModel)]="modelRowNumber"
               [ngModelOptions]="{ standalone: true }"
               [attr.title]="'animal.batchModelRowTitle' | t"
@@ -150,7 +152,9 @@
       </details>
     </div>
 
-    <form *ngIf="batchTableAlive" [formGroup]="form">
+    <div *ngIf="!draftReady" class="text-muted p-3 small">{{ 'common.loading' | t }}</div>
+
+    <form *ngIf="draftReady && batchTableAlive" [formGroup]="form">
       <div
         #batchGridScroll
         class="animal-batch-scroll"
@@ -417,12 +421,12 @@
           <tbody formArrayName="rows">
             <tr *ngFor="let ctrl of rows.controls; let i = index; trackBy: trackByRow" [formGroupName]="i">
               <td class="text-center animal-batch-col-idx">
-                <span class="animal-batch-row-num text-muted">{{ i + 1 }}</span>
+                <span class="animal-batch-row-num text-muted">{{ pageRowNumber(i) }}</span>
                 <button
                   type="button"
                   class="btn btn-link btn-sm animal-batch-row-clear"
                   [attr.title]="'animal.batchClearRow' | t"
-                  [attr.aria-label]="('animal.batchClearRow' | t) + ' ' + (i + 1)"
+                  [attr.aria-label]="('animal.batchClearRow' | t) + ' ' + pageRowNumber(i)"
                   [disabled]="!rowHasData(i) || savingBatch"
                   (click)="clearBatchRow(i)"
                 >
@@ -641,5 +645,19 @@
         </div>
       </ng-template>
     </form>
+
+    <div class="animal-batch-pager" *ngIf="draftReady && totalPages > 1">
+      <ul class="pagination pagination-sm app-pagination mb-0">
+        <li class="page-item" [class.disabled]="page === 1">
+          <button type="button" class="page-link" (click)="goToPage(page - 1)" [disabled]="page === 1">&laquo;</button>
+        </li>
+        <li class="page-item disabled">
+          <span class="page-link">{{ page }} / {{ totalPages }}</span>
+        </li>
+        <li class="page-item" [class.disabled]="page === totalPages">
+          <button type="button" class="page-link" (click)="goToPage(page + 1)" [disabled]="page === totalPages">&raquo;</button>
+        </li>
+      </ul>
+    </div>
   </div>
 </div>

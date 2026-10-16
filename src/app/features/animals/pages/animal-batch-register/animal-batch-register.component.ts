@@ -12,7 +12,7 @@ import {
 import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom, forkJoin, of, Subject, Subscription } from 'rxjs';
-import { catchError, debounceTime, finalize, map, takeUntil } from 'rxjs/operators';
+import { catchError, debounceTime, finalize, map, takeUntil, tap } from 'rxjs/operators';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ConfirmDialogComponent } from 'src/app/shared/components/modals/confirm-dialog/confirm-dialog.component';
 import { I18nService } from 'src/app/core/services/i18n.service';
@@ -24,12 +24,13 @@ import { UserManagementService } from 'src/app/features/users/services/user-mana
 import {
   ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX,
   ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX_LEGACY,
+  ANIMAL_BATCH_CATEGORY_ASSIGN_POOL,
   ANIMAL_BATCH_DEFAULT_OPTIONAL_COLUMN_VISIBILITY,
-  ANIMAL_BATCH_DEFAULT_ROW_SLOTS,
-  ANIMAL_BATCH_MAX_ROW_SLOTS,
-  ANIMAL_BATCH_MIN_ROW_SLOTS,
+  ANIMAL_BATCH_DEFAULT_PAGE_SIZE,
   ANIMAL_BATCH_OPTIONAL_COLUMNS,
+  ANIMAL_BATCH_PAGE_SIZE_OPTIONS,
   ANIMAL_BATCH_PERSIST_DEBOUNCE_MS,
+  ANIMAL_BATCH_SAVE_CHUNK_SIZE,
   AnimalBatchOptionalColumnKey
 } from '../../constants/animal-batch.constants';
 import {
@@ -44,7 +45,7 @@ import {
   AnimalBatchDraftSnapshot
 } from '../../models/animal-batch-draft.model';
 import { PendingAnimalBatchNavigationState } from '../../models/animal-batch-pending-handoff.model';
-import { AnimalBatchCreateRequestBody } from '../../models/animal-batch-create.model';
+import { AnimalBatchCreateRequestBody, AnimalBatchRowResultDto } from '../../models/animal-batch-create.model';
 import { AnimalCreatePayload } from '../../models/animal-create-payload.model';
 import { AnimalApiService, OwnerOptionDto, PaddockOptionDto } from '../../services/animal-api.service';
 import { AnimalBatchDraftStorageService } from '../../services/animal-batch-draft-storage.service';
@@ -78,8 +79,7 @@ const BATCH_HINTS_VISIBLE_MS = 20_000;
   styleUrls: ['./animal-batch-register.component.scss']
 })
 export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDestroy {
-  readonly minSlots = ANIMAL_BATCH_MIN_ROW_SLOTS;
-  readonly maxSlots = ANIMAL_BATCH_MAX_ROW_SLOTS;
+  readonly pageSizeOptions = ANIMAL_BATCH_PAGE_SIZE_OPTIONS;
   readonly breedCodes = [...CATTLE_BREED_CODES];
   readonly optionalColumns = ANIMAL_BATCH_OPTIONAL_COLUMNS;
   readonly tableColumns = ANIMAL_BATCH_TABLE_COLUMNS;
@@ -93,7 +93,9 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   @ViewChild('batchHintsDetails') batchHintsDetails?: ElementRef<HTMLDetailsElement>;
 
   form: FormGroup;
-  requestedSlotCount = ANIMAL_BATCH_DEFAULT_ROW_SLOTS;
+  page = 1;
+  pageSize = ANIMAL_BATCH_DEFAULT_PAGE_SIZE;
+  draftReady = false;
   feedback: { type: 'success' | 'error'; message: string } | null = null;
   savingBatch = false;
   templateDownloading = false;
@@ -127,7 +129,11 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   private readonly selectIssues = new Map<string, BatchSelectIssue & { clearOnMiss: boolean }>();
   private ranchCatalogReady = false;
   private ownerCatalogReady = false;
+  private catalogsReady = false;
   private readonly pendingBatchSeeds: AnimalBatchDraftRow[];
+  /** Full import or manual grid. Only the current page is bound to `form`. */
+  private draftRows: AnimalBatchDraftRow[] = [];
+  private columnsWithData = new Set<AnimalBatchColumnKey>();
 
   constructor(
     private readonly fb: FormBuilder,
@@ -164,6 +170,29 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
 
   get rows(): FormArray {
     return this.form.get('rows') as FormArray;
+  }
+
+  get totalDataRows(): number {
+    return this.draftRows.length;
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.draftRows.length / this.pageSize));
+  }
+
+  get showingFrom(): number {
+    if (this.rows.length === 0 || this.draftRows.length === 0) {
+      return 0;
+    }
+    return this.pageStart + 1;
+  }
+
+  get showingTo(): number {
+    return this.pageStart + this.rows.length;
+  }
+
+  pageRowNumber(localIndex: number): number {
+    return this.pageStart + localIndex + 1;
   }
 
   breedLabel(code: string): string {
@@ -223,7 +252,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   onRanchChange(index: number): void {
     const g = this.rows.at(index) as FormGroup;
     g.patchValue({ currentPaddockUuid: '' }, { emitEvent: false });
-    this.clearSelectIssue(index, 'currentPaddockUuid');
+    this.clearSelectIssue(this.absoluteIndex(index), 'currentPaddockUuid');
     const ranch = g.get('ranchUuid')?.value;
     if (ranch && this.isKnownRanchUuid(String(ranch))) {
       this.ensurePaddocksLoaded(String(ranch));
@@ -231,14 +260,14 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   }
 
   onBatchSelectChange(index: number, key: AnimalBatchColumnKey): void {
-    this.clearSelectIssue(index, key);
+    this.clearSelectIssue(this.absoluteIndex(index), key);
     if (key === 'ranchUuid') {
       this.onRanchChange(index);
     }
   }
 
   selectIssue(index: number, key: AnimalBatchColumnKey): (BatchSelectIssue & { clearOnMiss: boolean }) | null {
-    const issue = this.selectIssues.get(this.issueId(index, key));
+    const issue = this.selectIssues.get(this.issueId(this.absoluteIndex(index), key));
     if (!issue || issue.reason === 'pendingCatalog') {
       return null;
     }
@@ -255,7 +284,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   }
 
   applySelectSuggestion(index: number, key: AnimalBatchColumnKey): void {
-    const issue = this.selectIssues.get(this.issueId(index, key));
+    const issue = this.selectIssues.get(this.issueId(this.absoluteIndex(index), key));
     if (!issue?.suggestionValue) {
       return;
     }
@@ -264,7 +293,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       return;
     }
     group.patchValue({ [key]: issue.suggestionValue });
-    this.clearSelectIssue(index, key);
+    this.clearSelectIssue(this.absoluteIndex(index), key);
     if (key === 'ranchUuid') {
       this.onRanchChange(index);
     }
@@ -276,7 +305,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     }
     const group = this.rows.at(index) as FormGroup | null;
     group?.patchValue({ [key]: '' });
-    this.clearSelectIssue(index, key);
+    this.clearSelectIssue(this.absoluteIndex(index), key);
   }
 
   downloadExcelTemplate(): void {
@@ -553,13 +582,18 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     let pastedCells = 0;
 
     for (let dr = 0; dr < matrix.length; dr++) {
-      const rowIndex = origin.row + dr;
-      if (rowIndex >= this.rows.length) {
+      const localIndex = origin.row + dr;
+      const absoluteIndex = this.pageStart + localIndex;
+      if (absoluteIndex >= this.draftRows.length) {
         break;
       }
       const line = matrix[dr];
-      const rowGroup = this.rows.at(rowIndex) as FormGroup;
-      let rowRanch = String(rowGroup.get('ranchUuid')?.value ?? '').trim();
+      const onPage = localIndex < this.rows.length;
+      const rowGroup = onPage ? (this.rows.at(localIndex) as FormGroup) : null;
+      let rowRanch = onPage
+        ? String(rowGroup?.get('ranchUuid')?.value ?? '').trim()
+        : String(this.draftRows[absoluteIndex]?.ranchUuid ?? '').trim();
+      const overflowPatch: Partial<AnimalBatchDraftRow> = {};
 
       for (let dc = 0; dc < line.length; dc++) {
         const colIndex = origin.col + dc;
@@ -568,18 +602,26 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
         }
         const key = keys[colIndex];
         const resolved = resolveBatchSelectCell(key, line[dc], this.buildPasteContext(rowRanch), rowRanch, true);
-        this.storeSelectResolution(rowIndex, key, resolved.issue, true);
+        this.storeSelectResolution(absoluteIndex, key, resolved.issue, true);
         const patch: Partial<AnimalBatchDraftRow> = { [key]: resolved.value };
         if (key === 'ranchUuid') {
           patch.currentPaddockUuid = '';
-          this.clearSelectIssue(rowIndex, 'currentPaddockUuid');
+          this.clearSelectIssue(absoluteIndex, 'currentPaddockUuid');
           rowRanch = resolved.issue?.reason === 'pendingCatalog' ? resolved.issue.raw : resolved.value;
           if (this.isKnownRanchUuid(resolved.value)) {
             ranchesToLoad.add(resolved.value);
           }
         }
-        rowGroup.patchValue(patch);
+        if (rowGroup) {
+          rowGroup.patchValue(patch);
+        } else {
+          Object.assign(overflowPatch, patch);
+        }
         pastedCells++;
+      }
+
+      if (!onPage) {
+        this.draftRows[absoluteIndex] = { ...this.draftRows[absoluteIndex], ...overflowPatch };
       }
     }
 
@@ -588,7 +630,10 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     }
 
     if (pastedCells > 0) {
+      this.flushPageToDraft();
+      this.refreshColumnDataFlags();
       this.refreshSelectIssueCount();
+      this.persistDraftNow();
       this.setFeedback({
         type: 'success',
         message: this.i18n.translate('animal.batchGridPasteDone', { count: String(pastedCells) })
@@ -647,7 +692,8 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   }
 
   applyModelRowToOthers(): void {
-    const n = this.rows.length;
+    this.flushPageToDraft();
+    const n = this.draftRows.length;
     if (n < 2) {
       return;
     }
@@ -662,8 +708,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       return;
     }
 
-    const sourceGroup = this.rows.at(src) as FormGroup;
-    const full = sourceGroup.getRawValue() as AnimalBatchDraftRow;
+    const full = this.draftRows[src];
     const template = this.copyFullRow
       ? full
       : (() => {
@@ -672,7 +717,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
         })();
 
     const targetIndices = parsed.indices.filter((idx) => {
-      if (this.copyOnlyEmptyTargets && batchDraftRowHasData((this.rows.at(idx) as FormGroup).getRawValue() as AnimalBatchDraftRow)) {
+      if (this.copyOnlyEmptyTargets && batchDraftRowHasData(this.draftRows[idx])) {
         return false;
       }
       return true;
@@ -684,9 +729,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     }
 
     if (!this.copyOnlyEmptyTargets) {
-      const wouldOverwrite = targetIndices.some((idx) =>
-        batchDraftRowHasData((this.rows.at(idx) as FormGroup).getRawValue() as AnimalBatchDraftRow)
-      );
+      const wouldOverwrite = targetIndices.some((idx) => batchDraftRowHasData(this.draftRows[idx]));
       if (wouldOverwrite) {
         const confirmKey = this.copyFullRow ? 'animal.batchCopyOverwriteConfirmFull' : 'animal.batchCopyModelConfirm';
         const ok = globalThis.confirm(this.i18n.translate(confirmKey));
@@ -697,13 +740,14 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     }
 
     for (const idx of targetIndices) {
-      const row = this.rows.at(idx) as FormGroup;
-      row.patchValue(template);
-      const ranch = row.get('ranchUuid')?.value;
+      this.draftRows[idx] = { ...this.draftRows[idx], ...template };
+      const ranch = this.draftRows[idx].ranchUuid;
       if (ranch) {
         this.ensurePaddocksLoaded(String(ranch));
       }
     }
+    this.mountCurrentPage();
+    this.persistDraftNow();
     this.setFeedback({
       type: 'success',
       message: this.i18n.translate('animal.batchCopyModelDone', { count: String(targetIndices.length) })
@@ -711,14 +755,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   }
 
   columnHasData(key: AnimalBatchColumnKey): boolean {
-    const emptyDefaults = this.emptyRowControlValues();
-    for (let i = 0; i < this.rows.length; i++) {
-      const row = (this.rows.at(i) as FormGroup).getRawValue() as AnimalBatchDraftRow;
-      if (this.columnValueDiffersFromEmpty(key, row[key], emptyDefaults[key])) {
-        return true;
-      }
-    }
-    return false;
+    return this.columnsWithData.has(key);
   }
 
   isTableColumnVisible(key: AnimalBatchColumnKey): boolean {
@@ -754,20 +791,22 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   }
 
   private executeClearBatchColumn(key: AnimalBatchColumnKey): void {
+    this.flushPageToDraft();
     const emptyDefaults = this.emptyRowControlValues();
     const clearValue = emptyDefaults[key];
-    for (let i = 0; i < this.rows.length; i++) {
-      const row = this.rows.at(i) as FormGroup;
+    for (let i = 0; i < this.draftRows.length; i++) {
       const patch: Partial<AnimalBatchDraftRow> = { [key]: clearValue };
       if (key === 'ranchUuid') {
         patch.currentPaddockUuid = emptyDefaults.currentPaddockUuid;
       }
-      row.patchValue(patch);
-      this.clearSelectIssueForColumn(key, i);
+      this.draftRows[i] = { ...this.draftRows[i], ...patch };
+      this.selectIssues.delete(this.issueId(i, key));
       if (key === 'ranchUuid') {
-        this.clearSelectIssue(i, 'currentPaddockUuid');
+        this.selectIssues.delete(this.issueId(i, 'currentPaddockUuid'));
       }
     }
+    this.refreshSelectIssueCount();
+    this.mountCurrentPage();
     this.setFeedback({
       type: 'success',
       message: this.i18n.translate('animal.batchClearColumnDone', {
@@ -843,9 +882,8 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
 
   private preloadPaddocksForAllRanches(): void {
     const seen = new Set<string>();
-    for (let i = 0; i < this.rows.length; i++) {
-      const ranch = (this.rows.at(i) as FormGroup).get('ranchUuid')?.value;
-      const key = String(ranch ?? '').trim();
+    for (const row of this.draftRows) {
+      const key = String(row.ranchUuid ?? '').trim();
       if (key && !seen.has(key)) {
         seen.add(key);
         this.ensurePaddocksLoaded(key);
@@ -869,41 +907,51 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
         this.categoryOptions = categories;
         this.ranchCatalogReady = true;
         this.ownerCatalogReady = true;
-        this.reconcileVisibleSelects(false);
-        this.preloadPaddocksForAllRanches();
-        this.persistDraftNow();
+        this.catalogsReady = true;
+        if (this.draftReady) {
+          this.reconcileVisibleSelects(false);
+          this.preloadPaddocksForAllRanches();
+          this.persistDraftNow();
+        }
       });
 
     if (this.pendingBatchSeeds.length > 0) {
-      const limited = this.pendingBatchSeeds.slice(0, ANIMAL_BATCH_MAX_ROW_SLOTS);
-      const slotCount = this.clampSlotCount(Math.max(ANIMAL_BATCH_MIN_ROW_SLOTS, limited.length));
-      this.requestedSlotCount = slotCount;
       this.fromPendingRegistrations = true;
-      this.replaceFormRows(slotCount, limited);
+      this.page = 1;
+      this.draftRows = this.pendingBatchSeeds.map((row) => this.normalizeDraftRow(row));
+      this.draftReady = true;
+      this.mountCurrentPage();
       this.preloadPaddocksForAllRanches();
       this.persistDraftNow();
-      if (this.pendingBatchSeeds.length > limited.length) {
-        this.setFeedback({
-          type: 'error',
-          message: this.i18n.translate('animal.pendingBatchTruncated', {
-            count: String(limited.length),
-            max: String(ANIMAL_BATCH_MAX_ROW_SLOTS)
-          })
-        });
-      }
-    } else {
-      const draft = this.draftStorage.load();
-      if (draft) {
-        const count = this.clampSlotCount(draft.rowSlotCount);
-        this.requestedSlotCount = count;
-        this.replaceFormRows(count, draft.rows);
-      } else {
-        this.requestedSlotCount = ANIMAL_BATCH_DEFAULT_ROW_SLOTS;
-        this.replaceFormRows(ANIMAL_BATCH_DEFAULT_ROW_SLOTS, []);
-      }
+      return;
     }
 
-    this.bindDraftAutoSave();
+    void this.loadStoredDraft();
+  }
+
+  private async loadStoredDraft(): Promise<void> {
+    let draft: AnimalBatchDraftSnapshot | null = null;
+    try {
+      draft = await this.draftStorage.load();
+    } catch {
+      draft = null;
+    }
+    if (this.destroy$.closed) {
+      return;
+    }
+    if (draft && draft.rows.length > 0) {
+      this.pageSize = this.clampPageSize(draft.pageSize ?? ANIMAL_BATCH_DEFAULT_PAGE_SIZE);
+      this.page = 1;
+      this.draftRows = draft.rows.map((row) => this.normalizeDraftRow(row));
+    } else {
+      this.useBlankGrid(ANIMAL_BATCH_DEFAULT_PAGE_SIZE);
+    }
+    this.draftReady = true;
+    this.mountCurrentPage();
+    if (this.catalogsReady) {
+      this.reconcileVisibleSelects(false);
+      this.preloadPaddocksForAllRanches();
+    }
   }
 
   private readPendingBatchSeeds(): AnimalBatchDraftRow[] {
@@ -948,7 +996,15 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   private bindDraftAutoSave(): void {
     this.draftPersistSub?.unsubscribe();
     this.draftPersistSub = this.form.valueChanges
-      .pipe(debounceTime(ANIMAL_BATCH_PERSIST_DEBOUNCE_MS), takeUntil(this.destroy$))
+      .pipe(
+        tap(() => {
+          if (!this.suppressDraftPersist) {
+            this.flushPageToDraft();
+          }
+        }),
+        debounceTime(ANIMAL_BATCH_PERSIST_DEBOUNCE_MS),
+        takeUntil(this.destroy$)
+      )
       .subscribe(() => this.persistDraftNow());
   }
 
@@ -957,8 +1013,8 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     if (this.suppressDraftPersist) {
       return;
     }
-    const values = this.rows.getRawValue() as AnimalBatchDraftRow[];
-    if (!values.some((row) => batchDraftRowHasData(row))) {
+    this.flushPageToDraft();
+    if (!this.draftRows.some((row) => batchDraftRowHasData(row))) {
       return;
     }
     this.draftStorage.save(this.toSnapshot());
@@ -985,11 +1041,13 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
           this.setFeedback({ type: 'error', message: this.i18n.translate('animal.batchImportEmpty') });
           return;
         }
-        const slotCount = this.clampSlotCount(Math.max(this.minSlots, imported.length));
-        this.requestedSlotCount = slotCount;
-        const merged = this.excelImport.mergeIntoSlotCount(imported, slotCount);
+        this.page = 1;
+        this.draftRows = imported.map((row) => this.normalizeDraftRow(row));
         this.applyOptionalColumnsFromExcelImport(parseResult.optionalColumnsInFile);
-        this.rebuildRows(slotCount, merged);
+        this.clearGridSelection();
+        this.mountCurrentPage();
+        this.preloadPaddocksForAllRanches();
+        this.persistDraftNow();
         this.setFeedback({
           type: 'success',
           message: this.i18n.translate('animal.batchImportSuccess', { count: String(imported.length) })
@@ -1003,25 +1061,44 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       });
   }
 
-  applyRequestedSlotCount(): void {
-    const next = this.clampSlotCount(this.requestedSlotCount);
-    this.requestedSlotCount = next;
-    const currentValues = this.rows.getRawValue() as AnimalBatchDraftRow[];
-    if (next === currentValues.length) {
+  onPageSizeChange(raw: string): void {
+    const next = this.clampPageSize(Number(raw));
+    if (!ANIMAL_BATCH_PAGE_SIZE_OPTIONS.includes(next) || next === this.pageSize) {
       return;
     }
-    if (next < currentValues.length) {
-      const dropped = currentValues.slice(next);
-      if (dropped.some((r) => batchDraftRowHasData(r))) {
-        const ok = globalThis.confirm(this.i18n.translate('animal.batchShrinkConfirm'));
-        if (!ok) {
-          this.requestedSlotCount = currentValues.length;
-          return;
-        }
-      }
-      this.clearSelectIssuesFromIndex(next);
+    this.flushPageToDraft();
+    const blank = !this.draftRows.some((row) => batchDraftRowHasData(row));
+    this.pageSize = next;
+    this.page = 1;
+    if (blank) {
+      this.selectIssues.clear();
+      this.refreshSelectIssueCount();
+      this.draftRows = this.createBlankRows(next);
     }
-    this.rebuildRows(next, currentValues);
+    this.clearGridSelection();
+    this.mountCurrentPage();
+    this.persistDraftNow();
+  }
+
+  addEmptyRows(): void {
+    this.flushPageToDraft();
+    const firstNewIndex = this.draftRows.length;
+    this.draftRows.push(...this.createBlankRows(this.pageSize));
+    this.page = Math.floor(firstNewIndex / this.pageSize) + 1;
+    this.clearGridSelection();
+    this.mountCurrentPage();
+    this.persistDraftNow();
+  }
+
+  goToPage(nextPage: number): void {
+    const next = Math.min(this.totalPages, Math.max(1, Math.floor(nextPage)));
+    if (next === this.page) {
+      return;
+    }
+    this.flushPageToDraft();
+    this.page = next;
+    this.clearGridSelection();
+    this.mountCurrentPage();
   }
 
   rowHasData(index: number): boolean {
@@ -1037,7 +1114,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       return;
     }
 
-    const rowNumber = String(index + 1);
+    const rowNumber = String(this.pageRowNumber(index));
     const modalRef = this.modalService.open(ConfirmDialogComponent, { centered: true, backdrop: 'static' });
     const dialog = modalRef.componentInstance as ConfirmDialogComponent;
     dialog.titleKey = 'animal.batchClearRowConfirmTitle';
@@ -1058,18 +1135,23 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     if (!row) {
       return;
     }
-    row.reset(this.emptyRowControlValues());
-    this.clearSelectIssuesForRow(index);
+    const blank = this.emptyRowControlValues();
+    row.reset(blank);
+    const absolute = this.absoluteIndex(index);
+    if (this.draftRows[absolute]) {
+      this.draftRows[absolute] = blank;
+    }
+    this.clearSelectIssuesForRow(absolute);
+    this.refreshColumnDataFlags();
     this.cdr.detectChanges();
   }
 
   clearBatchTable(): void {
-    const values = this.rows.getRawValue() as AnimalBatchDraftRow[];
-    const hasData = values.some((row) => batchDraftRowHasData(row));
-    const rowCount = values.length;
+    this.flushPageToDraft();
+    const hasData = this.draftRows.some((row) => batchDraftRowHasData(row));
 
     if (!hasData) {
-      this.executeClearBatchTable(rowCount);
+      this.executeClearBatchTable();
       return;
     }
 
@@ -1082,19 +1164,21 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     dialog.confirmButtonClass = 'btn-danger';
 
     modalRef.result.then(
-      () => this.executeClearBatchTable(rowCount),
+      () => this.executeClearBatchTable(),
       () => undefined
     );
   }
 
-  private executeClearBatchTable(rowCount: number): void {
+  private executeClearBatchTable(): void {
     this.ngZone.run(() => {
       this.setFeedback(null);
       this.selectIssues.clear();
       this.refreshSelectIssueCount();
       this.draftStorage.clear();
       this.suppressDraftPersist = true;
-      this.remountBatchTableWithRows(rowCount, []);
+      this.useBlankGrid(ANIMAL_BATCH_DEFAULT_PAGE_SIZE);
+      this.clearGridSelection();
+      this.mountCurrentPage();
       globalThis.setTimeout(() => {
         this.suppressDraftPersist = false;
       }, ANIMAL_BATCH_PERSIST_DEBOUNCE_MS + 100);
@@ -1104,8 +1188,8 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
 
   async saveBatch(): Promise<void> {
     this.setFeedback(null);
-    const values = this.rows.getRawValue() as AnimalBatchDraftRow[];
-    const filledRows = values
+    this.flushPageToDraft();
+    const filledRows = this.draftRows
       .map((row, index) => ({ row, index }))
       .filter(({ row }) => batchDraftRowHasData(row));
     const filled = filledRows.map(({ row }) => row);
@@ -1145,29 +1229,40 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       });
       return;
     }
+    const duplicateMessage = this.duplicateRowsMessage(filledRows);
+    if (duplicateMessage) {
+      this.setFeedback({ type: 'error', message: duplicateMessage });
+      return;
+    }
 
-    const requestBody: AnimalBatchCreateRequestBody = {
-      rows: filledRows.map(({ row, index }) => ({
-        index,
-        animal: this.toCreatePayload(row)
-      }))
-    };
+    const requestRows = filledRows.map(({ row, index }) => ({
+      index,
+      animal: this.toCreatePayload(row)
+    }));
 
     this.savingBatch = true;
-    let batchResult;
+    const results: AnimalBatchRowResultDto[] = [];
     try {
-      batchResult = await firstValueFrom(this.animalApi.createAnimalsBatch(requestBody));
+      for (let offset = 0; offset < requestRows.length; offset += ANIMAL_BATCH_SAVE_CHUNK_SIZE) {
+        const requestBody: AnimalBatchCreateRequestBody = {
+          rows: requestRows.slice(offset, offset + ANIMAL_BATCH_SAVE_CHUNK_SIZE)
+        };
+        const batchResult = await firstValueFrom(this.animalApi.createAnimalsBatch(requestBody));
+        if (!batchResult) {
+          this.dropSavedRows(results);
+          this.savingBatch = false;
+          this.setFeedback({ type: 'error', message: this.i18n.translate('animal.individualSaveError') });
+          return;
+        }
+        results.push(...batchResult.results);
+      }
     } catch (error: unknown) {
+      this.dropSavedRows(results);
       this.savingBatch = false;
       this.setFeedback({ type: 'error', message: this.extractApiError(error) });
       return;
     }
-    if (!batchResult) {
-      this.savingBatch = false;
-      this.setFeedback({ type: 'error', message: this.i18n.translate('animal.individualSaveError') });
-      return;
-    }
-    const successes = batchResult.results.filter((r) => r.success);
+    const successes = results.filter((r) => r.success);
     const categoryAssigns = successes.flatMap((result) => {
       const source = filledRows.find((item) => item.index === result.index);
       if (!source || !result.animal_uuid) {
@@ -1178,8 +1273,9 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     });
     if (categoryAssigns.length > 0) {
       try {
-        await firstValueFrom(forkJoin(categoryAssigns));
+        await this.assignCategoriesInPools(categoryAssigns);
       } catch {
+        this.dropSavedRows(successes);
         this.savingBatch = false;
         this.setFeedback({ type: 'error', message: this.i18n.translate('animal.batchCategoryAssignError') });
         return;
@@ -1187,14 +1283,15 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     }
     this.savingBatch = false;
 
-    const failures = batchResult.results.filter((r) => !r.success);
+    const failures = results.filter((r) => !r.success);
 
     if (failures.length === 0) {
       this.draftStorage.clear();
       this.selectIssues.clear();
       this.refreshSelectIssueCount();
       this.suppressDraftPersist = true;
-      this.remountBatchTableWithRows(values.length, []);
+      this.useBlankGrid(ANIMAL_BATCH_DEFAULT_PAGE_SIZE);
+      this.mountCurrentPage();
       globalThis.setTimeout(() => {
         this.suppressDraftPersist = false;
       }, ANIMAL_BATCH_PERSIST_DEBOUNCE_MS + 100);
@@ -1205,13 +1302,9 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       return;
     }
 
-    for (const success of successes) {
-      const g = this.rows.at(success.index) as FormGroup | null;
-      g?.patchValue(emptyBatchDraftRow());
-    }
-    this.persistDraftNow();
-
-    const failedRows = failures.map((f) => String(f.index + 1)).join(', ');
+    this.dropSavedRows(successes);
+    const failedLabels = failures.map((f) => String(f.index + 1));
+    const failedRows = failedLabels.length > 30 ? `${failedLabels.slice(0, 30).join(', ')}…` : failedLabels.join(', ');
     const firstReason = failures[0].error ?? this.i18n.translate('animal.individualSaveError');
     this.setFeedback({
       type: 'error',
@@ -1224,54 +1317,192 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     });
   }
 
-  trackByRow(index: number): number {
-    return this.rowRenderGeneration * 100000 + index;
+  private dropSavedRows(results: AnimalBatchRowResultDto[]): void {
+    let changed = false;
+    for (const result of results) {
+      if (!result.success || result.index < 0 || result.index >= this.draftRows.length) {
+        continue;
+      }
+      this.draftRows[result.index] = this.emptyRowControlValues();
+      this.clearSelectIssuesForRow(result.index);
+      changed = true;
+    }
+    if (!changed) {
+      return;
+    }
+    this.mountCurrentPage();
+    this.persistDraftNow();
   }
 
-  private rowRenderGeneration = 0;
+  private async assignCategoriesInPools(tasks: ReturnType<LivestockCategoryApiService['assign']>[]): Promise<void> {
+    for (let offset = 0; offset < tasks.length; offset += ANIMAL_BATCH_CATEGORY_ASSIGN_POOL) {
+      const pool = tasks.slice(offset, offset + ANIMAL_BATCH_CATEGORY_ASSIGN_POOL);
+      if (pool.length === 0) {
+        continue;
+      }
+      await firstValueFrom(forkJoin(pool));
+    }
+  }
+
+  private duplicateRowsMessage(filledRows: { row: AnimalBatchDraftRow; index: number }[]): string | null {
+    const registrationHits = new Map<string, number[]>();
+    const chipHits = new Map<string, number[]>();
+    for (const item of filledRows) {
+      const ranch = String(item.row.ranchUuid ?? '').trim();
+      const registration = String(item.row.registrationNumber ?? '').trim().toLowerCase();
+      if (ranch && registration) {
+        const key = `${ranch}\0${registration}`;
+        const list = registrationHits.get(key) ?? [];
+        list.push(item.index + 1);
+        registrationHits.set(key, list);
+      }
+      const chip = String(item.row.chipNumber ?? '').trim().toLowerCase();
+      if (ranch && chip) {
+        const key = `${ranch}\0${chip}`;
+        const list = chipHits.get(key) ?? [];
+        list.push(item.index + 1);
+        chipHits.set(key, list);
+      }
+    }
+    for (const rows of registrationHits.values()) {
+      if (rows.length > 1) {
+        return this.i18n.translate('animal.batchDuplicateRegistration', { rows: this.formatRowList(rows) });
+      }
+    }
+    for (const rows of chipHits.values()) {
+      if (rows.length > 1) {
+        return this.i18n.translate('animal.batchDuplicateChip', { rows: this.formatRowList(rows) });
+      }
+    }
+    return null;
+  }
+
+  private formatRowList(rows: number[]): string {
+    if (rows.length <= 12) {
+      return rows.join(', ');
+    }
+    return `${rows.slice(0, 12).join(', ')}…`;
+  }
+
+  trackByRow(index: number): number {
+    return this.pageStart + index;
+  }
 
   private toSnapshot(): AnimalBatchDraftSnapshot {
     return {
       version: ANIMAL_BATCH_DRAFT_VERSION,
-      rowSlotCount: this.rows.length,
-      rows: this.rows.getRawValue() as AnimalBatchDraftRow[]
+      rowSlotCount: this.draftRows.length,
+      pageSize: this.pageSize,
+      rows: this.draftRows.map((row) => ({ ...row }))
     };
   }
 
-  private clampSlotCount(raw: number): number {
+  private clampPageSize(raw: number): number {
     const n = Math.floor(Number(raw));
-    if (Number.isNaN(n)) {
-      return ANIMAL_BATCH_MIN_ROW_SLOTS;
+    if (!ANIMAL_BATCH_PAGE_SIZE_OPTIONS.includes(n)) {
+      return ANIMAL_BATCH_DEFAULT_PAGE_SIZE;
     }
-    return Math.min(ANIMAL_BATCH_MAX_ROW_SLOTS, Math.max(ANIMAL_BATCH_MIN_ROW_SLOTS, n));
+    return n;
   }
 
-  private rebuildRows(count: number, previous: AnimalBatchDraftRow[]): void {
-    this.remountBatchTableWithRows(count, previous);
-    this.preloadPaddocksForAllRanches();
-    this.persistDraftNow();
+  private get pageStart(): number {
+    return (this.page - 1) * this.pageSize;
+  }
+
+  private absoluteIndex(localIndex: number): number {
+    return this.pageStart + localIndex;
+  }
+
+  private useBlankGrid(pageSize: number): void {
+    this.pageSize = this.clampPageSize(pageSize);
+    this.page = 1;
+    this.draftRows = this.createBlankRows(this.pageSize);
+  }
+
+  private createBlankRows(count: number): AnimalBatchDraftRow[] {
+    const safe = Math.max(1, Math.floor(count));
+    return Array.from({ length: safe }, () => this.emptyRowControlValues());
+  }
+
+  private normalizeDraftRow(seed: AnimalBatchDraftRow): AnimalBatchDraftRow {
+    return {
+      ...emptyBatchDraftRow(),
+      ...seed,
+      breedCode: seed.breedCode || '',
+      sex: seed.sex || 'MALE',
+      originType: seed.originType || 'UNKNOWN',
+      categories: seed.categories ?? ''
+    };
+  }
+
+  private flushPageToDraft(): void {
+    const values = this.rows.getRawValue() as AnimalBatchDraftRow[];
+    const start = this.pageStart;
+    for (let i = 0; i < values.length; i++) {
+      if (start + i < this.draftRows.length) {
+        this.draftRows[start + i] = values[i];
+      }
+    }
+    this.refreshColumnDataFlags();
+  }
+
+  private rowSnapshot(absoluteIndex: number): AnimalBatchDraftRow | null {
+    const local = absoluteIndex - this.pageStart;
+    if (local >= 0 && local < this.rows.length) {
+      return (this.rows.at(local) as FormGroup).getRawValue() as AnimalBatchDraftRow;
+    }
+    return this.draftRows[absoluteIndex] ?? null;
+  }
+
+  private refreshColumnDataFlags(): void {
+    const emptyDefaults = this.emptyRowControlValues();
+    const keys = this.tableColumns.map((col) => col.key);
+    const next = new Set<AnimalBatchColumnKey>();
+    for (let i = 0; i < this.draftRows.length && next.size < keys.length; i++) {
+      const row = this.rowSnapshot(i);
+      if (!row) {
+        continue;
+      }
+      for (const key of keys) {
+        if (next.has(key)) {
+          continue;
+        }
+        if (this.columnValueDiffersFromEmpty(key, row[key], emptyDefaults[key])) {
+          next.add(key);
+        }
+      }
+    }
+    this.columnsWithData = next;
+  }
+
+  private mountCurrentPage(): void {
+    if (this.draftRows.length === 0) {
+      this.draftRows = this.createBlankRows(this.pageSize);
+    }
+    if (this.page > this.totalPages) {
+      this.page = this.totalPages;
+    }
+    if (this.page < 1) {
+      this.page = 1;
+    }
+    const slice = this.draftRows.slice(this.pageStart, this.pageStart + this.pageSize);
+    this.remountBatchTableWithRows(slice);
+    this.refreshColumnDataFlags();
   }
 
   /** Replaces the reactive form so table controls re-bind after clear/import. */
-  private replaceFormRows(count: number, previous: AnimalBatchDraftRow[]): void {
-    const safeCount = this.clampSlotCount(count);
-    const rowGroups: FormGroup[] = [];
-    for (let i = 0; i < safeCount; i++) {
-      const seed = previous[i] ?? emptyBatchDraftRow();
-      rowGroups.push(this.createRowGroup(seed));
-    }
+  private replaceFormRows(rows: AnimalBatchDraftRow[]): void {
     this.form = this.fb.group({
-      rows: this.fb.array(rowGroups)
+      rows: this.fb.array(rows.map((seed) => this.createRowGroup(seed)))
     });
     this.reapplyClearedIssues();
     this.bindDraftAutoSave();
   }
 
-  private remountBatchTableWithRows(count: number, previous: AnimalBatchDraftRow[]): void {
+  private remountBatchTableWithRows(rows: AnimalBatchDraftRow[]): void {
     this.batchTableAlive = false;
     this.cdr.detectChanges();
-    this.replaceFormRows(count, previous);
-    this.rowRenderGeneration++;
+    this.replaceFormRows(rows);
     this.batchTableAlive = true;
     this.cdr.detectChanges();
   }
@@ -1460,61 +1691,52 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   }
 
   private reconcileVisibleSelects(clearOnMiss: boolean): void {
-    for (let index = 0; index < this.rows.length; index++) {
+    for (let index = 0; index < this.draftRows.length; index++) {
       this.reconcileRowSelects(index, clearOnMiss);
     }
-    this.reapplyClearedIssues();
+    this.mountCurrentPage();
   }
 
   private reconcileRowSelects(index: number, clearOnMiss: boolean): void {
-    const group = this.rows.at(index) as FormGroup | null;
-    if (!group) {
+    const row = this.rowSnapshot(index);
+    if (!row) {
       return;
     }
-    const ranch = this.commitSelectField(index, 'ranchUuid', String(group.get('ranchUuid')?.value ?? ''), '', clearOnMiss);
-    const breed = this.commitSelectField(index, 'breedCode', String(group.get('breedCode')?.value ?? ''), ranch, clearOnMiss);
-    const sex = this.commitSelectField(index, 'sex', String(group.get('sex')?.value ?? ''), ranch, clearOnMiss);
-    const origin = this.commitSelectField(index, 'originType', String(group.get('originType')?.value ?? ''), ranch, clearOnMiss);
-    const owner = this.commitSelectField(
-      index,
-      'currentOwnerUuid',
-      String(group.get('currentOwnerUuid')?.value ?? ''),
-      ranch,
-      clearOnMiss
-    );
-    const paddock = this.commitSelectField(
-      index,
-      'currentPaddockUuid',
-      String(group.get('currentPaddockUuid')?.value ?? ''),
-      ranch,
-      clearOnMiss
-    );
-    group.patchValue(
-      {
-        ranchUuid: ranch,
-        breedCode: breed,
-        sex,
-        originType: origin,
-        currentOwnerUuid: owner,
-        currentPaddockUuid: paddock
-      },
-      { emitEvent: false }
-    );
+    const ranch = this.commitSelectField(index, 'ranchUuid', String(row.ranchUuid ?? ''), '', clearOnMiss);
+    const breed = this.commitSelectField(index, 'breedCode', String(row.breedCode ?? ''), ranch, clearOnMiss);
+    const sex = this.commitSelectField(index, 'sex', String(row.sex ?? ''), ranch, clearOnMiss);
+    const origin = this.commitSelectField(index, 'originType', String(row.originType ?? ''), ranch, clearOnMiss);
+    const owner = this.commitSelectField(index, 'currentOwnerUuid', String(row.currentOwnerUuid ?? ''), ranch, clearOnMiss);
+    const paddock = this.commitSelectField(index, 'currentPaddockUuid', String(row.currentPaddockUuid ?? ''), ranch, clearOnMiss);
+    this.draftRows[index] = {
+      ...row,
+      ranchUuid: ranch,
+      breedCode: breed,
+      sex: sex as AnimalBatchDraftRow['sex'],
+      originType: origin as AnimalBatchDraftRow['originType'],
+      currentOwnerUuid: owner,
+      currentPaddockUuid: paddock
+    };
     if (this.isKnownRanchUuid(ranch)) {
       this.ensurePaddocksLoaded(ranch);
     }
   }
 
   private reconcilePaddockColumn(ranchUuid: string): void {
-    for (let index = 0; index < this.rows.length; index++) {
-      const group = this.rows.at(index) as FormGroup | null;
-      if (!group || String(group.get('ranchUuid')?.value ?? '') !== ranchUuid) {
+    for (let index = 0; index < this.draftRows.length; index++) {
+      const row = this.rowSnapshot(index);
+      if (!row || String(row.ranchUuid ?? '') !== ranchUuid) {
         continue;
       }
-      const current = String(group.get('currentPaddockUuid')?.value ?? '');
+      const current = String(row.currentPaddockUuid ?? '');
       const next = this.commitSelectField(index, 'currentPaddockUuid', current, ranchUuid, false);
-      if (next !== current) {
-        group.patchValue({ currentPaddockUuid: next }, { emitEvent: false });
+      if (next === current) {
+        continue;
+      }
+      this.draftRows[index] = { ...this.draftRows[index], currentPaddockUuid: next };
+      const local = index - this.pageStart;
+      if (local >= 0 && local < this.rows.length) {
+        (this.rows.at(local) as FormGroup).patchValue({ currentPaddockUuid: next }, { emitEvent: false });
       }
     }
   }
@@ -1568,8 +1790,14 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       const splitAt = id.indexOf(':');
       const rowIndex = Number(id.slice(0, splitAt));
       const key = id.slice(splitAt + 1);
-      const group = this.rows.at(rowIndex) as FormGroup | null;
-      group?.patchValue({ [key]: '' }, { emitEvent: false });
+      const row = this.draftRows[rowIndex];
+      if (row) {
+        this.draftRows[rowIndex] = { ...row, [key]: '' };
+      }
+      const local = rowIndex - this.pageStart;
+      if (local >= 0 && local < this.rows.length) {
+        (this.rows.at(local) as FormGroup | null)?.patchValue({ [key]: '' }, { emitEvent: false });
+      }
     }
     this.refreshSelectIssueCount();
   }
@@ -1597,23 +1825,10 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     this.refreshSelectIssueCount();
   }
 
-  private clearSelectIssueForColumn(key: AnimalBatchColumnKey, index: number): void {
-    this.clearSelectIssue(index, key);
-  }
-
   private clearSelectIssuesForRow(index: number): void {
     for (const id of [...this.selectIssues.keys()]) {
-      if (id.startsWith(`${index}:`)) {
-        this.selectIssues.delete(id);
-      }
-    }
-    this.refreshSelectIssueCount();
-  }
-
-  private clearSelectIssuesFromIndex(start: number): void {
-    for (const id of [...this.selectIssues.keys()]) {
       const rowIndex = Number(id.slice(0, id.indexOf(':')));
-      if (rowIndex >= start) {
+      if (rowIndex === index) {
         this.selectIssues.delete(id);
       }
     }

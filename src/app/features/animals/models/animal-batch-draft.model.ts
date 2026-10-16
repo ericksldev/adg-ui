@@ -43,5 +43,6 @@ export const ANIMAL_BATCH_DRAFT_VERSION = 7 as const;
 export interface AnimalBatchDraftSnapshot {
   version: typeof ANIMAL_BATCH_DRAFT_VERSION;
   rowSlotCount: number;
+  pageSize?: number;
   rows: AnimalBatchDraftRow[];
 }

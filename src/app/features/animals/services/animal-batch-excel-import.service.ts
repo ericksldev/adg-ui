@@ -214,14 +214,6 @@ export class AnimalBatchExcelImportService {
     return { rows: parseFromGridRows(worksheet), optionalColumnsInFile: [] };
   }
 
-  mergeIntoSlotCount(imported: AnimalBatchDraftRow[], slotCount: number): AnimalBatchDraftRow[] {
-    const safe: AnimalBatchDraftRow[] = imported.slice(0, slotCount).map((r: AnimalBatchDraftRow) => ({ ...r }));
-    while (safe.length < slotCount) {
-      safe.push(emptyBatchDraftRow());
-    }
-    return safe;
-  }
-
   /**
    * Workbook whose first sheet is the import grid.
    * Later sheets only list names that already exist for the company.

@@ -1,6 +1,11 @@
-export const ANIMAL_BATCH_MIN_ROW_SLOTS = 10;
-export const ANIMAL_BATCH_MAX_ROW_SLOTS = 500;
-export const ANIMAL_BATCH_DEFAULT_ROW_SLOTS = 10;
+/** How many draft rows are painted at once. The imported file can be larger. */
+export const ANIMAL_BATCH_MIN_PAGE_SIZE = 10;
+export const ANIMAL_BATCH_MAX_PAGE_SIZE = 100;
+export const ANIMAL_BATCH_DEFAULT_PAGE_SIZE = 10;
+export const ANIMAL_BATCH_PAGE_SIZE_OPTIONS: readonly number[] = [10, 25, 50, 100];
+/** Matches `ANIMAL_BATCH_MAX_ROWS` in the API. Larger imports are saved in successive requests. */
+export const ANIMAL_BATCH_SAVE_CHUNK_SIZE = 500;
+export const ANIMAL_BATCH_CATEGORY_ASSIGN_POOL = 20;
 /** Bumped when draft row shape changes (invalidates old localStorage drafts). */
 export const ANIMAL_BATCH_STORAGE_PREFIX = 'vrete_animal_batch_draft_v5';
 export const ANIMAL_BATCH_COLUMNS_STORAGE_PREFIX = 'vrete_animal_batch_visible_cols_v4';
