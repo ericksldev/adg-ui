@@ -51,6 +51,20 @@
           </button>
         </div>
 
+        <div *ngIf="lookupChoices.length > 0" class="border rounded p-2 mb-3">
+          <p class="small mb-2">{{ 'corralWorkSession.chooseMatchingAnimal' | t }}</p>
+          <div class="d-flex flex-column gap-1">
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm text-start"
+              *ngFor="let animal of lookupChoices"
+              (click)="selectLookupChoice(animal)"
+            >
+              {{ lookupChoiceLabel(animal) }}
+            </button>
+          </div>
+        </div>
+
         <div *ngIf="currentAnimal" class="border rounded p-2 mb-3 bg-light">
           <div class="small fw-semibold">{{ currentAnimal.registration_number }}</div>
           <div class="small text-muted" *ngIf="currentAnimal.chip_number">{{ currentAnimal.chip_number }}</div>

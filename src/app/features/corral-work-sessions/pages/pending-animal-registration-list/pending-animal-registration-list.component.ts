@@ -74,7 +74,7 @@ export class PendingAnimalRegistrationListComponent implements OnInit {
   }
 
   rowKey(row: PendingAnimalRegistrationDto): string {
-    return `${row.ranch_uuid}|${row.registration_number.trim().toLowerCase()}`;
+    return row.uuid_corral_unregistered_step_row;
   }
 
   isSelected(row: PendingAnimalRegistrationDto): boolean {
@@ -121,7 +121,8 @@ export class PendingAnimalRegistrationListComponent implements OnInit {
       fromPendingRegistrations: true,
       rows: selected.map((row) => ({
         registrationNumber: row.registration_number,
-        ranchUuid: row.ranch_uuid
+        ranchUuid: row.ranch_uuid,
+        pendingRowUuid: row.uuid_corral_unregistered_step_row
       }))
     };
     void this.router.navigate(['/animal/register/batch'], { state });
@@ -136,7 +137,8 @@ export class PendingAnimalRegistrationListComponent implements OnInit {
       queryParams: {
         ranchUuid: row.ranch_uuid,
         registrationNumber: row.registration_number,
-        fromPending: '1'
+        fromPending: '1',
+        pendingRowUuid: row.uuid_corral_unregistered_step_row
       }
     });
   }

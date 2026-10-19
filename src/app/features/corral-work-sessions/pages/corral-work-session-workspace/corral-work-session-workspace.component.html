@@ -43,7 +43,47 @@
           <app-info-hint [text]="workModeScanHint(activeWorkMode)" placement="bottom"></app-info-hint>
         </div>
 
-        <div *ngIf="unknownScanIdentifier" class="corral-workspace__unknown-prompt mt-2">
+        <div *ngIf="matchChoices.length > 0" class="corral-workspace__unknown-prompt mt-2">
+          <p class="small mb-2">{{ 'corralWorkSession.chooseMatchingAnimal' | t }}</p>
+          <div class="d-flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary"
+              *ngFor="let animal of matchChoices"
+              (click)="chooseMatch(animal)"
+            >
+              {{ choiceLabel(animal) }}
+              <span *ngIf="isAnimalOnActiveStep(animal)"> · {{ 'corralWorkSession.alreadyOnStep' | t }}</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="clearUnknownScanPrompt()">
+              {{ 'common.cancel' | t }}
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="unknownScanContext === 'duplicate_unregistered'" class="corral-workspace__unknown-prompt mt-2">
+          <p class="small mb-2">
+            {{ 'corralWorkSession.sameUnregisteredAnimal' | t }} <strong>{{ unknownScanIdentifier }}</strong>
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary"
+              *ngFor="let animal of pendingUnregisteredChoices"
+              (click)="usePendingUnregistered(animal)"
+            >
+              {{ 'corralWorkSession.useThisAnimal' | t }} · {{ choiceLabel(animal) }}
+            </button>
+            <button type="button" class="btn btn-sm corral-workspace__confirm-load-btn" (click)="addAnotherUnregistered()">
+              {{ 'corralWorkSession.newUnregisteredAnimal' | t }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="clearUnknownScanPrompt()">
+              {{ 'common.cancel' | t }}
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="unknownScanIdentifier && unknownScanContext === 'not_in_step'" class="corral-workspace__unknown-prompt mt-2">
           <p class="small mb-2">
             {{ 'corralWorkSession.scanNotInStep' | t }} <strong>{{ unknownScanIdentifier }}</strong>
           </p>

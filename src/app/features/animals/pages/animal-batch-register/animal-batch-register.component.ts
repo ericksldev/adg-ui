@@ -47,7 +47,9 @@ import {
 import { PendingAnimalBatchNavigationState } from '../../models/animal-batch-pending-handoff.model';
 import { AnimalBatchCreateRequestBody, AnimalBatchRowResultDto } from '../../models/animal-batch-create.model';
 import { AnimalCreatePayload } from '../../models/animal-create-payload.model';
-import { AnimalApiService, OwnerOptionDto, PaddockOptionDto } from '../../services/animal-api.service';
+import { AnimalApiService, OwnerOptionDto, PaddockOptionDto, ParentOptionDto } from '../../services/animal-api.service';
+import { parentOptionLabel } from '../../utils/parent-option-label.util';
+import { CorralWorkSessionApiService } from 'src/app/features/corral-work-sessions/services/corral-work-session-api.service';
 import { AnimalBatchDraftStorageService } from '../../services/animal-batch-draft-storage.service';
 import { AnimalBatchExcelImportService } from '../../services/animal-batch-excel-import.service';
 import { CategoryMultiSelectOption } from '../../components/category-multi-select/category-multi-select.component';
@@ -103,6 +105,13 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   pendingSelectCheckCount = 0;
   batchTableAlive = true;
   fromPendingRegistrations = false;
+  parentChoice: {
+    rowIndex: number;
+    role: 'mother' | 'father';
+    registrationNumber: string;
+    options: ParentOptionDto[];
+  } | null = null;
+  private readonly parentOptionsCache = new Map<string, ParentOptionDto[]>();
 
   ranchRows: RanchOption[] = [];
   ownerRows: OwnerOptionDto[] = [];
@@ -147,7 +156,8 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     private readonly cdr: ChangeDetectorRef,
     private readonly ngZone: NgZone,
     private readonly modalService: NgbModal,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly corralApi: CorralWorkSessionApiService
   ) {
     this.form = this.fb.group({
       rows: this.fb.array([])
@@ -963,7 +973,8 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       .map((row) => ({
         ...emptyBatchDraftRow(),
         registrationNumber: String(row.registrationNumber ?? '').trim(),
-        ranchUuid: String(row.ranchUuid ?? '').trim()
+        ranchUuid: String(row.ranchUuid ?? '').trim(),
+        pendingRowUuid: String(row.pendingRowUuid ?? '').trim()
       }))
       .filter((row) => row.registrationNumber && row.ranchUuid);
   }
@@ -1234,6 +1245,13 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       this.setFeedback({ type: 'error', message: duplicateMessage });
       return;
     }
+    const parentChoice = await this.nextAmbiguousParent(filledRows);
+    if (parentChoice) {
+      this.parentChoice = parentChoice;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.parentChoice = null;
 
     const requestRows = filledRows.map(({ row, index }) => ({
       index,
@@ -1275,6 +1293,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       try {
         await this.assignCategoriesInPools(categoryAssigns);
       } catch {
+        this.resolvePendingRows(successes, filledRows);
         this.dropSavedRows(successes);
         this.savingBatch = false;
         this.setFeedback({ type: 'error', message: this.i18n.translate('animal.batchCategoryAssignError') });
@@ -1286,6 +1305,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     const failures = results.filter((r) => !r.success);
 
     if (failures.length === 0) {
+      this.resolvePendingRows(successes, filledRows);
       this.draftStorage.clear();
       this.selectIssues.clear();
       this.refreshSelectIssueCount();
@@ -1302,6 +1322,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
       return;
     }
 
+    this.resolvePendingRows(successes, filledRows);
     this.dropSavedRows(successes);
     const failedLabels = failures.map((f) => String(f.index + 1));
     const failedRows = failedLabels.length > 30 ? `${failedLabels.slice(0, 30).join(', ')}…` : failedLabels.join(', ');
@@ -1345,17 +1366,9 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
   }
 
   private duplicateRowsMessage(filledRows: { row: AnimalBatchDraftRow; index: number }[]): string | null {
-    const registrationHits = new Map<string, number[]>();
     const chipHits = new Map<string, number[]>();
     for (const item of filledRows) {
       const ranch = String(item.row.ranchUuid ?? '').trim();
-      const registration = String(item.row.registrationNumber ?? '').trim().toLowerCase();
-      if (ranch && registration) {
-        const key = `${ranch}\0${registration}`;
-        const list = registrationHits.get(key) ?? [];
-        list.push(item.index + 1);
-        registrationHits.set(key, list);
-      }
       const chip = String(item.row.chipNumber ?? '').trim().toLowerCase();
       if (ranch && chip) {
         const key = `${ranch}\0${chip}`;
@@ -1364,17 +1377,119 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
         chipHits.set(key, list);
       }
     }
-    for (const rows of registrationHits.values()) {
-      if (rows.length > 1) {
-        return this.i18n.translate('animal.batchDuplicateRegistration', { rows: this.formatRowList(rows) });
-      }
-    }
     for (const rows of chipHits.values()) {
       if (rows.length > 1) {
         return this.i18n.translate('animal.batchDuplicateChip', { rows: this.formatRowList(rows) });
       }
     }
     return null;
+  }
+
+  parentChoiceLabel(option: ParentOptionDto): string {
+    return parentOptionLabel(option, this.parentChoice?.options ?? []);
+  }
+
+  confirmParentChoice(animalUuid: string): void {
+    const choice = this.parentChoice;
+    if (!choice) {
+      return;
+    }
+    const row = this.draftRows[choice.rowIndex];
+    if (row) {
+      if (choice.role === 'mother') {
+        row.motherAnimalUuid = animalUuid;
+      } else {
+        row.fatherAnimalUuid = animalUuid;
+      }
+    }
+    this.parentChoice = null;
+    void this.saveBatch();
+  }
+
+  cancelParentChoice(): void {
+    this.parentChoice = null;
+  }
+
+  private async nextAmbiguousParent(
+    filledRows: { row: AnimalBatchDraftRow; index: number }[]
+  ): Promise<AnimalBatchRegisterComponent['parentChoice']> {
+    for (const item of filledRows) {
+      const ranch = String(item.row.ranchUuid ?? '').trim();
+      if (!ranch) {
+        continue;
+      }
+      const motherChoice = await this.ambiguousParentChoice(item.row, item.index, ranch, 'mother');
+      if (motherChoice) {
+        return motherChoice;
+      }
+      const fatherChoice = await this.ambiguousParentChoice(item.row, item.index, ranch, 'father');
+      if (fatherChoice) {
+        return fatherChoice;
+      }
+    }
+    return null;
+  }
+
+  private async ambiguousParentChoice(
+    row: AnimalBatchDraftRow,
+    rowIndex: number,
+    ranchUuid: string,
+    role: 'mother' | 'father'
+  ): Promise<AnimalBatchRegisterComponent['parentChoice']> {
+    const text = String((role === 'mother' ? row.motherRegistrationNumber : row.fatherRegistrationNumber) ?? '').trim();
+    if (!text) {
+      if (role === 'mother') {
+        row.motherAnimalUuid = '';
+      } else {
+        row.fatherAnimalUuid = '';
+      }
+      return null;
+    }
+    const sex = role === 'mother' ? 'FEMALE' : 'MALE';
+    const options = await this.parentsForRanch(ranchUuid, sex);
+    const matches = options.filter((option) => option.registration_number.trim().toLowerCase() === text.toLowerCase());
+    const stored = String((role === 'mother' ? row.motherAnimalUuid : row.fatherAnimalUuid) ?? '').trim();
+    const storedMatch = matches.find((option) => option.animal_uuid === stored);
+    if (stored && !storedMatch) {
+      if (role === 'mother') {
+        row.motherAnimalUuid = '';
+      } else {
+        row.fatherAnimalUuid = '';
+      }
+    }
+    if (matches.length <= 1) {
+      return null;
+    }
+    if (storedMatch) {
+      return null;
+    }
+    return { rowIndex, role, registrationNumber: text, options: matches };
+  }
+
+  private async parentsForRanch(ranchUuid: string, sex: 'MALE' | 'FEMALE'): Promise<ParentOptionDto[]> {
+    const key = `${ranchUuid}|${sex}`;
+    const cached = this.parentOptionsCache.get(key);
+    if (cached) {
+      return cached;
+    }
+    const rows = await firstValueFrom(
+      this.animalApi.getParentOptions(ranchUuid, sex).pipe(catchError(() => of([] as ParentOptionDto[])))
+    );
+    this.parentOptionsCache.set(key, rows);
+    return rows;
+  }
+
+  private resolvePendingRows(
+    successes: AnimalBatchRowResultDto[],
+    filledRows: { row: AnimalBatchDraftRow; index: number }[]
+  ): void {
+    const ids = successes
+      .map((result) => filledRows.find((item) => item.index === result.index)?.row.pendingRowUuid?.trim() ?? '')
+      .filter((id) => id.length > 0);
+    if (ids.length === 0) {
+      return;
+    }
+    this.corralApi.resolvePendingRegistrations(ids).subscribe({ error: () => undefined });
   }
 
   private formatRowList(rows: number[]): string {
@@ -1440,7 +1555,14 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     const start = this.pageStart;
     for (let i = 0; i < values.length; i++) {
       if (start + i < this.draftRows.length) {
-        this.draftRows[start + i] = values[i];
+        const previous = this.draftRows[start + i];
+        this.draftRows[start + i] = {
+          ...previous,
+          ...values[i],
+          motherAnimalUuid: previous.motherAnimalUuid ?? '',
+          fatherAnimalUuid: previous.fatherAnimalUuid ?? '',
+          pendingRowUuid: previous.pendingRowUuid ?? ''
+        };
       }
     }
     this.refreshColumnDataFlags();
@@ -1467,7 +1589,7 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
         if (next.has(key)) {
           continue;
         }
-        if (this.columnValueDiffersFromEmpty(key, row[key], emptyDefaults[key])) {
+        if (this.columnValueDiffersFromEmpty(key, row[key] ?? '', emptyDefaults[key] ?? '')) {
           next.add(key);
         }
       }
@@ -1562,6 +1684,8 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     const chip = String(row.chipNumber ?? '').trim();
     const mother = String(row.motherRegistrationNumber ?? '').trim();
     const father = String(row.fatherRegistrationNumber ?? '').trim();
+    const motherUuid = String(row.motherAnimalUuid ?? '').trim();
+    const fatherUuid = String(row.fatherAnimalUuid ?? '').trim();
     const owner = String(row.currentOwnerUuid ?? '').trim();
     const paddock = String(row.currentPaddockUuid ?? '').trim();
     const color = String(row.color ?? '').trim();
@@ -1570,10 +1694,14 @@ export class AnimalBatchRegisterComponent implements OnInit, AfterViewInit, OnDe
     if (chip) {
       payload.chip_number = chip;
     }
-    if (mother) {
+    if (motherUuid) {
+      payload.mother_animal_uuid = motherUuid;
+    } else if (mother) {
       payload.mother_registration_number = mother;
     }
-    if (father) {
+    if (fatherUuid) {
+      payload.father_animal_uuid = fatherUuid;
+    } else if (father) {
       payload.father_registration_number = father;
     }
     if (owner) {

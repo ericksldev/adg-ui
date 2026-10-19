@@ -76,7 +76,12 @@
                 (change)="toggleRow(row, $any($event.target).checked)"
               />
             </td>
-            <td class="fw-semibold">{{ row.registration_number }}</td>
+            <td class="fw-semibold">
+              {{ row.registration_number }}
+              <div *ngIf="row.matching_animal_count > 0" class="small text-warning fw-normal">
+                {{ 'pendingAnimalRegistration.matchingAnimals' | t: { count: row.matching_animal_count } }}
+              </div>
+            </td>
             <td>{{ ranchNameByUuid.get(row.ranch_uuid) || row.ranch_uuid }}</td>
             <td>{{ row.last_seen_at | date: 'yyyy-MM-dd HH:mm' }}</td>
             <td>

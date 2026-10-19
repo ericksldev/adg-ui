@@ -35,6 +35,7 @@ export class CorralWorkSessionActiveComponent implements OnInit {
 
   animalIdentifier = '';
   currentAnimal: AnimalLookupDto | null = null;
+  lookupChoices: AnimalLookupDto[] = [];
   formAttended = true;
   formCondition = '';
   formObservation = '';
@@ -116,27 +117,63 @@ export class CorralWorkSessionActiveComponent implements OnInit {
     if (!id) {
       return;
     }
+    this.lookupChoices = [];
     this.api.lookupAnimal(this.sessionUuid, id).subscribe({
-      next: (animal) => {
-        this.currentAnimal = animal;
-        const existing = this.records.find((r) => r.uuid_animal === animal.animal_uuid);
-        if (existing) {
-          this.formAttended = existing.attended;
-          this.formCondition = existing.condition ?? '';
-          this.formObservation = existing.observation ?? '';
-          this.formReceivedMedical = existing.received_medical;
-        } else {
-          this.formAttended = true;
-          this.formCondition = '';
-          this.formObservation = '';
-          this.formReceivedMedical = this.session?.planned_activities.includes('HEALTH') ?? false;
+      next: (result) => {
+        const matches = result.matches ?? [];
+        if (matches.length > 1) {
+          this.currentAnimal = null;
+          this.lookupChoices = matches;
+          return;
         }
+        if (matches.length === 1) {
+          this.applyLookup(matches[0]);
+          return;
+        }
+        this.currentAnimal = null;
+        this.errorMessage = this.i18n.translate('corralWorkSession.errorAnimalNotFound');
       },
       error: (err) => {
         this.currentAnimal = null;
+        this.lookupChoices = [];
         this.errorMessage = translateApiError(this.i18n, err, 'corralWorkSession.errorAnimalNotFound');
       }
     });
+  }
+
+  selectLookupChoice(animal: AnimalLookupDto): void {
+    this.lookupChoices = [];
+    this.applyLookup(animal);
+  }
+
+  lookupChoiceLabel(animal: AnimalLookupDto): string {
+    const parts = [animal.registration_number];
+    if (animal.chip_number) {
+      parts.push(animal.chip_number);
+    }
+    if (animal.birth_date) {
+      parts.push(String(animal.birth_date).slice(0, 10));
+    }
+    if (animal.sex) {
+      parts.push(animal.sex);
+    }
+    return parts.join(' · ');
+  }
+
+  private applyLookup(animal: AnimalLookupDto): void {
+    this.currentAnimal = animal;
+    const existing = this.records.find((r) => r.uuid_animal === animal.animal_uuid);
+    if (existing) {
+      this.formAttended = existing.attended;
+      this.formCondition = existing.condition ?? '';
+      this.formObservation = existing.observation ?? '';
+      this.formReceivedMedical = existing.received_medical;
+    } else {
+      this.formAttended = true;
+      this.formCondition = '';
+      this.formObservation = '';
+      this.formReceivedMedical = this.session?.planned_activities.includes('HEALTH') ?? false;
+    }
   }
 
   onIdentifierKeydown(event: KeyboardEvent): void {

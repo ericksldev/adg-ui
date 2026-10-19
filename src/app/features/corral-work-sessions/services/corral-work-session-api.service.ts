@@ -14,7 +14,7 @@ import {
   CreateCorralWorkSessionPayload,
   SaveCorralStepGridPayload,
   UpsertCorralFindingPayload,
-  AnimalLookupDto,
+  AnimalLookupResultDto,
   AnimalCorralWorkHistoryDto,
   PendingAnimalRegistrationDto,
   ApplyPaddockDistributionResultDto
@@ -93,23 +93,33 @@ export class CorralWorkSessionApiService {
   addUnregisteredStepAnimal(
     sessionUuid: string,
     stepUuid: string,
-    identifier: string
+    identifier: string,
+    options?: { createNew?: boolean; rowUuid?: string }
   ): Observable<CorralStepGridDto> {
     const normalized = identifier.replace(/[\u0000-\u001F\u007F]/g, '').trim();
     return this.http
       .post<ApiItemResponse<CorralStepGridDto>>(
         `${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/unregistered-animals`,
-        { identifier: normalized }
+        {
+          identifier: normalized,
+          create_new: options?.createNew === true,
+          row_uuid: options?.rowUuid
+        }
       )
       .pipe(map((r) => r.data));
   }
 
-  scanStepAnimal(sessionUuid: string, stepUuid: string, identifier: string): Observable<CorralStepGridDto> {
+  scanStepAnimal(
+    sessionUuid: string,
+    stepUuid: string,
+    identifier: string,
+    animalUuid?: string
+  ): Observable<CorralStepGridDto> {
     const normalized = identifier.replace(/[\u0000-\u001F\u007F]/g, '').trim();
     return this.http
       .post<ApiItemResponse<CorralStepGridDto>>(
         `${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/scan-animal`,
-        { identifier: normalized }
+        { identifier: normalized, animal_uuid: animalUuid }
       )
       .pipe(map((r) => r.data));
   }
@@ -149,12 +159,20 @@ export class CorralWorkSessionApiService {
       .pipe(map((r) => r.data));
   }
 
-  lookupAnimal(sessionUuid: string, identifier: string): Observable<AnimalLookupDto> {
+  lookupAnimal(sessionUuid: string, identifier: string): Observable<AnimalLookupResultDto> {
     const normalized = identifier.replace(/[\u0000-\u001F\u007F]/g, '').trim();
     const params = new HttpParams().set('identifier', normalized);
     return this.http
-      .get<ApiItemResponse<AnimalLookupDto>>(`${this.baseUrl}/${sessionUuid}/lookup-animal`, { params })
-      .pipe(map((r) => r.data));
+      .get<ApiItemResponse<AnimalLookupResultDto>>(`${this.baseUrl}/${sessionUuid}/lookup-animal`, { params })
+      .pipe(map((r) => r.data ?? { matches: [] }));
+  }
+
+  resolvePendingRegistrations(rowUuids: string[]): Observable<void> {
+    return this.http
+      .post<ApiItemResponse<{ resolved: number }>>(`${this.baseUrl}/pending-registrations/resolve`, {
+        row_uuids: rowUuids
+      })
+      .pipe(map(() => undefined));
   }
 
   upsertFinding(sessionUuid: string, payload: UpsertCorralFindingPayload): Observable<void> {

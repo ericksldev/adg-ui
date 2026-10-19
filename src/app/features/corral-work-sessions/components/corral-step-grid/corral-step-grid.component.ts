@@ -536,26 +536,30 @@ export class CorralStepGridComponent implements OnChanges {
   }
 
   focusRowByIdentifier(identifier: string): string | null {
-    const trimmed = identifier.replace(/[\u0000-\u001F\u007F]/g, '').trim().toLowerCase();
-    const row = this.editableRows.find(
-      (r) =>
-        r.registration_number.toLowerCase() === trimmed ||
-        (r.chip_number && r.chip_number.toLowerCase() === trimmed)
-    );
-    if (!row) return null;
-    this.focusRowByAnimalUuid(row.animal_uuid);
-    return row.animal_uuid;
+    const matches = this.rowsMatchingIdentifier(identifier);
+    if (matches.length !== 1) return null;
+    this.focusRowByAnimalUuid(matches[0].animal_uuid);
+    return matches[0].animal_uuid;
   }
 
-  appendLocalSequentialRow(identifier: string): void {
+  private rowsMatchingIdentifier(identifier: string): CorralStepGridRowDto[] {
+    const trimmed = identifier.replace(/[\u0000-\u001F\u007F]/g, '').trim().toLowerCase();
+    return this.editableRows.filter(
+      (row) =>
+        row.registration_number.toLowerCase() === trimmed ||
+        (row.chip_number && row.chip_number.toLowerCase() === trimmed)
+    );
+  }
+
+  appendLocalSequentialRow(identifier: string, forceNew = false): void {
     const normalized = identifier.trim();
     if (!normalized) return;
-    const existing = this.editableRows.find(
-      (row) => row.registration_number.toLowerCase() === normalized.toLowerCase()
-    );
-    if (existing) {
-      this.focusRowByAnimalUuid(existing.animal_uuid);
-      return;
+    if (!forceNew) {
+      const matches = this.rowsMatchingIdentifier(normalized);
+      if (matches.length === 1) {
+        this.focusRowByAnimalUuid(matches[0].animal_uuid);
+        return;
+      }
     }
 
     const values = Object.fromEntries(this.grid.columns.map((column) => [column.column_key, null]));

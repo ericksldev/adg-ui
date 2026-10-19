@@ -126,6 +126,9 @@
           <div *ngIf="isMotherUnknown()" class="animal-individual-parent-warning" role="status">
             {{ 'animal.motherUnknownWarning' | t }}
           </div>
+          <div *ngIf="isMotherAmbiguous()" class="animal-individual-parent-warning" role="status">
+            {{ 'animal.errorMotherAmbiguous' | t }}
+          </div>
         </div>
 
         <div class="col-12 col-md-6">
@@ -147,6 +150,9 @@
           ></app-searchable-select>
           <div *ngIf="isFatherUnknown()" class="animal-individual-parent-warning" role="status">
             {{ 'animal.fatherUnknownWarning' | t }}
+          </div>
+          <div *ngIf="isFatherAmbiguous()" class="animal-individual-parent-warning" role="status">
+            {{ 'animal.errorFatherAmbiguous' | t }}
           </div>
         </div>
 

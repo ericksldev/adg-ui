@@ -28,6 +28,7 @@ import {
   CorralStepGridDto,
   AnimalCorralProfileDto,
   AnimalCorralWorkHistorySessionDto,
+  AnimalLookupDto,
   ApplyPaddockDistributionResultDto
 } from '../../models/corral-work-session.model';
 import { animalBreedLabelKey, animalOriginLabelKey } from 'src/app/features/animals/utils/animal-display.util';
@@ -81,8 +82,10 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   historyError = false;
   historyUnregistered = false;
   unknownScanIdentifier = '';
-  unknownScanContext: 'not_in_step' | null = null;
+  unknownScanContext: 'not_in_step' | 'duplicate_unregistered' | null = null;
   unknownAnimalUuid: string | null = null;
+  matchChoices: AnimalLookupDto[] = [];
+  pendingUnregisteredChoices: AnimalLookupDto[] = [];
   updatingWorkMode = false;
   appendingAnimals = false;
   showAttachPanel = false;
@@ -380,9 +383,18 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
 
   private mergeGridWithDraft(apiGrid: CorralStepGridDto, draftGrid: CorralStepGridDto): CorralStepGridDto {
     const rowByUuid = new Map(apiGrid.rows.map((row) => [row.animal_uuid, row]));
-    const apiUuidByRegistration = new Map(
-      apiGrid.rows.map((row) => [row.registration_number.trim().toLowerCase(), row.animal_uuid])
-    );
+    const registrationCounts = new Map<string, number>();
+    for (const row of apiGrid.rows) {
+      const key = row.registration_number.trim().toLowerCase();
+      registrationCounts.set(key, (registrationCounts.get(key) ?? 0) + 1);
+    }
+    const apiUuidByRegistration = new Map<string, string>();
+    for (const row of apiGrid.rows) {
+      const key = row.registration_number.trim().toLowerCase();
+      if (registrationCounts.get(key) === 1) {
+        apiUuidByRegistration.set(key, row.animal_uuid);
+      }
+    }
     const orderedUuids: string[] = [];
 
     for (const draftRow of draftGrid.rows) {
@@ -450,9 +462,18 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     if (booleanKeys.length === 0) return savedGrid;
 
     const previousByUuid = new Map(previousGrid.rows.map((row) => [row.animal_uuid, row]));
-    const previousByRegistration = new Map(
-      previousGrid.rows.map((row) => [row.registration_number.trim().toLowerCase(), row])
-    );
+    const previousRegistrationCounts = new Map<string, number>();
+    for (const row of previousGrid.rows) {
+      const key = row.registration_number.trim().toLowerCase();
+      previousRegistrationCounts.set(key, (previousRegistrationCounts.get(key) ?? 0) + 1);
+    }
+    const previousByRegistration = new Map<string, CorralStepGridDto['rows'][number]>();
+    for (const row of previousGrid.rows) {
+      const key = row.registration_number.trim().toLowerCase();
+      if (previousRegistrationCounts.get(key) === 1) {
+        previousByRegistration.set(key, row);
+      }
+    }
 
     return {
       ...savedGrid,
@@ -491,11 +512,25 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     if (localRows.length === 0) return savedGrid;
 
     const savedUuids = new Set(savedGrid.rows.map((row) => row.animal_uuid));
-    const savedNumbers = new Set(savedGrid.rows.map((row) => row.registration_number.trim().toLowerCase()));
-    const mergedLocalRows = localRows.filter(
-      (row) =>
-        !savedUuids.has(row.animal_uuid) && !savedNumbers.has(row.registration_number.trim().toLowerCase())
-    );
+    const savedRegistrationCounts = new Map<string, number>();
+    for (const row of savedGrid.rows) {
+      const key = row.registration_number.trim().toLowerCase();
+      savedRegistrationCounts.set(key, (savedRegistrationCounts.get(key) ?? 0) + 1);
+    }
+    const consumedRegistrations = new Map<string, number>();
+    const mergedLocalRows = localRows.filter((row) => {
+      if (savedUuids.has(row.animal_uuid)) {
+        return false;
+      }
+      const key = row.registration_number.trim().toLowerCase();
+      const used = consumedRegistrations.get(key) ?? 0;
+      const available = savedRegistrationCounts.get(key) ?? 0;
+      if (used < available) {
+        consumedRegistrations.set(key, used + 1);
+        return false;
+      }
+      return true;
+    });
     if (mergedLocalRows.length === 0) return savedGrid;
 
     return {
@@ -598,6 +633,59 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     this.unknownScanIdentifier = '';
     this.unknownScanContext = null;
     this.unknownAnimalUuid = null;
+    this.matchChoices = [];
+    this.pendingUnregisteredChoices = [];
+  }
+
+  choiceLabel(animal: AnimalLookupDto): string {
+    const parts = [animal.registration_number];
+    if (animal.chip_number) {
+      parts.push(animal.chip_number);
+    }
+    if (animal.birth_date) {
+      parts.push(String(animal.birth_date).slice(0, 10));
+    }
+    if (animal.sex === 'FEMALE' || animal.sex === 'MALE') {
+      parts.push(this.historySexLabel(animal.sex));
+    }
+    if (parts.length === 1) {
+      parts.push(animal.animal_uuid.slice(0, 8));
+    }
+    return parts.join(' · ');
+  }
+
+  chooseMatch(animal: AnimalLookupDto): void {
+    const identifier = this.unknownScanIdentifier || animal.registration_number;
+    this.matchChoices = [];
+    if (this.activeGridData?.rows.some((row) => row.animal_uuid === animal.animal_uuid)) {
+      this.afterRowLocated(animal.animal_uuid, identifier);
+      this.clearUnknownScanPrompt();
+      return;
+    }
+    if (this.activeWorkMode === 'SCAN_DYNAMIC') {
+      this.addScannedAnimalToStep(identifier, animal.animal_uuid);
+      this.clearUnknownScanPrompt();
+      return;
+    }
+    this.unknownScanIdentifier = identifier;
+    this.unknownScanContext = 'not_in_step';
+    this.unknownAnimalUuid = animal.animal_uuid;
+    this.highlightAnimalUuid = animal.animal_uuid;
+    this.loadAnimalHistory(animal.animal_uuid, animal.registration_number);
+  }
+
+  usePendingUnregistered(animal: AnimalLookupDto): void {
+    this.afterRowLocated(animal.animal_uuid, animal.registration_number);
+    this.clearUnknownScanPrompt();
+  }
+
+  addAnotherUnregistered(): void {
+    const identifier = this.unknownScanIdentifier.trim();
+    this.clearUnknownScanPrompt();
+    if (!identifier) {
+      return;
+    }
+    this.addMissingScanAsLocalRow(identifier, true);
   }
 
   confirmAddUnknownScan(): void {
@@ -641,14 +729,15 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     this.clearUnknownScanPrompt();
   }
 
-  private addMissingScanAsLocalRow(identifier: string): void {
+  private addMissingScanAsLocalRow(identifier: string, createNew = false): void {
     if (!this.activeGridData) return;
     const previousGrid = this.activeGrid?.snapshotGrid();
     this.api
       .addUnregisteredStepAnimal(
         this.sessionUuid,
         this.activeGridData.uuid_corral_session_step,
-        identifier
+        identifier,
+        { createNew }
       )
       .subscribe({
         next: (grid) => {
@@ -656,16 +745,26 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
           const merged = previousGrid ? this.preserveLocalRows(grid, previousGrid) : grid;
           this.workspace.grids[this.activeStepIndex] = merged;
           this.activeGrid?.replaceGrid(merged);
-          this.markQueueScan(identifier, merged.rows);
-          this.focusScannedRow(identifier, merged.rows);
-          this.applyScanDefaultsByIdentifier(identifier);
+          const previousIds = new Set((previousGrid?.rows ?? []).map((row) => row.animal_uuid));
+          const created = createNew
+            ? [...merged.rows].reverse().find((row) => !previousIds.has(row.animal_uuid))
+            : undefined;
+          if (created) {
+            this.activeGrid?.focusRowByAnimalUuid(created.animal_uuid);
+            this.highlightAnimalUuid = created.animal_uuid;
+            this.applyScanDefaultsToAnimal(created.animal_uuid);
+          } else {
+            this.markQueueScan(identifier, merged.rows);
+            this.focusScannedRow(identifier, merged.rows);
+            this.applyScanDefaultsByIdentifier(identifier);
+          }
           this.successMessage = this.i18n.translate('corralWorkSession.animalAddedLocalRow');
           this.clearUnknownScanPrompt();
           this.scanInput = '';
           this.schedulePersistWorkspaceDraft();
         },
         error: () => {
-          this.activeGrid?.appendLocalSequentialRow(identifier);
+          this.activeGrid?.appendLocalSequentialRow(identifier, createNew);
           const localGrid = this.activeGrid?.snapshotGrid();
           if (localGrid) {
             this.markQueueScan(identifier, localGrid.rows);
@@ -1050,7 +1149,10 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
 
   private applyScanDefaultsByIdentifier(identifier: string): void {
     const rows = this.activeGrid?.snapshotGrid()?.rows ?? this.activeGridData?.rows ?? [];
-    this.applyScanDefaultsToAnimal(this.findRowByIdentifier(identifier, rows)?.animal_uuid);
+    const matches = this.rowsMatchingIdentifier(identifier, rows);
+    if (matches.length === 1) {
+      this.applyScanDefaultsToAnimal(matches[0].animal_uuid);
+    }
   }
 
   private applyScanDefaultsToAnimal(animalUuid: string | null | undefined): void {
@@ -1121,7 +1223,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     if (event.key !== 'Enter') return;
     event.preventDefault();
 
-    if (this.unknownScanIdentifier && this.unknownScanContext) {
+    if (this.unknownScanIdentifier && this.unknownScanContext === 'not_in_step') {
       const id = this.normalizeScanIdentifier(this.scanInput);
       if (!id || id === this.unknownScanIdentifier) {
         this.confirmAddUnknownScan();
@@ -1138,46 +1240,88 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
 
     this.clearUnknownScanPrompt();
     this.errorMessage = '';
-    const workMode = this.activeWorkMode;
 
-    if (workMode === 'SCAN_DYNAMIC') {
-      this.api.lookupAnimal(this.sessionUuid, id).subscribe({
-        next: () => this.addScannedAnimalToStep(id),
-        error: () => this.addMissingScanAsLocalRow(id)
-      });
-      return;
-    }
-
-    const animalUuid = this.locateRowByIdentifier(id);
-    if (animalUuid) {
-      this.afterRowLocated(animalUuid, id);
-      return;
-    }
-
+    const gridMatches = this.rowsMatchingIdentifier(id, this.activeGridData.rows);
     this.api.lookupAnimal(this.sessionUuid, id).subscribe({
-      next: (animal) => {
-        this.unknownScanIdentifier = id;
-        this.unknownScanContext = 'not_in_step';
-        this.unknownAnimalUuid = animal.animal_uuid;
-        this.highlightAnimalUuid = animal.animal_uuid;
-        this.loadAnimalHistory(animal.animal_uuid, animal.registration_number);
-      },
-      error: () => this.addMissingScanAsLocalRow(id)
+      next: (result) => this.resolveScanMatches(id, gridMatches, result.matches ?? []),
+      error: () => this.resolveScanMatches(id, gridMatches, [])
     });
   }
 
-  private locateRowByIdentifier(identifier: string): string | null {
-    const fromGrid = this.activeGrid?.focusRowByIdentifier(identifier) ?? null;
-    if (fromGrid) return fromGrid;
-    return this.findRowByIdentifier(identifier, this.activeGridData?.rows ?? [])?.animal_uuid ?? null;
+  private resolveScanMatches(
+    identifier: string,
+    gridMatches: Array<{ animal_uuid: string; registration_number: string; chip_number?: string | null }>,
+    inventoryMatches: AnimalLookupDto[]
+  ): void {
+    const gridChoices: AnimalLookupDto[] = gridMatches.map((row) => ({
+      animal_uuid: row.animal_uuid,
+      registration_number: row.registration_number,
+      chip_number: row.chip_number
+    }));
+    const onGrid = new Set(gridChoices.map((row) => row.animal_uuid));
+    const notOnGrid = inventoryMatches.filter((animal) => !onGrid.has(animal.animal_uuid));
+
+    if (notOnGrid.length === 0 && gridChoices.length === 1) {
+      this.afterRowLocated(gridChoices[0].animal_uuid, identifier);
+      return;
+    }
+    if (notOnGrid.length === 0 && gridChoices.length > 1) {
+      this.unknownScanIdentifier = identifier;
+      this.matchChoices = gridChoices;
+      return;
+    }
+    if (notOnGrid.length === 1 && gridChoices.length === 0) {
+      this.continueWithSingleLookup(identifier, notOnGrid[0]);
+      return;
+    }
+    if (notOnGrid.length === 0 && gridChoices.length === 0) {
+      this.promptUnregisteredScan(identifier);
+      return;
+    }
+
+    this.unknownScanIdentifier = identifier;
+    this.matchChoices = [...gridChoices, ...notOnGrid];
   }
 
-  private findRowByIdentifier(
+  isAnimalOnActiveStep(animal: AnimalLookupDto): boolean {
+    return (this.activeGridData?.rows ?? []).some((row) => row.animal_uuid === animal.animal_uuid);
+  }
+
+  private continueWithSingleLookup(identifier: string, animal: AnimalLookupDto): void {
+    if (this.activeWorkMode === 'SCAN_DYNAMIC') {
+      this.addScannedAnimalToStep(identifier, animal.animal_uuid);
+      return;
+    }
+    this.unknownScanIdentifier = identifier;
+    this.unknownScanContext = 'not_in_step';
+    this.unknownAnimalUuid = animal.animal_uuid;
+    this.highlightAnimalUuid = animal.animal_uuid;
+    this.loadAnimalHistory(animal.animal_uuid, animal.registration_number);
+  }
+
+  private promptUnregisteredScan(identifier: string): void {
+    const pending = this.rowsMatchingIdentifier(identifier, this.activeGridData?.rows ?? []).filter((row) =>
+      this.isMissingInventoryRow(row)
+    );
+    if (pending.length > 0) {
+      this.unknownScanIdentifier = identifier;
+      this.unknownScanContext = 'duplicate_unregistered';
+      this.pendingUnregisteredChoices = pending.map((row) => ({
+        animal_uuid: row.animal_uuid,
+        registration_number: row.registration_number,
+        chip_number: row.chip_number
+      }));
+      return;
+    }
+    this.addMissingScanAsLocalRow(identifier);
+  }
+
+  private rowsMatchingIdentifier<T extends { registration_number: string; chip_number?: string | null }>(
     identifier: string,
-    rows: Array<{ animal_uuid: string; registration_number: string; chip_number?: string | null; missing_inventory?: boolean }>
-  ): { animal_uuid: string; registration_number: string; chip_number?: string | null; missing_inventory?: boolean } | undefined {
+    rows: T[]
+  ): T[] {
     const key = identifier.trim().toLowerCase();
-    return rows.find(
+    return rows.filter(
       (row) =>
         row.registration_number.trim().toLowerCase() === key ||
         row.chip_number?.trim().toLowerCase() === key
@@ -1209,14 +1353,9 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     rows: Array<{ animal_uuid: string; registration_number: string; chip_number?: string | null }>
   ): void {
     if (this.activeWorkMode !== 'PRELOADED_QUEUE' || !this.activeGridData) return;
-    const key = identifier.trim().toLowerCase();
-    const matched = rows.find(
-      (row) =>
-        row.registration_number.trim().toLowerCase() === key ||
-        row.chip_number?.trim().toLowerCase() === key
-    );
-    if (!matched) return;
-    this.recordQueueScan(this.activeGridData.uuid_corral_session_step, matched.animal_uuid);
+    const matches = this.rowsMatchingIdentifier(identifier, rows);
+    if (matches.length !== 1) return;
+    this.recordQueueScan(this.activeGridData.uuid_corral_session_step, matches[0].animal_uuid);
     this.activeGrid?.ensureScannedSectionExpanded();
   }
 
@@ -1229,13 +1368,9 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
       missing_inventory?: boolean;
     }>
   ): void {
-    const key = identifier.trim().toLowerCase();
-    const matched = rows.find(
-      (row) =>
-        row.registration_number.trim().toLowerCase() === key ||
-        row.chip_number?.trim().toLowerCase() === key
-    );
-    if (!matched) return;
+    const matches = this.rowsMatchingIdentifier(identifier, rows);
+    if (matches.length !== 1) return;
+    const matched = matches[0];
     this.highlightAnimalUuid = matched.animal_uuid;
     this.activeGrid?.focusRowByAnimalUuid(matched.animal_uuid);
     if (matched.missing_inventory || matched.animal_uuid.startsWith('local-')) {
@@ -1310,9 +1445,9 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
-  private addScannedAnimalToStep(identifier: string): void {
+  private addScannedAnimalToStep(identifier: string, animalUuid?: string): void {
     if (!this.activeGridData) return;
-    this.api.scanStepAnimal(this.sessionUuid, this.activeGridData.uuid_corral_session_step, identifier).subscribe({
+    this.api.scanStepAnimal(this.sessionUuid, this.activeGridData.uuid_corral_session_step, identifier, animalUuid).subscribe({
       next: (grid) => {
         if (!this.workspace) return;
         this.workspace.grids[this.activeStepIndex] = grid;

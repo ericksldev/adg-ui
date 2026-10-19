@@ -17,6 +17,7 @@ import {
   ParentOptionDto
 } from '../../services/animal-api.service';
 import { AnimalService } from '../../services/animal.service';
+import { parentOptionLabel } from '../../utils/parent-option-label.util';
 import { LivestockCategoryApiService } from 'src/app/features/configuration/services/livestock-category-api.service';
 import { CategoryMultiSelectOption } from '../../components/category-multi-select/category-multi-select.component';
 import { LivestockCategory } from 'src/app/features/configuration/models/livestock-category.model';
@@ -192,8 +193,8 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
 
     const mother = String(v.motherRegistrationNumber ?? '').trim();
     const father = String(v.fatherRegistrationNumber ?? '').trim();
-    payload['mother_registration_number'] = mother || null;
-    payload['father_registration_number'] = father || null;
+    payload['mother_animal_uuid'] = mother || null;
+    payload['father_animal_uuid'] = father || null;
 
     this.saving = true;
     this.animalService.updateAnimal(this.animal.animal_uuid, payload).subscribe({
@@ -310,9 +311,14 @@ export class AnimalEditComponent implements OnInit, OnDestroy {
     const mother = this.motherOptions.find((p) => p.animal_uuid === this.animal?.mother_animal_uuid);
     const father = this.fatherOptions.find((p) => p.animal_uuid === this.animal?.father_animal_uuid);
     this.form.patchValue({
-      motherRegistrationNumber: mother?.registration_number ?? '',
-      fatherRegistrationNumber: father?.registration_number ?? ''
+      motherRegistrationNumber: mother?.animal_uuid ?? '',
+      fatherRegistrationNumber: father?.animal_uuid ?? ''
     }, { emitEvent: false });
+  }
+
+  parentLabel(option: ParentOptionDto, role: 'mother' | 'father'): string {
+    const siblings = role === 'mother' ? this.motherOptions : this.fatherOptions;
+    return parentOptionLabel(option, siblings);
   }
 
   private toDateInputValue(value?: string | null): string {

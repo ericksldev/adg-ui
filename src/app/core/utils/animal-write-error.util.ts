@@ -40,6 +40,12 @@ export function translateAnimalWriteError(i18n: I18nService, err: unknown, fallb
   if (message.startsWith('No MALE animal found with registration')) {
     return i18n.translate('animal.errorFatherNotFound');
   }
+  if (message.startsWith('Multiple FEMALE animals')) {
+    return i18n.translate('animal.errorMotherAmbiguous');
+  }
+  if (message.startsWith('Multiple MALE animals')) {
+    return i18n.translate('animal.errorFatherAmbiguous');
+  }
   const i18nKey = ANIMAL_WRITE_ERROR_MESSAGES[message];
   if (i18nKey) {
     return i18n.translate(i18nKey);

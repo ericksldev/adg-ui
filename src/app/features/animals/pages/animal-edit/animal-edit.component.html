@@ -78,14 +78,14 @@
           <label class="form-label small mb-1" for="motherRegistrationNumber">{{ 'animal.fieldMotherRegistration' | t }}</label>
           <select id="motherRegistrationNumber" class="form-select form-select-sm" formControlName="motherRegistrationNumber">
             <option value="">{{ 'animal.optionNone' | t }}</option>
-            <option *ngFor="let p of motherOptions" [value]="p.registration_number">{{ p.registration_number }}</option>
+            <option *ngFor="let p of motherOptions" [value]="p.animal_uuid">{{ parentLabel(p, 'mother') }}</option>
           </select>
         </div>
         <div class="col-md-6">
           <label class="form-label small mb-1" for="fatherRegistrationNumber">{{ 'animal.fieldFatherRegistration' | t }}</label>
           <select id="fatherRegistrationNumber" class="form-select form-select-sm" formControlName="fatherRegistrationNumber">
             <option value="">{{ 'animal.optionNone' | t }}</option>
-            <option *ngFor="let p of fatherOptions" [value]="p.registration_number">{{ p.registration_number }}</option>
+            <option *ngFor="let p of fatherOptions" [value]="p.animal_uuid">{{ parentLabel(p, 'father') }}</option>
           </select>
         </div>
         <div class="col-md-6">

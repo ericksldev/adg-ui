@@ -11,6 +11,9 @@ export interface AnimalBatchDraftRow {
   breedCode: string;
   motherRegistrationNumber: string;
   fatherRegistrationNumber: string;
+  motherAnimalUuid?: string;
+  fatherAnimalUuid?: string;
+  pendingRowUuid?: string;
   currentOwnerUuid: string;
   currentPaddockUuid: string;
   sex: AnimalSex | '';

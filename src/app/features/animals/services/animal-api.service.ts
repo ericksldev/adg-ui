@@ -13,6 +13,8 @@ export interface BreedOptionDto {
 export interface ParentOptionDto {
   animal_uuid: string;
   registration_number: string;
+  chip_number?: string | null;
+  birth_date?: string | null;
 }
 
 export interface PaddockOptionDto {

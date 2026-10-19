@@ -14,6 +14,8 @@ import { UserManagementService } from 'src/app/features/users/services/user-mana
 import { SearchableSelectOption } from 'src/app/shared/components/searchable-select/searchable-select.component';
 import { CategoryMultiSelectOption } from '../../components/category-multi-select/category-multi-select.component';
 import { AnimalCreatePayload } from '../../models/animal-create-payload.model';
+import { parentOptionLabel } from '../../utils/parent-option-label.util';
+import { CorralWorkSessionApiService } from 'src/app/features/corral-work-sessions/services/corral-work-session-api.service';
 import { LivestockCategoryApiService } from 'src/app/features/configuration/services/livestock-category-api.service';
 import { LivestockCategory } from 'src/app/features/configuration/models/livestock-category.model';
 import {
@@ -37,6 +39,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
   saving = false;
   loadingRanchDependencies = false;
   fromPendingRegistration = false;
+  private pendingRowUuid = '';
 
   ranchRows: RanchOption[] = [];
   breedRows: BreedOptionDto[] = [];
@@ -57,7 +60,8 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     private readonly animalApi: AnimalApiService,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
-    private readonly livestockCategoryApi: LivestockCategoryApiService
+    private readonly livestockCategoryApi: LivestockCategoryApiService,
+    private readonly corralApi: CorralWorkSessionApiService
   ) {
     this.form = this.fb.group({
       ranchUuid: ['', Validators.required],
@@ -105,6 +109,7 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     const pendingRanch = String(this.route.snapshot.queryParamMap.get('ranchUuid') ?? '').trim();
     const pendingNumber = String(this.route.snapshot.queryParamMap.get('registrationNumber') ?? '').trim();
     this.fromPendingRegistration = this.route.snapshot.queryParamMap.get('fromPending') === '1';
+    this.pendingRowUuid = String(this.route.snapshot.queryParamMap.get('pendingRowUuid') ?? '').trim();
 
     const company = this.sessionService.getUuidCompany();
     forkJoin({
@@ -185,15 +190,15 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
 
   get motherSelectOptions(): SearchableSelectOption[] {
     return this.motherOptions.map((p) => ({
-      value: p.registration_number,
-      label: p.registration_number
+      value: p.animal_uuid,
+      label: parentOptionLabel(p, this.motherOptions)
     }));
   }
 
   get fatherSelectOptions(): SearchableSelectOption[] {
     return this.fatherOptions.map((p) => ({
-      value: p.registration_number,
-      label: p.registration_number
+      value: p.animal_uuid,
+      label: parentOptionLabel(p, this.fatherOptions)
     }));
   }
 
@@ -222,19 +227,19 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
   }
 
   isMotherUnknown(): boolean {
-    const value = String(this.form.get('motherRegistrationNumber')?.value ?? '').trim();
-    if (!value || !this.ranchSelected) {
-      return false;
-    }
-    return !this.motherOptions.some((p) => p.registration_number === value);
+    return this.parentLinkState('mother') === 'unknown';
   }
 
   isFatherUnknown(): boolean {
-    const value = String(this.form.get('fatherRegistrationNumber')?.value ?? '').trim();
-    if (!value || !this.ranchSelected) {
-      return false;
-    }
-    return !this.fatherOptions.some((p) => p.registration_number === value);
+    return this.parentLinkState('father') === 'unknown';
+  }
+
+  isMotherAmbiguous(): boolean {
+    return this.parentLinkState('mother') === 'ambiguous';
+  }
+
+  isFatherAmbiguous(): boolean {
+    return this.parentLinkState('father') === 'ambiguous';
   }
 
   private clearRegistrationDuplicateError(): void {
@@ -306,6 +311,13 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     const chip = String(v.chipNumber ?? '').trim();
     const mother = String(v.motherRegistrationNumber ?? '').trim();
     const father = String(v.fatherRegistrationNumber ?? '').trim();
+    if (this.isMotherAmbiguous() || this.isFatherAmbiguous()) {
+      this.feedback = {
+        type: 'error',
+        message: this.i18n.translate(this.isMotherAmbiguous() ? 'animal.errorMotherAmbiguous' : 'animal.errorFatherAmbiguous')
+      };
+      return;
+    }
     const owner = String(v.currentOwnerUuid ?? '').trim();
     const paddock = String(v.currentPaddockUuid ?? '').trim();
     const color = String(v.color ?? '').trim();
@@ -314,12 +326,8 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     if (chip) {
       payload.chip_number = chip;
     }
-    if (mother) {
-      payload.mother_registration_number = mother;
-    }
-    if (father) {
-      payload.father_registration_number = father;
-    }
+    this.assignParentPayload(payload, 'mother', mother);
+    this.assignParentPayload(payload, 'father', father);
     if (owner) {
       payload.current_owner_uuid = owner;
     }
@@ -367,10 +375,67 @@ export class AnimalRegisterIndividualComponent implements OnInit, OnDestroy {
     });
   }
 
+  private parentLinkState(role: 'mother' | 'father'): 'empty' | 'linked' | 'unknown' | 'ambiguous' {
+    const control = role === 'mother' ? 'motherRegistrationNumber' : 'fatherRegistrationNumber';
+    const options = role === 'mother' ? this.motherOptions : this.fatherOptions;
+    const value = String(this.form.get(control)?.value ?? '').trim();
+    if (!value || !this.ranchSelected) {
+      return 'empty';
+    }
+    if (options.some((option) => option.animal_uuid === value)) {
+      return 'linked';
+    }
+    const matches = options.filter(
+      (option) => option.registration_number.trim().toLowerCase() === value.toLowerCase()
+    );
+    if (matches.length === 1) {
+      return 'linked';
+    }
+    if (matches.length > 1) {
+      return 'ambiguous';
+    }
+    return 'unknown';
+  }
+
+  private assignParentPayload(payload: AnimalCreatePayload, role: 'mother' | 'father', value: string): void {
+    if (!value) {
+      return;
+    }
+    const options = role === 'mother' ? this.motherOptions : this.fatherOptions;
+    const byUuid = options.find((option) => option.animal_uuid === value);
+    const byNumber = options.filter(
+      (option) => option.registration_number.trim().toLowerCase() === value.toLowerCase()
+    );
+    const animalUuid = byUuid?.animal_uuid ?? (byNumber.length === 1 ? byNumber[0].animal_uuid : '');
+    if (animalUuid) {
+      if (role === 'mother') {
+        payload.mother_animal_uuid = animalUuid;
+      } else {
+        payload.father_animal_uuid = animalUuid;
+      }
+      return;
+    }
+    if (role === 'mother') {
+      payload.mother_registration_number = value;
+    } else {
+      payload.father_registration_number = value;
+    }
+  }
+
   private finishCreate(hadUnresolvedParents: boolean): void {
     this.saving = false;
     if (this.fromPendingRegistration) {
-      void this.router.navigate(['/corral-work-session/pending-registrations']);
+      const goBack = () => {
+        void this.router.navigate(['/corral-work-session/pending-registrations']);
+      };
+      if (!this.pendingRowUuid) {
+        goBack();
+        return;
+      }
+      this.corralApi.resolvePendingRegistrations([this.pendingRowUuid]).subscribe({
+        next: goBack,
+        error: goBack
+      });
       return;
     }
     let message = this.i18n.translate('animal.individualSaveSuccess');

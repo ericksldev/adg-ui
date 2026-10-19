@@ -4,6 +4,8 @@ export interface AnimalCreatePayload {
   breed_code?: string | null;
   registration_number: string;
   chip_number?: string | null;
+  mother_animal_uuid?: string | null;
+  father_animal_uuid?: string | null;
   mother_registration_number?: string | null;
   father_registration_number?: string | null;
   current_owner_uuid?: string | null;

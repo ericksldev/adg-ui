@@ -27,6 +27,28 @@
     </details>
   </div>
 
+  <div *ngIf="parentChoice" class="alert alert-warning" role="status">
+    <p class="mb-2">
+      {{
+        (parentChoice.role === 'mother' ? 'animal.chooseMother' : 'animal.chooseFather')
+          | t: { number: parentChoice.registrationNumber, row: parentChoice.rowIndex + 1 }
+      }}
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        *ngFor="let option of parentChoice.options"
+        (click)="confirmParentChoice(option.animal_uuid)"
+      >
+        {{ parentChoiceLabel(option) }}
+      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelParentChoice()">
+        {{ 'common.cancel' | t }}
+      </button>
+    </div>
+  </div>
+
   <div *ngIf="feedback" class="alert" [ngClass]="feedback.type === 'success' ? 'alert-success' : 'alert-danger'" role="status">
     {{ feedback.message }}
   </div>

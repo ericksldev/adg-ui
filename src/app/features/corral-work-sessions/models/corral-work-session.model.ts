@@ -190,6 +190,13 @@ export interface AnimalLookupDto {
   animal_uuid: string;
   registration_number: string;
   chip_number?: string | null;
+  sex?: string;
+  breed_code?: string | null;
+  birth_date?: string | null;
+}
+
+export interface AnimalLookupResultDto {
+  matches: AnimalLookupDto[];
 }
 
 export interface AnimalCorralWorkHistoryActivityDto {
@@ -229,10 +236,12 @@ export interface PendingAnimalRegistrationSessionDto {
 }
 
 export interface PendingAnimalRegistrationDto {
+  uuid_corral_unregistered_step_row: string;
   registration_number: string;
   ranch_uuid: string;
   first_seen_at: string;
   last_seen_at: string;
+  matching_animal_count: number;
   sessions: PendingAnimalRegistrationSessionDto[];
 }
 
