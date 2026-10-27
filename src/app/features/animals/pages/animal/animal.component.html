@@ -313,16 +313,39 @@
 
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2" *ngIf="!isLoading && listPagination.totalItems > 0">
     <span class="text-muted small">{{ 'animal.listShowing' | t:{ shown: animals.length, total: listPagination.totalItems } }}</span>
-    <ul class="pagination pagination-sm app-pagination mb-0" *ngIf="listPagination.totalPages > 1">
-      <li class="page-item" [class.disabled]="page === 1">
-        <button type="button" class="page-link" (click)="goToPage(page - 1)">&laquo;</button>
-      </li>
-      <li class="page-item" *ngFor="let pageNumber of pageNumbersList" [class.active]="page === pageNumber">
-        <button type="button" class="page-link" (click)="goToPage(pageNumber)">{{ pageNumber }}</button>
-      </li>
-      <li class="page-item" [class.disabled]="page === totalPages">
-        <button type="button" class="page-link" (click)="goToPage(page + 1)">&raquo;</button>
-      </li>
-    </ul>
+    <div class="animal-list__pagination" *ngIf="listPagination.totalPages > 1">
+      <ul class="pagination pagination-sm app-pagination mb-0">
+        <li class="page-item" [class.disabled]="page === 1">
+          <button type="button" class="page-link" (click)="goToPage(page - 1)" [disabled]="page === 1">&laquo;</button>
+        </li>
+        <li
+          class="page-item"
+          *ngFor="let item of pageWindow; trackBy: trackPageItem"
+          [class.active]="item === page"
+          [class.disabled]="isPageEllipsis(item)"
+        >
+          <span *ngIf="isPageEllipsis(item)" class="page-link animal-list__page-ellipsis">…</span>
+          <button *ngIf="!isPageEllipsis(item)" type="button" class="page-link" (click)="goToPage(asPageNumber(item))">{{ item }}</button>
+        </li>
+        <li class="page-item" [class.disabled]="page === totalPages">
+          <button type="button" class="page-link" (click)="goToPage(page + 1)" [disabled]="page === totalPages">&raquo;</button>
+        </li>
+      </ul>
+      <form class="animal-list__page-jump" (ngSubmit)="submitPageJump()">
+        <label class="animal-list__page-jump-label" for="animal-list-page-jump">{{ 'animal.listGoToPage' | t }}</label>
+        <input
+          id="animal-list-page-jump"
+          class="form-control form-control-sm animal-list__page-jump-input"
+          type="number"
+          inputmode="numeric"
+          min="1"
+          [max]="totalPages"
+          name="pageJump"
+          [(ngModel)]="pageJump"
+          [attr.aria-label]="'animal.listGoToPage' | t"
+        />
+        <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'animal.listGoToPageAction' | t }}</button>
+      </form>
+    </div>
   </div>
 </div>

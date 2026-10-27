@@ -75,3 +75,45 @@ export function pageNumbers(totalPages: number): number[] {
   const pages = totalPages > 0 ? totalPages : 1;
   return Array.from({ length: pages }, (_, index) => index + 1);
 }
+
+export type PaginationWindowItem = number | 'ellipsis';
+
+export function paginationWindow(
+  currentPage: number,
+  totalPages: number,
+  siblingCount = 1
+): PaginationWindowItem[] {
+  const total = totalPages > 0 ? totalPages : 1;
+  const current = Math.min(Math.max(currentPage, 1), total);
+  const visibleWithoutGaps = siblingCount * 2 + 5;
+
+  if (total <= visibleWithoutGaps) {
+    return pageNumbers(total);
+  }
+
+  const windowSize = siblingCount * 2 + 1;
+  let left = Math.max(current - siblingCount, 2);
+  let right = Math.min(current + siblingCount, total - 1);
+  if (right - left + 1 < windowSize) {
+    left = Math.max(2, left - (windowSize - (right - left + 1)));
+    right = Math.min(total - 1, left + windowSize - 1);
+    left = Math.max(2, right - windowSize + 1);
+  }
+
+  const items: PaginationWindowItem[] = [1];
+
+  if (left > 2) {
+    items.push('ellipsis');
+  }
+
+  for (let page = left; page <= right; page += 1) {
+    items.push(page);
+  }
+
+  if (right < total - 1) {
+    items.push('ellipsis');
+  }
+
+  items.push(total);
+  return items;
+}

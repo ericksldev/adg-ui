@@ -11,7 +11,8 @@ const ANIMAL_WRITE_ERROR_MESSAGES: Record<string, string> = {
   'Invalid breed_code': 'animal.errorInvalidBreed',
   'Invalid or missing breed_code': 'animal.errorInvalidBreed',
   'birth_date is required': 'animal.errorBirthDateRequired',
-  'Invalid birth_date': 'animal.errorBirthDateInvalid'
+  'Invalid birth_date': 'animal.errorBirthDateInvalid',
+  'Request body is too large': 'animal.errorPayloadTooLarge'
 };
 
 export function readApiErrorMessage(err: unknown): string | undefined {

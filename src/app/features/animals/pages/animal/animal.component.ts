@@ -11,7 +11,7 @@ import { RanchOption } from 'src/app/features/users/models/user-management.model
 import { UserManagementService } from 'src/app/features/users/services/user-management.service';
 import { hasPermission, Permission } from 'src/app/shared/constants/permissions';
 import { ApiPagination } from 'src/app/shared/models/paginated-list.model';
-import { pageNumbers } from 'src/app/shared/utils/list-query.util';
+import { paginationWindow, PaginationWindowItem } from 'src/app/shared/utils/list-query.util';
 import { CATTLE_BREED_CODES } from '../../constants/cattle-breeds';
 import { ANIMAL_EXIT_TYPE_OPTIONS } from '../../constants/animal-exit.constants';
 import {
@@ -79,6 +79,7 @@ export class AnimalComponent implements OnInit, OnDestroy {
   ownerOptions: OwnerOptionDto[] = [];
   paddockOptions: PaddockOptionDto[] = [];
   page = 1;
+  pageJump: number | null = null;
   pageSize = 10;
   readonly pageSizeOptions = ANIMAL_LIST_PAGE_SIZE_OPTIONS;
   readonly optionalColumns = ANIMAL_LIST_OPTIONAL_COLUMNS;
@@ -185,8 +186,20 @@ export class AnimalComponent implements OnInit, OnDestroy {
     return this.listPagination.totalPages;
   }
 
-  get pageNumbersList(): number[] {
-    return pageNumbers(this.totalPages);
+  get pageWindow(): PaginationWindowItem[] {
+    return paginationWindow(this.page, this.totalPages);
+  }
+
+  isPageEllipsis(item: PaginationWindowItem): boolean {
+    return item === 'ellipsis';
+  }
+
+  asPageNumber(item: PaginationWindowItem): number {
+    return item === 'ellipsis' ? this.page : item;
+  }
+
+  trackPageItem(index: number, item: PaginationWindowItem): string {
+    return item === 'ellipsis' ? `ellipsis-${index}` : String(item);
   }
 
   isColumnVisible(key: AnimalListColumnKey): boolean {
@@ -511,11 +524,20 @@ export class AnimalComponent implements OnInit, OnDestroy {
   }
 
   goToPage(nextPage: number): void {
-    if (nextPage < 1 || nextPage > this.totalPages) {
+    if (nextPage < 1 || nextPage > this.totalPages || nextPage === this.page) {
       return;
     }
     this.page = nextPage;
+    this.pageJump = null;
     this.loadAnimals();
+  }
+
+  submitPageJump(): void {
+    const nextPage = Number(this.pageJump);
+    if (!Number.isInteger(nextPage)) {
+      return;
+    }
+    this.goToPage(nextPage);
   }
 
   private loadAnimals(): void {

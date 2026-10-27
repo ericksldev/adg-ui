@@ -34,6 +34,38 @@
   margin-left: auto;
 }
 
+.animal-list__pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.animal-list__page-ellipsis {
+  cursor: default;
+  pointer-events: none;
+}
+
+.animal-list__page-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.animal-list__page-jump-label {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.animal-list__page-jump-input {
+  width: 4.25rem;
+  min-height: 31px;
+}
+
 .animal-list__table-wrap {
   overflow-x: auto;
 }
