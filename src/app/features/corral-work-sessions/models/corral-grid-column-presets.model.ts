@@ -41,14 +41,7 @@ export function normalizeStepGridColumnPresets(raw: unknown): StepGridColumnPres
       })
       .filter((item): item is GridColumnPresetEntry => item !== null);
 
-    let hasDefault = false;
-    result[key] = entries.map((entry) => {
-      if (!entry.isDefault || hasDefault) {
-        return { value: entry.value, label: entry.label };
-      }
-      hasDefault = true;
-      return entry;
-    });
+    result[key] = entries;
   }
 
   return result;

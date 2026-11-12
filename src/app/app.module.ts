@@ -15,10 +15,12 @@ import { SidebarComponent } from './core/layouts/sidebar/sidebar.component';
 import { BreadcrumbComponent } from './core/layouts/breadcrumb/breadcrumb.component';
 import { registerLocaleData } from '@angular/common';
 import localeEsAr from '@angular/common/locales/es-AR';
+import localeEn from '@angular/common/locales/en';
 import { AuthInterceptor } from './core/interceptors/auth.interceptor';
 import { HttpErrorInterceptor } from './core/interceptors/http-error.interceptor';
 import { SharedModule } from './shared/shared.module';
 registerLocaleData(localeEsAr, 'es-Ar');
+registerLocaleData(localeEn, 'en');
 
 
 @NgModule({

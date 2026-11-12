@@ -1,6 +1,9 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { ConfirmDialogComponent } from 'src/app/shared/components/modals/confirm-dialog/confirm-dialog.component';
+import { Observable, Subscription, catchError, finalize, firstValueFrom, forkJoin, map, of, switchMap } from 'rxjs';
 import { pageNumbers } from 'src/app/shared/utils/list-query.util';
 import { translateApiError } from 'src/app/core/utils/api-error.util';
 import { stepDisplayLabel } from 'src/app/core/utils/i18n-display.util';
@@ -24,6 +27,7 @@ import {
   CorralSessionAnimalsSourceBody,
   CorralSessionSourceFilter,
   CorralSessionWorkspaceDto,
+  CorralStepCounterDto,
   CorralStepGridColumnDto,
   CorralStepGridDto,
   AnimalCorralProfileDto,
@@ -31,20 +35,23 @@ import {
   AnimalLookupDto,
   ApplyPaddockDistributionResultDto
 } from '../../models/corral-work-session.model';
-import { animalBreedLabelKey, animalOriginLabelKey } from 'src/app/features/animals/utils/animal-display.util';
 import { CorralWorkSessionApiService } from '../../services/corral-work-session-api.service';
 import { CorralActivityQuickStartService } from '../../services/corral-activity-quick-start.service';
+import { CorralAnimalListSortService } from '../../services/corral-animal-list-sort.service';
+import { CorralStepPresetStorageService } from '../../services/corral-step-preset-storage.service';
+import {
+  CORRAL_ANIMAL_LIST_SORT_MODES,
+  CorralAnimalListSortMode
+} from '../../models/corral-animal-list-sort.model';
 import {
   createEmptyStepFindingPresets,
   medicationPresetKey,
   MedicationPreset,
-  normalizeStepFindingPresets,
   StepFindingPresets
 } from '../../models/corral-finding-presets.model';
 import {
   createEmptyStepGridColumnPresets,
   GridColumnPresetEntry,
-  normalizeStepGridColumnPresets,
   StepGridColumnPresets
 } from '../../models/corral-grid-column-presets.model';
 import { createEmptyRowFindingState, RowFindingState } from '../../models/corral-row-finding.model';
@@ -61,6 +68,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   readonly conditionCodes = CORRAL_VISUAL_CONDITION_CODES;
   readonly workModes = CORRAL_STEP_WORK_MODES;
   readonly preloadedWorkModes = CORRAL_PRELOADED_WORK_MODES;
+  readonly animalListSortModes = CORRAL_ANIMAL_LIST_SORT_MODES;
   readonly originTypes = ['BIRTH', 'PURCHASE', 'TRANSFER', 'UNKNOWN'] as const;
 
   sessionUuid = '';
@@ -87,8 +95,10 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   matchChoices: AnimalLookupDto[] = [];
   pendingUnregisteredChoices: AnimalLookupDto[] = [];
   updatingWorkMode = false;
+  animalListSort: CorralAnimalListSortMode = 'SCAN_ORDER';
   appendingAnimals = false;
   showAttachPanel = false;
+  headerMenuExpanded = true;
   attachTab: 'paddocks' | 'filters' | 'inventory' = 'paddocks';
 
   paddockRows: PaddockOptionDto[] = [];
@@ -108,6 +118,17 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   selectedManualUuids = new Set<string>();
   preview: CorralSessionAnimalsPreviewDto | null = null;
   previewing = false;
+  newCounterTitle = '';
+  addingCounter = false;
+  counterAddOpen = false;
+  countersCollapsed = false;
+  countersInSidebar = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+  openCounterMenuId: string | null = null;
+  editingCounterId: string | null = null;
+  private layoutSubscription?: Subscription;
+  private countersByStep = new Map<string, CorralStepCounterDto[]>();
+  private persistedCounterTitles = new Map<string, string>();
+  private counterChains = new Map<string, Promise<void>>();
 
   readonly presetValueSeparator = ' - ';
 
@@ -124,6 +145,10 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   private previewTimer: ReturnType<typeof setTimeout> | null = null;
   private inventorySearchTimer: ReturnType<typeof setTimeout> | null = null;
   private draftPersistTimer: ReturnType<typeof setTimeout> | null = null;
+  private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingAutosave = false;
+  private silentAutosave = false;
+  private historyAnimalUuid: string | null = null;
   /** Most recently scanned animals per step (queue mode). */
   private queueScannedByStep = new Map<string, string[]>();
   private presetsByStep = new Map<string, StepFindingPresets>();
@@ -138,10 +163,20 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     private readonly quickStart: CorralActivityQuickStartService,
     private readonly animalApiService: AnimalApiService,
     private readonly animalService: AnimalService,
+    private readonly animalListSortService: CorralAnimalListSortService,
+    private readonly stepPresetStorage: CorralStepPresetStorageService,
+    private readonly modalService: NgbModal,
+    private readonly breakpointObserver: BreakpointObserver,
     readonly i18n: I18nService
   ) {}
 
   ngOnInit(): void {
+    this.layoutSubscription = this.breakpointObserver.observe('(min-width: 768px)').subscribe((state) => {
+      this.countersInSidebar = state.matches;
+      if (state.matches) {
+        this.countersCollapsed = false;
+      }
+    });
     this.sessionUuid = this.route.snapshot.paramMap.get('sessionUuid') ?? '';
     const entry = this.route.snapshot.queryParamMap.get('entry');
     const activity = this.route.snapshot.queryParamMap.get('activity');
@@ -153,6 +188,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
       return;
     }
     this.findingColumnsExpanded = this.loadFindingColumnsExpanded();
+    this.animalListSort = this.animalListSortService.getSort(this.activityFocusCode);
     this.ensureConfiguredThenWorkspace();
   }
 
@@ -178,6 +214,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.layoutSubscription?.unsubscribe();
     if (this.previewTimer) {
       clearTimeout(this.previewTimer);
     }
@@ -186,6 +223,9 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     }
     if (this.draftPersistTimer) {
       clearTimeout(this.draftPersistTimer);
+    }
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
     }
     this.persistWorkspaceDraft();
   }
@@ -254,12 +294,15 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
       .subscribe((ws) => {
         if (!ws) return;
         this.workspace = ws;
+        this.presetsByStep.clear();
+        this.gridColumnPresetsByStep.clear();
         this.seedQueueScansFromWorkspace(ws);
         if (ws.session.status !== 'CLOSED') {
           this.applyWorkspaceDraft(this.loadWorkspaceDraft());
         } else {
           this.clearWorkspaceDraft();
         }
+        this.seedCounters(ws);
       });
   }
 
@@ -446,6 +489,10 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   private clearWorkspaceDraft(): void {
+    if (this.draftPersistTimer) {
+      clearTimeout(this.draftPersistTimer);
+      this.draftPersistTimer = null;
+    }
     sessionStorage.removeItem(this.workspaceDraftStorageKey());
   }
 
@@ -564,6 +611,267 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     return this.workspace?.session.status === 'CLOSED';
   }
 
+  get showStepCounters(): boolean {
+    return !!this.activeGridData && (!this.isClosed || this.activeCounters.length > 0);
+  }
+
+  get sideColumnCollapsed(): boolean {
+    return !this.findingsPanelExpanded;
+  }
+
+  get sidePanelToggleKey(): string {
+    const includesCounters = this.countersInSidebar && this.showStepCounters;
+    if (this.findingsPanelExpanded) {
+      return includesCounters ? 'corralWorkSession.sidePanelCollapse' : 'corralWorkSession.sidebarCollapse';
+    }
+    return includesCounters ? 'corralWorkSession.sidePanelExpand' : 'corralWorkSession.sidebarExpand';
+  }
+
+  trackCounter(_index: number, counter: CorralStepCounterDto): string {
+    return counter.uuid_corral_step_counter;
+  }
+
+  @HostListener('document:click')
+  closeCounterMenu(): void {
+    this.openCounterMenuId = null;
+  }
+
+  toggleCountersCollapsed(): void {
+    this.countersCollapsed = !this.countersCollapsed;
+  }
+
+  openCounterAdd(): void {
+    if (this.isClosed) return;
+    this.countersCollapsed = false;
+    this.counterAddOpen = true;
+    this.openCounterMenuId = null;
+  }
+
+  toggleCounterMenu(counterId: string, event: Event): void {
+    event.stopPropagation();
+    this.openCounterMenuId = this.openCounterMenuId === counterId ? null : counterId;
+  }
+
+  startCounterRename(counter: CorralStepCounterDto): void {
+    this.openCounterMenuId = null;
+    this.editingCounterId = counter.uuid_corral_step_counter;
+  }
+
+  cancelCounterRename(counter: CorralStepCounterDto): void {
+    counter.title = this.persistedCounterTitles.get(counter.uuid_corral_step_counter) ?? counter.title;
+    this.editingCounterId = null;
+  }
+
+  get activeCounters(): CorralStepCounterDto[] {
+    const stepUuid = this.activeGridData?.uuid_corral_session_step;
+    if (!stepUuid) return [];
+    return this.countersByStep.get(stepUuid) ?? [];
+  }
+
+  addCounter(): void {
+    const stepUuid = this.activeGridData?.uuid_corral_session_step;
+    const title = this.newCounterTitle.trim();
+    if (!stepUuid || this.isClosed || this.addingCounter || !title) return;
+    if (title.length > 80) {
+      this.errorMessage = this.i18n.translate('corralWorkSession.errorCounterTitle');
+      return;
+    }
+    if (this.hasCounterTitle(stepUuid, title)) {
+      this.errorMessage = this.i18n.translate('corralWorkSession.errorDuplicateCounter');
+      return;
+    }
+
+    this.addingCounter = true;
+    this.errorMessage = '';
+    this.api.createStepCounter(this.sessionUuid, stepUuid, title).subscribe({
+      next: (counter) => {
+        const list = this.countersForStep(stepUuid);
+        list.push(counter);
+        this.persistedCounterTitles.set(counter.uuid_corral_step_counter, counter.title);
+        this.newCounterTitle = '';
+        this.counterAddOpen = false;
+        this.addingCounter = false;
+      },
+      error: (err) => {
+        this.addingCounter = false;
+        this.errorMessage = translateApiError(this.i18n, err, 'corralWorkSession.errorSaveCounter');
+      }
+    });
+  }
+
+  adjustCounter(counter: CorralStepCounterDto, delta: number): void {
+    const stepUuid = this.activeGridData?.uuid_corral_session_step;
+    if (!stepUuid || this.isClosed || delta === 0) return;
+    if (delta < 0 && counter.count <= 0) return;
+
+    const before = counter.count;
+    counter.count = Math.max(0, before + delta);
+    this.errorMessage = '';
+    this.enqueueCounter(counter.uuid_corral_step_counter, () =>
+      this.api.updateStepCounter(this.sessionUuid, stepUuid, counter.uuid_corral_step_counter, { delta }).pipe(
+        map((saved) => {
+          const extra = counter.count - Math.max(0, before + delta);
+          counter.count = Math.max(0, saved.count + extra);
+          return undefined;
+        }),
+        catchError((err) => {
+          counter.count = Math.max(0, counter.count - delta);
+          this.errorMessage = translateApiError(this.i18n, err, 'corralWorkSession.errorSaveCounter');
+          return of(undefined);
+        })
+      )
+    );
+  }
+
+  resetCounter(counter: CorralStepCounterDto): void {
+    const stepUuid = this.activeGridData?.uuid_corral_session_step;
+    if (!stepUuid || this.isClosed || counter.count === 0) return;
+    this.openCounterMenuId = null;
+
+    void this.openConfirmDialog(
+      'corralWorkSession.counterResetTitle',
+      'corralWorkSession.counterResetConfirm',
+      { title: counter.title },
+      'corralWorkSession.counterReset',
+      'btn-primary'
+    ).then((confirmed) => {
+      if (!confirmed || this.isClosed || counter.count === 0) return;
+      const before = counter.count;
+      counter.count = 0;
+      this.errorMessage = '';
+      this.enqueueCounter(counter.uuid_corral_step_counter, () =>
+        this.api.updateStepCounter(this.sessionUuid, stepUuid, counter.uuid_corral_step_counter, { count: 0 }).pipe(
+          map((saved) => {
+            counter.count = Math.max(0, saved.count + counter.count);
+            return undefined;
+          }),
+          catchError((err) => {
+            counter.count += before;
+            this.errorMessage = translateApiError(this.i18n, err, 'corralWorkSession.errorSaveCounter');
+            return of(undefined);
+          })
+        )
+      );
+    });
+  }
+
+  removeCounter(counter: CorralStepCounterDto): void {
+    const stepUuid = this.activeGridData?.uuid_corral_session_step;
+    if (!stepUuid || this.isClosed) return;
+    this.openCounterMenuId = null;
+
+    void this.openConfirmDialog(
+      'corralWorkSession.counterRemoveTitle',
+      'corralWorkSession.counterRemoveConfirm',
+      { title: counter.title },
+      'corralWorkSession.counterRemove',
+      'btn-danger'
+    ).then((confirmed) => {
+      if (!confirmed || this.isClosed) return;
+      const list = this.countersForStep(stepUuid);
+      const index = list.findIndex((item) => item.uuid_corral_step_counter === counter.uuid_corral_step_counter);
+      if (index < 0) return;
+      list.splice(index, 1);
+      this.errorMessage = '';
+      this.enqueueCounter(counter.uuid_corral_step_counter, () =>
+        this.api.deleteStepCounter(this.sessionUuid, stepUuid, counter.uuid_corral_step_counter).pipe(
+          catchError((err) => {
+            const current = this.countersForStep(stepUuid);
+            if (!current.some((item) => item.uuid_corral_step_counter === counter.uuid_corral_step_counter)) {
+              current.splice(Math.min(index, current.length), 0, counter);
+            }
+            this.errorMessage = translateApiError(this.i18n, err, 'corralWorkSession.errorSaveCounter');
+            return of(undefined);
+          })
+        )
+      );
+    });
+  }
+
+  commitCounterTitle(counter: CorralStepCounterDto): void {
+    const stepUuid = this.activeGridData?.uuid_corral_session_step;
+    if (!stepUuid || this.isClosed) return;
+
+    const title = counter.title.trim();
+    const persisted = this.persistedCounterTitles.get(counter.uuid_corral_step_counter) ?? counter.title;
+    if (!title || title.length > 80) {
+      counter.title = persisted;
+      this.editingCounterId = null;
+      if (title.length > 80) {
+        this.errorMessage = this.i18n.translate('corralWorkSession.errorCounterTitle');
+      }
+      return;
+    }
+    counter.title = title;
+    if (title === persisted) {
+      this.editingCounterId = null;
+      return;
+    }
+    if (this.hasCounterTitle(stepUuid, title, counter.uuid_corral_step_counter)) {
+      counter.title = persisted;
+      this.errorMessage = this.i18n.translate('corralWorkSession.errorDuplicateCounter');
+      return;
+    }
+
+    this.persistedCounterTitles.set(counter.uuid_corral_step_counter, title);
+    this.editingCounterId = null;
+    this.errorMessage = '';
+    this.enqueueCounter(counter.uuid_corral_step_counter, () =>
+      this.api.updateStepCounter(this.sessionUuid, stepUuid, counter.uuid_corral_step_counter, { title }).pipe(
+        map(() => undefined),
+        catchError((err) => {
+          counter.title = persisted;
+          this.persistedCounterTitles.set(counter.uuid_corral_step_counter, persisted);
+          this.errorMessage = translateApiError(this.i18n, err, 'corralWorkSession.errorSaveCounter');
+          return of(undefined);
+        })
+      )
+    );
+  }
+
+  private seedCounters(workspace: CorralSessionWorkspaceDto): void {
+    this.countersByStep = new Map(
+      workspace.grids.map((grid) => [
+        grid.uuid_corral_session_step,
+        (grid.counters ?? []).map((counter) => ({ ...counter }))
+      ])
+    );
+    this.persistedCounterTitles = new Map();
+    for (const counters of this.countersByStep.values()) {
+      for (const counter of counters) {
+        this.persistedCounterTitles.set(counter.uuid_corral_step_counter, counter.title);
+      }
+    }
+  }
+
+  private countersForStep(stepUuid: string): CorralStepCounterDto[] {
+    const existing = this.countersByStep.get(stepUuid);
+    if (existing) return existing;
+    const created: CorralStepCounterDto[] = [];
+    this.countersByStep.set(stepUuid, created);
+    return created;
+  }
+
+  private hasCounterTitle(stepUuid: string, title: string, ignoreUuid?: string): boolean {
+    const normalized = title.trim().toLowerCase();
+    return this.countersForStep(stepUuid).some(
+      (counter) =>
+        counter.uuid_corral_step_counter !== ignoreUuid && counter.title.trim().toLowerCase() === normalized
+    );
+  }
+
+  private enqueueCounter(counterUuid: string, task: () => Observable<unknown>): void {
+    const previous = this.counterChains.get(counterUuid) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(() => firstValueFrom(task()));
+    this.counterChains.set(
+      counterUuid,
+      next.then(
+        () => undefined,
+        () => undefined
+      )
+    );
+  }
+
   get hasAnyAttachSource(): boolean {
     return (
       this.selectedPaddockUuids.size > 0 ||
@@ -583,8 +891,12 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     return this.i18n.translate(`corralWorkSession.workMode.${mode}`);
   }
 
-  workModeDescription(mode: CorralStepWorkMode): string {
-    return this.i18n.translate(`corralWorkSession.workMode.${mode}_desc`);
+  workModeLabelCompact(mode: CorralStepWorkMode): string {
+    return this.i18n.translate(`corralWorkSession.workModeCompact.${mode}`);
+  }
+
+  animalListSortLabelCompact(mode: CorralAnimalListSortMode): string {
+    return this.i18n.translate(`corralActivityShortcut.listSortCompact.${mode}`);
   }
 
   workModeScanHint(mode: CorralStepWorkMode): string {
@@ -599,10 +911,32 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     return this.preloadedWorkModes.includes(this.activeWorkMode);
   }
 
+  get canLoadAnimals(): boolean {
+    return !this.isClosed && this.isPreloadedWorkMode;
+  }
+
+  get loadAnimalsButtonTitle(): string | null {
+    if (this.canLoadAnimals || this.isClosed) return null;
+    return this.i18n.translate('corralWorkSession.loadAnimalsDisabledSequential');
+  }
+
   get activeQueueScannedUuids(): string[] {
     const stepUuid = this.activeGridData?.uuid_corral_session_step;
     if (!stepUuid) return [];
     return this.queueScannedByStep.get(stepUuid) ?? [];
+  }
+
+  get lastScannedAnimalUuid(): string | null {
+    return this.activeQueueScannedUuids[0] ?? null;
+  }
+
+  animalListSortLabel(mode: CorralAnimalListSortMode): string {
+    return this.i18n.translate(`corralActivityShortcut.listSort.${mode}`);
+  }
+
+  onAnimalListSortChange(mode: CorralAnimalListSortMode): void {
+    this.animalListSort = mode;
+    this.animalListSortService.setSort(mode, this.activityFocusCode);
   }
 
   get needsAnimalsForCurrentMode(): boolean {
@@ -622,7 +956,16 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     this.queueScannedByStep.set(stepUuid, [animalUuid, ...current.filter((uuid) => uuid !== animalUuid)]);
   }
 
+  private unrecordQueueScan(stepUuid: string, animalUuid: string): void {
+    const current = this.queueScannedByStep.get(stepUuid) ?? [];
+    this.queueScannedByStep.set(
+      stepUuid,
+      current.filter((uuid) => uuid !== animalUuid)
+    );
+  }
+
   openLoadAnimalsPanel(): void {
+    if (!this.canLoadAnimals) return;
     this.showAttachPanel = true;
     if (this.attachTab === 'inventory' && this.inventoryAnimals.length === 0) {
       this.loadInventory(true);
@@ -714,6 +1057,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
           this.workspace.grids[this.activeStepIndex] = grid;
           this.activeGrid?.replaceGrid(grid);
           if (addedAnimalUuid) {
+            this.recordQueueScan(grid.uuid_corral_session_step, addedAnimalUuid);
             this.activeGrid?.focusRowByAnimalUuid(addedAnimalUuid);
             this.highlightAnimalUuid = addedAnimalUuid;
             this.applyScanDefaultsToAnimal(addedAnimalUuid);
@@ -750,6 +1094,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
             ? [...merged.rows].reverse().find((row) => !previousIds.has(row.animal_uuid))
             : undefined;
           if (created) {
+            this.recordQueueScan(merged.uuid_corral_session_step, created.animal_uuid);
             this.activeGrid?.focusRowByAnimalUuid(created.animal_uuid);
             this.highlightAnimalUuid = created.animal_uuid;
             this.applyScanDefaultsToAnimal(created.animal_uuid);
@@ -820,7 +1165,10 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     this.persistCurrentStepFindings();
     this.persistWorkspaceDraft();
     this.activeStepIndex = index;
+    this.openCounterMenuId = null;
+    this.editingCounterId = null;
     this.clearUnknownScanPrompt();
+    this.closeLoadAnimalsPanelIfUnavailable();
   }
 
   private persistCurrentStepFindings(): void {
@@ -907,9 +1255,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     const presets = this.getPresetsForStep(stepUuid);
     const removed = presets.observations[index];
     presets.observations = presets.observations.filter((_, i) => i !== index);
-    if (presets.defaultObservation === removed) {
-      presets.defaultObservation = null;
-    }
+    presets.defaultObservations = presets.defaultObservations.filter((item) => item !== removed);
     this.persistPresets(stepUuid);
   }
 
@@ -934,9 +1280,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     const presets = this.getPresetsForStep(stepUuid);
     const removed = presets.conditions[index];
     presets.conditions = presets.conditions.filter((_, i) => i !== index);
-    if (presets.defaultCondition === removed) {
-      presets.defaultCondition = null;
-    }
+    presets.defaultConditions = presets.defaultConditions.filter((item) => item !== removed);
     this.persistPresets(stepUuid);
   }
 
@@ -967,8 +1311,9 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     const presets = this.getPresetsForStep(stepUuid);
     const removed = presets.medications[index];
     presets.medications = presets.medications.filter((_, i) => i !== index);
-    if (removed && presets.defaultMedicationKey === medicationPresetKey(removed)) {
-      presets.defaultMedicationKey = null;
+    if (removed) {
+      const removedKey = medicationPresetKey(removed);
+      presets.defaultMedicationKeys = presets.defaultMedicationKeys.filter((key) => key !== removedKey);
     }
     this.persistPresets(stepUuid);
   }
@@ -977,19 +1322,32 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     this.toggleFindingDefault('medication', index);
   }
 
+  isObservationDefault(text: string): boolean {
+    return this.activePresets.defaultObservations.includes(text);
+  }
+
+  isConditionDefault(code: CorralVisualConditionCode): boolean {
+    return this.activePresets.defaultConditions.includes(code);
+  }
+
   isMedicationDefault(preset: MedicationPreset): boolean {
-    return this.activePresets.defaultMedicationKey === medicationPresetKey(preset);
+    return this.activePresets.defaultMedicationKeys.includes(medicationPresetKey(preset));
+  }
+
+  defaultObservationLabel(): string | null {
+    return this.joinDefaultLabels(this.activePresets.defaultObservations);
   }
 
   defaultConditionLabel(): string | null {
-    const code = this.activePresets.defaultCondition;
-    return code ? this.conditionLabel(code) : null;
+    return this.joinDefaultLabels(this.activePresets.defaultConditions.map((code) => this.conditionLabel(code)));
   }
 
   defaultMedicationLabel(): string | null {
-    const key = this.activePresets.defaultMedicationKey;
-    const preset = this.activePresets.medications.find((item) => medicationPresetKey(item) === key);
-    return preset ? this.medicationPresetLabel(preset) : null;
+    const labels = this.activePresets.defaultMedicationKeys.flatMap((key) => {
+      const preset = this.activePresets.medications.find((item) => medicationPresetKey(item) === key);
+      return preset ? [this.medicationPresetLabel(preset)] : [];
+    });
+    return this.joinDefaultLabels(labels);
   }
 
   addGridColumnPreset(column: CorralStepGridColumnDto): void {
@@ -1020,9 +1378,17 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     if (!entries[index]) return;
 
     const enable = !entries[index].isDefault;
+    const column = this.activeGridData?.columns.find((item) => item.column_key === columnKey);
+    const exclusiveDefault = column?.value_type === 'boolean';
     presets[columnKey] = entries.map((entry, itemIndex) => {
       const next: GridColumnPresetEntry = { value: entry.value, label: entry.label };
-      if (enable && itemIndex === index) {
+      if (itemIndex === index) {
+        if (enable) {
+          next.isDefault = true;
+        }
+        return next;
+      }
+      if (entry.isDefault && !exclusiveDefault) {
         next.isDefault = true;
       }
       return next;
@@ -1031,7 +1397,11 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   defaultGridColumnPresetLabel(columnKey: string): string | null {
-    return this.getGridColumnPresetEntries(columnKey).find((entry) => entry.isDefault)?.label ?? null;
+    return this.joinDefaultLabels(
+      this.getGridColumnPresetEntries(columnKey)
+        .filter((entry) => entry.isDefault)
+        .map((entry) => entry.label)
+    );
   }
 
   removeGridColumnPreset(columnKey: string, index: number): void {
@@ -1073,16 +1443,10 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
 
   private getPresetsForStep(stepUuid: string): StepFindingPresets {
     if (!this.presetsByStep.has(stepUuid)) {
-      const stored = sessionStorage.getItem(this.presetsStorageKey(stepUuid));
-      if (stored) {
-        try {
-          this.presetsByStep.set(stepUuid, normalizeStepFindingPresets(JSON.parse(stored)));
-        } catch {
-          this.presetsByStep.set(stepUuid, createEmptyStepFindingPresets());
-        }
-      } else {
-        this.presetsByStep.set(stepUuid, createEmptyStepFindingPresets());
-      }
+      this.presetsByStep.set(
+        stepUuid,
+        this.stepPresetStorage.getFindingPresets(this.sessionUuid, stepUuid, this.presetRanchUuid)
+      );
     }
     return this.presetsByStep.get(stepUuid)!;
   }
@@ -1095,16 +1459,16 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     if (kind === 'observation') {
       const text = presets.observations[index];
       if (!text) return;
-      presets.defaultObservation = presets.defaultObservation === text ? null : text;
+      presets.defaultObservations = this.toggleDefaultValue(presets.defaultObservations, text);
     } else if (kind === 'condition') {
       const code = presets.conditions[index];
       if (!code) return;
-      presets.defaultCondition = presets.defaultCondition === code ? null : code;
+      presets.defaultConditions = this.toggleDefaultValue(presets.defaultConditions, code);
     } else {
       const preset = presets.medications[index];
       if (!preset) return;
       const key = medicationPresetKey(preset);
-      presets.defaultMedicationKey = presets.defaultMedicationKey === key ? null : key;
+      presets.defaultMedicationKeys = this.toggleDefaultValue(presets.defaultMedicationKeys, key);
     }
     this.persistPresets(stepUuid);
   }
@@ -1112,26 +1476,19 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   private persistPresets(stepUuid: string): void {
     const presets = this.presetsByStep.get(stepUuid);
     if (presets) {
-      sessionStorage.setItem(this.presetsStorageKey(stepUuid), JSON.stringify(presets));
+      this.stepPresetStorage.setFindingPresets(this.sessionUuid, stepUuid, this.presetRanchUuid, presets);
     }
-  }
-
-  private presetsStorageKey(stepUuid: string): string {
-    return `corral-finding-presets:${this.sessionUuid}:${stepUuid}`;
   }
 
   private getGridColumnPresetsForStep(stepUuid: string): StepGridColumnPresets {
     if (!this.gridColumnPresetsByStep.has(stepUuid)) {
-      const stored = sessionStorage.getItem(this.gridColumnPresetsStorageKey(stepUuid));
-      if (stored) {
-        try {
-          this.gridColumnPresetsByStep.set(stepUuid, normalizeStepGridColumnPresets(JSON.parse(stored)));
-        } catch {
-          this.gridColumnPresetsByStep.set(stepUuid, createEmptyStepGridColumnPresets());
-        }
-      } else {
-        this.gridColumnPresetsByStep.set(stepUuid, createEmptyStepGridColumnPresets());
-      }
+      const columnKeys = (this.workspace?.grids ?? [])
+        .find((grid) => grid.uuid_corral_session_step === stepUuid)
+        ?.columns.map((column) => column.column_key) ?? [];
+      this.gridColumnPresetsByStep.set(
+        stepUuid,
+        this.stepPresetStorage.getGridPresets(this.sessionUuid, stepUuid, this.presetRanchUuid, columnKeys)
+      );
     }
     return this.gridColumnPresetsByStep.get(stepUuid)!;
   }
@@ -1139,12 +1496,21 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
   private persistGridColumnPresets(stepUuid: string): void {
     const presets = this.gridColumnPresetsByStep.get(stepUuid);
     if (presets) {
-      sessionStorage.setItem(this.gridColumnPresetsStorageKey(stepUuid), JSON.stringify(presets));
+      this.stepPresetStorage.setGridPresets(this.sessionUuid, stepUuid, this.presetRanchUuid, presets);
     }
   }
 
-  private gridColumnPresetsStorageKey(stepUuid: string): string {
-    return `corral-grid-presets:${this.sessionUuid}:${stepUuid}`;
+  private get presetRanchUuid(): string {
+    return this.workspace?.session.ranch_uuid ?? '';
+  }
+
+  private toggleDefaultValue<T extends string>(values: T[], item: T): T[] {
+    return values.includes(item) ? values.filter((value) => value !== item) : [...values, item];
+  }
+
+  private joinDefaultLabels(labels: string[]): string | null {
+    const cleaned = labels.map((label) => label.trim()).filter((label) => label.length > 0);
+    return cleaned.length > 0 ? cleaned.join(', ') : null;
   }
 
   private applyScanDefaultsByIdentifier(identifier: string): void {
@@ -1175,10 +1541,24 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     }
   }
 
+  toggleHeaderMenu(): void {
+    this.headerMenuExpanded = !this.headerMenuExpanded;
+  }
+
   onLoadAnimalsPanelToggle(): void {
+    if (!this.canLoadAnimals) {
+      this.showAttachPanel = false;
+      return;
+    }
     this.showAttachPanel = !this.showAttachPanel;
     if (this.showAttachPanel && this.attachTab === 'inventory' && this.inventoryAnimals.length === 0) {
       this.loadInventory(true);
+    }
+  }
+
+  private closeLoadAnimalsPanelIfUnavailable(): void {
+    if (!this.canLoadAnimals) {
+      this.showAttachPanel = false;
     }
   }
 
@@ -1214,6 +1594,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
         const merged = this.mergeGridWithDraft(grid, previousGrid);
         this.workspace.grids[this.activeStepIndex] = merged;
         this.activeGrid?.replaceGrid(merged);
+        this.closeLoadAnimalsPanelIfUnavailable();
         this.successMessage = this.i18n.translate('corralWorkSession.workModeUpdated');
         this.schedulePersistWorkspaceDraft();
       });
@@ -1337,8 +1718,8 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     } else {
       this.loadAnimalHistory(animalUuid, row?.registration_number || identifier);
     }
+    this.recordQueueScan(this.activeGridData.uuid_corral_session_step, animalUuid);
     if (this.activeWorkMode === 'PRELOADED_QUEUE') {
-      this.recordQueueScan(this.activeGridData.uuid_corral_session_step, animalUuid);
       this.successMessage = this.i18n.translate('corralWorkSession.animalQueued');
     } else {
       this.successMessage = this.i18n.translate('corralWorkSession.animalLocated');
@@ -1352,7 +1733,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     identifier: string,
     rows: Array<{ animal_uuid: string; registration_number: string; chip_number?: string | null }>
   ): void {
-    if (this.activeWorkMode !== 'PRELOADED_QUEUE' || !this.activeGridData) return;
+    if (!this.activeGridData) return;
     const matches = this.rowsMatchingIdentifier(identifier, rows);
     if (matches.length !== 1) return;
     this.recordQueueScan(this.activeGridData.uuid_corral_session_step, matches[0].animal_uuid);
@@ -1386,14 +1767,6 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     return this.i18n.translate('common.notAvailable');
   }
 
-  historyBreedLabel(code?: string | null): string {
-    return this.i18n.translate(animalBreedLabelKey(code));
-  }
-
-  historyOriginLabel(origin?: string | null): string {
-    return this.i18n.translate(animalOriginLabelKey(origin));
-  }
-
   formatHistoryValues(activityCode: string, values: string[]): string {
     return values
       .map((value) =>
@@ -1406,6 +1779,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
 
   private showUnregisteredAnimalHistory(registrationNumber: string): void {
     this.historyRequestId += 1;
+    this.historyAnimalUuid = null;
     this.historyRegistrationNumber = registrationNumber;
     this.historyProfile = null;
     this.historySessions = [];
@@ -1415,19 +1789,22 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
     this.findingsPanelExpanded = true;
   }
 
-  private loadAnimalHistory(animalUuid: string, registrationNumber: string): void {
+  private loadAnimalHistory(animalUuid: string, registrationNumber: string, quiet = false): void {
     if (!animalUuid || animalUuid.startsWith('local-')) {
       this.showUnregisteredAnimalHistory(registrationNumber);
       return;
     }
 
+    this.historyAnimalUuid = animalUuid;
     this.historyRegistrationNumber = registrationNumber;
-    this.historyProfile = null;
-    this.historySessions = [];
-    this.historyLoading = true;
     this.historyError = false;
     this.historyUnregistered = false;
-    this.findingsPanelExpanded = true;
+    if (!quiet) {
+      this.historyProfile = null;
+      this.historySessions = [];
+      this.historyLoading = true;
+      this.findingsPanelExpanded = true;
+    }
     const requestId = ++this.historyRequestId;
     this.api.getAnimalWorkHistory(this.sessionUuid, animalUuid).subscribe({
       next: (history) => {
@@ -1440,7 +1817,9 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
       error: () => {
         if (requestId !== this.historyRequestId) return;
         this.historyLoading = false;
-        this.historyError = true;
+        if (!quiet) {
+          this.historyError = true;
+        }
       }
     });
   }
@@ -1452,6 +1831,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
         if (!this.workspace) return;
         this.workspace.grids[this.activeStepIndex] = grid;
         this.activeGrid?.replaceGrid(grid);
+        this.markQueueScan(identifier, grid.rows);
         this.focusScannedRow(identifier, grid.rows);
         this.applyScanDefaultsByIdentifier(identifier);
         this.successMessage = this.i18n.translate('corralWorkSession.animalAddedToGrid');
@@ -1683,14 +2063,147 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
+  onRemoveScannedRow(animalUuid: string): void {
+    if (!this.activeGridData || this.isClosed || !animalUuid) return;
+
+    const registrationNumber =
+      this.activeGridData.rows.find((row) => row.animal_uuid === animalUuid)?.registration_number || animalUuid;
+
+    void this.confirmRemoveScannedRow(registrationNumber).then((confirmed) => {
+      if (confirmed) {
+        this.executeRemoveScannedRow(animalUuid);
+      }
+    });
+  }
+
+  private confirmRemoveScannedRow(registrationNumber: string): Promise<boolean> {
+    const params = { number: registrationNumber };
+    return this.openConfirmDialog(
+      'corralWorkSession.removeScannedRowTitle',
+      'corralWorkSession.removeScannedRowConfirm',
+      params,
+      'corralWorkSession.removeScannedRowConfirmButton'
+    ).then((firstOk) => {
+      if (!firstOk) return false;
+      return this.openConfirmDialog(
+        'corralWorkSession.removeScannedRowTitle',
+        'corralWorkSession.removeScannedRowConfirmAgain',
+        params,
+        'corralWorkSession.removeScannedRowConfirmAgainButton'
+      );
+    });
+  }
+
+  private confirmTwice(
+    titleKey: string,
+    messageKey: string,
+    confirmKey: string,
+    againMessageKey: string,
+    againConfirmKey: string,
+    confirmButtonClass: string
+  ): Promise<boolean> {
+    return this.openConfirmDialog(titleKey, messageKey, {}, confirmKey, confirmButtonClass).then((firstOk) => {
+      if (!firstOk) return false;
+      return this.openConfirmDialog(titleKey, againMessageKey, {}, againConfirmKey, confirmButtonClass);
+    });
+  }
+
+  private openConfirmDialog(
+    titleKey: string,
+    messageKey: string,
+    messageParams: Record<string, string>,
+    confirmKey: string,
+    confirmButtonClass = 'btn-danger'
+  ): Promise<boolean> {
+    const modalRef = this.modalService.open(ConfirmDialogComponent, { centered: true, backdrop: 'static' });
+    const dialog = modalRef.componentInstance as ConfirmDialogComponent;
+    dialog.titleKey = titleKey;
+    dialog.messageKey = messageKey;
+    dialog.messageParams = messageParams;
+    dialog.confirmKey = confirmKey;
+    dialog.cancelKey = 'common.cancel';
+    dialog.confirmButtonClass = confirmButtonClass;
+    return modalRef.result.then(
+      () => true,
+      () => false
+    );
+  }
+
+  private executeRemoveScannedRow(animalUuid: string): void {
+    if (!this.activeGridData || this.isClosed || !animalUuid) return;
+
+    const stepUuid = this.activeGridData.uuid_corral_session_step;
+    this.unrecordQueueScan(stepUuid, animalUuid);
+    if (this.highlightAnimalUuid === animalUuid) {
+      this.highlightAnimalUuid = null;
+      this.historyAnimalUuid = null;
+      this.historyRegistrationNumber = '';
+      this.historyProfile = null;
+      this.historySessions = [];
+    }
+    const findings = this.rowFindingsByStep.get(stepUuid);
+    if (findings) {
+      delete findings[animalUuid];
+    }
+
+    if (animalUuid.startsWith('local-')) {
+      this.activeGrid?.removeLocalRow(animalUuid);
+      this.successMessage = this.i18n.translate('corralWorkSession.scannedRowRemoved');
+      this.schedulePersistWorkspaceDraft();
+      return;
+    }
+
+    const previousGrid = this.activeGrid?.snapshotGrid();
+    this.api.removeStepAnimal(this.sessionUuid, stepUuid, animalUuid).subscribe({
+      next: (grid) => {
+        if (!this.workspace) return;
+        const preserved = previousGrid ? this.preserveLocalRows(grid, previousGrid) : grid;
+        const merged = {
+          ...preserved,
+          rows: preserved.rows.filter((row) => row.animal_uuid !== animalUuid)
+        };
+        this.workspace.grids[this.activeStepIndex] = merged;
+        this.activeGrid?.replaceGrid(merged);
+        this.successMessage = this.i18n.translate('corralWorkSession.scannedRowRemoved');
+        this.schedulePersistWorkspaceDraft();
+      },
+      error: (err) => {
+        this.errorMessage = translateApiError(this.i18n, err, 'corralWorkSession.errorRemoveScannedRow');
+      }
+    });
+  }
+
   onGridChange(grid: CorralStepGridDto): void {
     if (!this.workspace) return;
     this.workspace.grids[this.activeStepIndex] = grid;
     this.schedulePersistWorkspaceDraft();
+    this.scheduleAutosave();
   }
 
   onWorkspaceDraftChange(): void {
     this.schedulePersistWorkspaceDraft();
+    this.scheduleAutosave();
+  }
+
+  private scheduleAutosave(): void {
+    if (this.isClosed) return;
+    if (this.saving) {
+      this.pendingAutosave = true;
+      return;
+    }
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
+    }
+    this.autosaveTimer = setTimeout(() => {
+      this.autosaveTimer = null;
+      this.flushAutosave();
+    }, 700);
+  }
+
+  private flushAutosave(): void {
+    if (this.isClosed || this.saving || !this.activeGrid) return;
+    this.silentAutosave = true;
+    this.activeGrid.requestSave();
   }
 
   private activityLimitOrFallback(err: unknown, fallbackKey: string): string {
@@ -1703,6 +2216,31 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
 
   onSaveGrid(grid: CorralStepGridDto): void {
     if (!grid || this.isClosed) return;
+    const silent = this.silentAutosave;
+    this.silentAutosave = false;
+    if (silent) {
+      this.executeSaveGrid(grid, true);
+      return;
+    }
+    void this.openConfirmDialog(
+      'corralWorkSession.saveStepGridTitle',
+      'corralWorkSession.saveStepGridConfirm',
+      {},
+      'corralWorkSession.saveStepGridConfirmButton',
+      'btn-primary'
+    ).then((confirmed) => {
+      if (confirmed) {
+        this.executeSaveGrid(grid, false);
+      }
+    });
+  }
+
+  private executeSaveGrid(grid: CorralStepGridDto, silent: boolean): void {
+    if (!grid || this.isClosed) return;
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
+      this.autosaveTimer = null;
+    }
     const previousGrid = this.workspace?.grids[this.activeStepIndex];
     const moves = this.paddockMovesFromGrid(grid);
     this.persistCurrentStepFindings();
@@ -1716,11 +2254,7 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
           missing_inventory: this.isMissingInventoryRow(r),
           values: r.values
         })),
-        ...(grid.work_mode === 'PRELOADED_QUEUE'
-          ? {
-              scanned_animal_uuids: this.queueScannedByStep.get(grid.uuid_corral_session_step) ?? []
-            }
-          : {})
+        scanned_animal_uuids: this.queueScannedByStep.get(grid.uuid_corral_session_step) ?? []
       })
       .pipe(
         switchMap((updated) => {
@@ -1741,6 +2275,10 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
         }),
         finalize(() => {
           this.saving = false;
+          if (this.pendingAutosave) {
+            this.pendingAutosave = false;
+            this.scheduleAutosave();
+          }
         })
       )
       .subscribe((result) => {
@@ -1752,8 +2290,9 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
           this.workspace.session.status = result.apply.session_status;
         }
         this.activeGrid?.replaceGrid(merged);
-        this.saveFindingsForGrid(merged, this.paddockSaveMessage(result.apply));
-        this.schedulePersistWorkspaceDraft();
+        this.saveFindingsForGrid(merged, silent ? undefined : this.paddockSaveMessage(result.apply), silent);
+        this.refreshVisibleAnimalHistory();
+        this.clearWorkspaceDraft();
       });
   }
 
@@ -1783,19 +2322,19 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
       .join(' ');
   }
 
-  private saveFindingsForGrid(grid: CorralStepGridDto, successMessage?: string): void {
+  private saveFindingsForGrid(grid: CorralStepGridDto, successMessage?: string, silent = false): void {
     const stepUuid = grid.uuid_corral_session_step;
     const findings = this.rowFindingsByStep.get(stepUuid) ?? this.activeGrid?.getRowFindingsForSave() ?? {};
     const rowsToSave = grid.rows.filter(
       (row) => !this.isMissingInventoryRow(row) && this.hasFindingData(findings[row.animal_uuid])
     );
 
-    const message = successMessage ?? this.i18n.translate('corralWorkSession.stepGridSaved');
+    const message = successMessage ?? (silent ? '' : this.i18n.translate('corralWorkSession.stepGridSaved'));
     if (rowsToSave.length === 0) {
-      if (!this.errorMessage) {
+      if (!this.errorMessage && message) {
         this.successMessage = message;
       }
-      this.schedulePersistWorkspaceDraft();
+      this.clearWorkspaceDraft();
       return;
     }
 
@@ -1812,14 +2351,36 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
         }).pipe(catchError(() => of(undefined)));
       })
     ).subscribe(() => {
-      if (!this.errorMessage) {
+      if (!this.errorMessage && message) {
         this.successMessage = message;
       }
-      this.schedulePersistWorkspaceDraft();
+      this.refreshVisibleAnimalHistory();
+      this.clearWorkspaceDraft();
     });
   }
 
+  private refreshVisibleAnimalHistory(): void {
+    if (!this.historyAnimalUuid || this.historyUnregistered) return;
+    this.loadAnimalHistory(this.historyAnimalUuid, this.historyRegistrationNumber, true);
+  }
+
   closeSession(): void {
+    if (this.closing || this.isClosed) return;
+    void this.confirmTwice(
+      'corralWorkSession.closeSessionTitle',
+      'corralWorkSession.closeSessionConfirm',
+      'corralWorkSession.closeSessionConfirmButton',
+      'corralWorkSession.closeSessionConfirmAgain',
+      'corralWorkSession.closeSessionConfirmAgainButton',
+      'btn-danger'
+    ).then((confirmed) => {
+      if (confirmed) {
+        this.executeCloseSession();
+      }
+    });
+  }
+
+  private executeCloseSession(): void {
     this.closing = true;
     this.api
       .closeSession(this.sessionUuid)
@@ -1848,13 +2409,5 @@ export class CorralWorkSessionWorkspaceComponent implements OnInit, OnDestroy {
       queryParams['activity'] = this.activityFocusCode;
     }
     void this.router.navigate(['/corral-work-session', this.sessionUuid, 'setup'], { queryParams });
-  }
-
-  backToList(): void {
-    if (this.activityFocusCode) {
-      void this.router.navigate(getCorralActivityShortcutConfig(this.activityFocusCode).listRoute);
-      return;
-    }
-    void this.router.navigate(['/corral-work-session']);
   }
 }

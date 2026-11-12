@@ -1,5 +1,14 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
 .searchable-select {
   position: relative;
+}
+
+.searchable-select__trigger {
+  cursor: pointer;
 }
 
 .searchable-select__list {
@@ -27,6 +36,7 @@
   padding: 0.4rem 0.65rem;
   cursor: pointer;
   font-size: 0.9rem;
+  touch-action: manipulation;
 }
 
 .searchable-select__option:hover,

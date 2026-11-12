@@ -19,25 +19,25 @@
       (input)="updateSearch($any($event.target).value)"
       [placeholder]="'common.search' | t"
     />
-    <select
-      class="form-select form-select-sm animal-list__filter"
+    <app-searchable-select
+      class="animal-list__filter"
+      size="sm"
+      [searchable]="false"
+      [options]="sexSelectOptions"
       [value]="selectedSex"
-      (change)="updateSexFilter($any($event.target).value)"
-    >
-      <option value="ALL">{{ 'common.all' | t }}</option>
-      <option value="MALE">{{ 'animal.male' | t }}</option>
-      <option value="FEMALE">{{ 'animal.female' | t }}</option>
-    </select>
+      (valueChange)="updateSexFilter($event)"
+    ></app-searchable-select>
     <div class="animal-list__page-size d-flex align-items-center gap-1">
       <label class="form-label mb-0 small text-nowrap" for="animal-list-page-size">{{ 'animal.listPageSize' | t }}</label>
-      <select
-        id="animal-list-page-size"
-        class="form-select form-select-sm"
-        [value]="pageSize"
-        (change)="onPageSizeChange($any($event.target).value)"
-      >
-        <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-      </select>
+      <app-searchable-select
+        class="animal-list__page-size-select"
+        inputId="animal-list-page-size"
+        size="sm"
+        [searchable]="false"
+        [options]="pageSizeSelectOptions"
+        [value]="pageSizeValue"
+        (valueChange)="onPageSizeChange($event)"
+      ></app-searchable-select>
     </div>
   </div>
 
@@ -48,76 +48,83 @@
     <div class="animal-list__filters-grid mt-2">
       <div>
         <label class="form-label mb-1" for="animal-list-ranch">{{ 'animal.fieldRanch' | t }}</label>
-        <select
-          id="animal-list-ranch"
-          class="form-select form-select-sm"
+        <app-searchable-select
+          inputId="animal-list-ranch"
+          size="sm"
+          [options]="ranchSelectOptions"
           [value]="selectedRanch"
-          (change)="updateRanchFilter($any($event.target).value)"
-        >
-          <option value="">{{ 'common.all' | t }}</option>
-          <option *ngFor="let ranch of ranchOptions" [value]="ranch.uuid_ranch">{{ ranch.name }}</option>
-        </select>
+          [allowEmpty]="true"
+          [emptyLabel]="'common.all' | t"
+          [placeholder]="'common.all' | t"
+          (valueChange)="updateRanchFilter($event)"
+        ></app-searchable-select>
       </div>
       <div>
         <label class="form-label mb-1" for="animal-list-paddock">{{ 'animal.fieldPaddock' | t }}</label>
-        <select
-          id="animal-list-paddock"
-          class="form-select form-select-sm"
+        <app-searchable-select
+          inputId="animal-list-paddock"
+          size="sm"
+          [options]="paddockSelectOptions"
           [value]="selectedPaddock"
+          [allowEmpty]="true"
+          [emptyLabel]="'common.all' | t"
+          [placeholder]="'common.all' | t"
           [disabled]="!selectedRanch"
-          (change)="updatePaddockFilter($any($event.target).value)"
-        >
-          <option value="">{{ 'common.all' | t }}</option>
-          <option *ngFor="let paddock of paddockOptions" [value]="paddock.paddock_uuid">{{ paddock.name }}</option>
-        </select>
+          (valueChange)="updatePaddockFilter($event)"
+        ></app-searchable-select>
       </div>
       <div>
         <label class="form-label mb-1" for="animal-list-breed">{{ 'animal.fieldBreed' | t }}</label>
-        <select
-          id="animal-list-breed"
-          class="form-select form-select-sm"
+        <app-searchable-select
+          inputId="animal-list-breed"
+          size="sm"
+          [options]="breedSelectOptions"
           [value]="selectedBreed"
-          (change)="updateBreedFilter($any($event.target).value)"
-        >
-          <option value="">{{ 'common.all' | t }}</option>
-          <option *ngFor="let code of breedCodes" [value]="code">{{ breedLabel(code) }}</option>
-        </select>
+          [allowEmpty]="true"
+          [emptyLabel]="'common.all' | t"
+          [placeholder]="'common.all' | t"
+          (valueChange)="updateBreedFilter($event)"
+        ></app-searchable-select>
       </div>
       <div>
         <label class="form-label mb-1" for="animal-list-owner">{{ 'animal.fieldOwner' | t }}</label>
-        <select
-          id="animal-list-owner"
-          class="form-select form-select-sm"
+        <app-searchable-select
+          inputId="animal-list-owner"
+          size="sm"
+          [options]="ownerSelectOptions"
           [value]="selectedOwner"
-          (change)="updateOwnerFilter($any($event.target).value)"
-        >
-          <option value="">{{ 'common.all' | t }}</option>
-          <option *ngFor="let owner of ownerOptions" [value]="owner.owner_uuid">{{ owner.full_name }}</option>
-        </select>
+          [allowEmpty]="true"
+          [emptyLabel]="'common.all' | t"
+          [placeholder]="'common.all' | t"
+          (valueChange)="updateOwnerFilter($event)"
+        ></app-searchable-select>
       </div>
       <div>
         <label class="form-label mb-1" for="animal-list-origin">{{ 'animal.fieldOriginType' | t }}</label>
-        <select
-          id="animal-list-origin"
-          class="form-select form-select-sm"
+        <app-searchable-select
+          inputId="animal-list-origin"
+          size="sm"
+          [searchable]="false"
+          [options]="originSelectOptions"
           [value]="selectedOrigin"
-          (change)="updateOriginFilter($any($event.target).value)"
-        >
-          <option value="">{{ 'common.all' | t }}</option>
-          <option *ngFor="let origin of originOptions" [value]="origin">{{ originLabel(origin) }}</option>
-        </select>
+          [allowEmpty]="true"
+          [emptyLabel]="'common.all' | t"
+          [placeholder]="'common.all' | t"
+          (valueChange)="updateOriginFilter($event)"
+        ></app-searchable-select>
       </div>
       <div>
         <label class="form-label mb-1" for="animal-list-category">{{ 'livestockCategory.column' | t }}</label>
-        <select
-          id="animal-list-category"
-          class="form-select form-select-sm"
+        <app-searchable-select
+          inputId="animal-list-category"
+          size="sm"
+          [options]="categorySelectOptions"
           [value]="selectedCategory"
-          (change)="updateCategoryFilter($any($event.target).value)"
-        >
-          <option value="">{{ 'common.all' | t }}</option>
-          <option *ngFor="let category of categoryOptions" [value]="category.category_uuid">{{ category.name }}</option>
-        </select>
+          [allowEmpty]="true"
+          [emptyLabel]="'common.all' | t"
+          [placeholder]="'common.all' | t"
+          (valueChange)="updateCategoryFilter($event)"
+        ></app-searchable-select>
       </div>
       <div>
         <label class="form-label mb-1" for="animal-list-birth-from">{{ 'animal.listFilterBirthFrom' | t }}</label>
@@ -141,15 +148,17 @@
       </div>
       <div *ngIf="isInactiveList">
         <label class="form-label mb-1" for="animal-list-exit-type">{{ 'animal.exitType' | t }}</label>
-        <select
-          id="animal-list-exit-type"
-          class="form-select form-select-sm"
+        <app-searchable-select
+          inputId="animal-list-exit-type"
+          size="sm"
+          [searchable]="false"
+          [options]="exitTypeSelectOptions"
           [value]="selectedExitType"
-          (change)="updateExitTypeFilter($any($event.target).value)"
-        >
-          <option value="">{{ 'common.all' | t }}</option>
-          <option *ngFor="let exitType of exitTypeOptions" [value]="exitType.value">{{ exitType.labelKey | t }}</option>
-        </select>
+          [allowEmpty]="true"
+          [emptyLabel]="'common.all' | t"
+          [placeholder]="'common.all' | t"
+          (valueChange)="updateExitTypeFilter($event)"
+        ></app-searchable-select>
       </div>
       <div class="animal-list__filters-actions">
         <button
@@ -226,7 +235,7 @@
 
   <div *ngIf="isLoading" class="text-muted py-2 small">{{ 'common.loading' | t }}</div>
 
-  <div class="animal-list__table-wrap app-table" *ngIf="!isLoading">
+  <div class="animal-list__table-wrap app-table" *ngIf="animals.length > 0">
     <table aria-describedby="table-animal" class="table table-striped table-hover mb-0">
       <thead>
       <tr>
@@ -311,7 +320,7 @@
 
   <div *ngIf="!isLoading && animals.length === 0" class="empty-table-message mt-2 text-muted">{{ emptyMessageKey | t }}</div>
 
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2" *ngIf="!isLoading && listPagination.totalItems > 0">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2" *ngIf="animals.length > 0 && listPagination.totalItems > 0">
     <span class="text-muted small">{{ 'animal.listShowing' | t:{ shown: animals.length, total: listPagination.totalItems } }}</span>
     <div class="animal-list__pagination" *ngIf="listPagination.totalPages > 1">
       <ul class="pagination pagination-sm app-pagination mb-0">

@@ -3,7 +3,7 @@
     <div>
       <h2 class="app-page-title mb-1">{{ 'corralWorkSession.workTitle' | t }}</h2>
       <p class="text-muted small mb-0">
-        {{ ranchName }} · {{ paddockName }} · {{ session.work_date | date: 'yyyy-MM-dd' }}
+        {{ ranchName }} · {{ paddockName }} · {{ session.work_date | date: 'd MMM y':'UTC':'en' }}
         · {{ statusLabel(session.status) }}
       </p>
       <div class="mt-1">

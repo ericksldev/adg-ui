@@ -1,32 +1,95 @@
 <div class="corral-workspace" *ngIf="!loading && workspace">
-  <div class="app-page-header corral-workspace__header d-flex flex-wrap align-items-start justify-content-between gap-2">
-    <div>
-      <h2 class="app-page-title mb-1 d-inline-flex align-items-center gap-1 flex-wrap">
+  <div class="app-page-header corral-workspace__header">
+    <div class="corral-workspace__header-identity">
+      <h2 class="app-page-title corral-workspace__header-title mb-0">
         {{ workspaceTitleKey | t }}
         <app-info-hint *ngIf="workspaceEntryHint" [text]="workspaceEntryHint"></app-info-hint>
       </h2>
       <p class="corral-workspace__meta small mb-0">
-        {{ workspace.session.work_date | date: 'yyyy-MM-dd' }}
+        {{ workspace.session.work_date | date: 'd MMM y':'UTC':'en' }}
         <span *ngIf="workspace.session.responsible_person"> · {{ workspace.session.responsible_person }}</span>
       </p>
+      <button
+        *ngIf="activeGridData"
+        type="button"
+        class="corral-workspace__header-menu-toggle"
+        (click)="toggleHeaderMenu()"
+        [attr.aria-expanded]="headerMenuExpanded"
+      >
+        <span>{{ 'corralWorkSession.headerMenuToggle' | t }}</span>
+        <i class="bi" [class.bi-chevron-up]="headerMenuExpanded" [class.bi-chevron-down]="!headerMenuExpanded" aria-hidden="true"></i>
+      </button>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-      <button type="button" class="btn btn-outline-primary btn-sm" (click)="openActivitiesSetup()" [disabled]="isClosed">
-        <i class="bi bi-sliders me-1"></i>{{ 'corralActivityShortcut.manageActivitiesButton' | t }}
-      </button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="backToList()">
-        {{ 'corralWorkSession.backToList' | t }}
-      </button>
-      <button type="button" class="btn btn-outline-danger btn-sm" (click)="closeSession()" [disabled]="closing || isClosed">
-        {{ closing ? ('common.saving' | t) : ('corralWorkSession.closeSession' | t) }}
-      </button>
+
+    <button
+      type="button"
+      class="btn btn-sm corral-workspace__close-btn"
+      (click)="closeSession()"
+      [disabled]="closing || isClosed"
+      [attr.title]="'corralWorkSession.closeSession' | t"
+      [attr.aria-label]="'corralWorkSession.closeSession' | t"
+    >
+      <i class="bi" [class.bi-hourglass-split]="closing" [class.bi-save]="!closing" aria-hidden="true"></i>
+    </button>
+
+    <div
+      class="corral-workspace__header-menu"
+      *ngIf="activeGridData"
+      [class.corral-workspace__header-menu--open]="headerMenuExpanded"
+    >
+      <div class="corral-workspace__header-controls">
+        <label class="corral-workspace__compact-select">
+          <span class="corral-workspace__compact-select-label">{{ 'corralWorkSession.workModeLabelCompact' | t }}:</span>
+          <select
+            [ngModel]="activeWorkMode"
+            (ngModelChange)="onWorkModeChange($event)"
+            [disabled]="isClosed || updatingWorkMode"
+          >
+            <option *ngFor="let mode of workModes" [value]="mode">{{ workModeLabelCompact(mode) }}</option>
+          </select>
+        </label>
+        <label class="corral-workspace__compact-select">
+          <span class="corral-workspace__compact-select-label">{{ 'corralActivityShortcut.listSortLabelCompact' | t }}:</span>
+          <select
+            [ngModel]="animalListSort"
+            (ngModelChange)="onAnimalListSortChange($event)"
+          >
+            <option *ngFor="let mode of animalListSortModes" [value]="mode">{{ animalListSortLabelCompact(mode) }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="corral-workspace__header-actions">
+        <button
+          type="button"
+          class="btn btn-sm corral-workspace__load-btn"
+          [class.corral-workspace__load-btn--active]="showAttachPanel"
+          (click)="onLoadAnimalsPanelToggle()"
+          [disabled]="!canLoadAnimals"
+          [attr.title]="loadAnimalsButtonTitle"
+          [attr.aria-label]="'corralWorkSession.loadAnimalsButton' | t"
+        >
+          <i class="bi bi-plus-lg" aria-hidden="true"></i>
+          <span class="corral-workspace__load-btn-short">{{ 'corralWorkSession.loadAnimalsButtonCompact' | t }}</span>
+          <span class="corral-workspace__load-btn-full">{{ 'corralWorkSession.loadAnimalsButton' | t }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm corral-workspace__setup-btn"
+          (click)="openActivitiesSetup()"
+          [disabled]="isClosed"
+        >
+          <i class="bi bi-sliders" aria-hidden="true"></i>
+          <span class="corral-workspace__setup-btn-label">{{ 'corralWorkSession.configureStepsButton' | t }}</span>
+        </button>
+      </div>
     </div>
   </div>
 
   <div *ngIf="errorMessage" class="alert alert-danger py-2 corral-workspace__alert">{{ errorMessage }}</div>
   <div *ngIf="successMessage" class="alert alert-success py-2 corral-workspace__alert">{{ successMessage }}</div>
 
-  <div class="corral-workspace__body" [class.corral-workspace__body--sidebar-collapsed]="!findingsPanelExpanded">
+  <div class="corral-workspace__body" [class.corral-workspace__body--sidebar-collapsed]="sideColumnCollapsed">
     <div class="corral-workspace__main">
       <!-- Escáner arriba de las pestañas -->
       <div class="app-card corral-workspace__card corral-workspace__scan-bar p-2 mb-2" *ngIf="activeGridData">
@@ -114,32 +177,7 @@
         </li>
       </ul>
 
-      <!-- Modo de trabajo + cargar animales (compacto) -->
-      <div class="corral-workspace__toolbar d-flex flex-wrap align-items-center gap-2 mb-2" *ngIf="activeGridData">
-        <label class="corral-workspace__toolbar-label small mb-0 d-inline-flex align-items-center gap-1">
-          {{ 'corralWorkSession.workModeLabel' | t }}
-          <app-info-hint [text]="workModeDescription(activeWorkMode)"></app-info-hint>
-        </label>
-        <select
-          class="form-select form-select-sm corral-workspace__mode-select"
-          [ngModel]="activeWorkMode"
-          (ngModelChange)="onWorkModeChange($event)"
-          [disabled]="isClosed || updatingWorkMode"
-        >
-          <option *ngFor="let mode of workModes" [value]="mode">{{ workModeLabel(mode) }}</option>
-        </select>
-        <button
-          type="button"
-          class="btn btn-sm corral-workspace__load-btn"
-          [class.corral-workspace__load-btn--active]="showAttachPanel"
-          (click)="onLoadAnimalsPanelToggle()"
-          [disabled]="isClosed"
-        >
-          {{ 'corralWorkSession.loadAnimalsButton' | t }}
-        </button>
-      </div>
-
-      <div class="app-card corral-workspace__card corral-workspace__load-panel p-3 mb-3" *ngIf="showAttachPanel && activeGridData">
+      <div class="app-card corral-workspace__card corral-workspace__load-panel p-3 mb-3" *ngIf="showAttachPanel && activeGridData && canLoadAnimals">
         <h3 class="h6 mb-2 corral-workspace__panel-title d-inline-flex align-items-center gap-1">
           {{ 'corralWorkSession.loadAnimalsPanelTitle' | t }}
           <app-info-hint [text]="'corralWorkSession.loadAnimalsPanelHint' | t"></app-info-hint>
@@ -315,6 +353,8 @@
         </div>
       </div>
 
+      <ng-container *ngIf="!countersInSidebar" [ngTemplateOutlet]="counterPanel"></ng-container>
+
       <div class="app-card corral-workspace__card corral-workspace__grid-card p-2" *ngIf="activeGridData">
         <div class="corral-workspace__presets-panel mb-2">
           <div class="corral-workspace__presets-header">
@@ -361,19 +401,19 @@
             <span class="corral-workspace__preset-summary-divider" aria-hidden="true"></span>
             <span
               class="corral-workspace__preset-summary-chip corral-workspace__preset-summary-chip--finding"
-              [class.corral-workspace__preset-summary-chip--default]="!!activePresets.defaultObservation"
+              [class.corral-workspace__preset-summary-chip--default]="!!defaultObservationLabel()"
             >
-              {{ 'corralWorkSession.fieldObservation' | t }}<ng-container *ngIf="activePresets.defaultObservation as observationDefault">: {{ observationDefault }}</ng-container>
+              {{ 'corralWorkSession.fieldObservation' | t }}<ng-container *ngIf="defaultObservationLabel() as observationDefault">: {{ observationDefault }}</ng-container>
             </span>
             <span
               class="corral-workspace__preset-summary-chip corral-workspace__preset-summary-chip--finding"
-              [class.corral-workspace__preset-summary-chip--default]="!!activePresets.defaultCondition"
+              [class.corral-workspace__preset-summary-chip--default]="!!defaultConditionLabel()"
             >
               {{ 'corralWorkSession.visualCondition' | t }}<ng-container *ngIf="defaultConditionLabel() as conditionDefault">: {{ conditionDefault }}</ng-container>
             </span>
             <span
               class="corral-workspace__preset-summary-chip corral-workspace__preset-summary-chip--finding"
-              [class.corral-workspace__preset-summary-chip--default]="!!activePresets.defaultMedicationKey"
+              [class.corral-workspace__preset-summary-chip--default]="!!defaultMedicationLabel()"
             >
               {{ 'corralWorkSession.additionalMedication' | t }}<ng-container *ngIf="defaultMedicationLabel() as medicationDefault">: {{ medicationDefault }}</ng-container>
             </span>
@@ -472,22 +512,22 @@
                 <span
                   *ngFor="let obs of activePresets.observations; let i = index"
                   class="corral-workspace__preset-tag"
-                  [class.corral-workspace__preset-tag--default]="activePresets.defaultObservation === obs"
+                  [class.corral-workspace__preset-tag--default]="isObservationDefault(obs)"
                 >
                   <button
                     type="button"
                     class="corral-workspace__preset-default"
-                    [class.corral-workspace__preset-default--active]="activePresets.defaultObservation === obs"
+                    [class.corral-workspace__preset-default--active]="isObservationDefault(obs)"
                     (click)="toggleObservationDefault(i)"
                     [disabled]="isClosed"
-                    [attr.aria-pressed]="activePresets.defaultObservation === obs"
-                    [attr.title]="((activePresets.defaultObservation === obs) ? 'corralWorkSession.presetClearDefault' : 'corralWorkSession.presetSetDefault') | t"
-                    [attr.aria-label]="((activePresets.defaultObservation === obs) ? 'corralWorkSession.presetClearDefault' : 'corralWorkSession.presetSetDefault') | t"
+                    [attr.aria-pressed]="isObservationDefault(obs)"
+                    [attr.title]="(isObservationDefault(obs) ? 'corralWorkSession.presetClearDefault' : 'corralWorkSession.presetSetDefault') | t"
+                    [attr.aria-label]="(isObservationDefault(obs) ? 'corralWorkSession.presetClearDefault' : 'corralWorkSession.presetSetDefault') | t"
                   >
-                    <i class="bi" [class.bi-star-fill]="activePresets.defaultObservation === obs" [class.bi-star]="activePresets.defaultObservation !== obs" aria-hidden="true"></i>
+                    <i class="bi" [class.bi-star-fill]="isObservationDefault(obs)" [class.bi-star]="!isObservationDefault(obs)" aria-hidden="true"></i>
                   </button>
                   {{ obs }}
-                  <span *ngIf="activePresets.defaultObservation === obs" class="corral-workspace__preset-default-badge">
+                  <span *ngIf="isObservationDefault(obs)" class="corral-workspace__preset-default-badge">
                     {{ 'corralWorkSession.presetDefaultBadge' | t }}
                   </span>
                   <button type="button" class="corral-workspace__preset-remove" (click)="removeObservationPreset(i)" [disabled]="isClosed">×</button>
@@ -507,22 +547,22 @@
                 <span
                   *ngFor="let code of activePresets.conditions; let i = index"
                   class="corral-workspace__preset-tag"
-                  [class.corral-workspace__preset-tag--default]="activePresets.defaultCondition === code"
+                  [class.corral-workspace__preset-tag--default]="isConditionDefault(code)"
                 >
                   <button
                     type="button"
                     class="corral-workspace__preset-default"
-                    [class.corral-workspace__preset-default--active]="activePresets.defaultCondition === code"
+                    [class.corral-workspace__preset-default--active]="isConditionDefault(code)"
                     (click)="toggleConditionDefault(i)"
                     [disabled]="isClosed"
-                    [attr.aria-pressed]="activePresets.defaultCondition === code"
-                    [attr.title]="((activePresets.defaultCondition === code) ? 'corralWorkSession.presetClearDefault' : 'corralWorkSession.presetSetDefault') | t"
-                    [attr.aria-label]="((activePresets.defaultCondition === code) ? 'corralWorkSession.presetClearDefault' : 'corralWorkSession.presetSetDefault') | t"
+                    [attr.aria-pressed]="isConditionDefault(code)"
+                    [attr.title]="(isConditionDefault(code) ? 'corralWorkSession.presetClearDefault' : 'corralWorkSession.presetSetDefault') | t"
+                    [attr.aria-label]="(isConditionDefault(code) ? 'corralWorkSession.presetClearDefault' : 'corralWorkSession.presetSetDefault') | t"
                   >
-                    <i class="bi" [class.bi-star-fill]="activePresets.defaultCondition === code" [class.bi-star]="activePresets.defaultCondition !== code" aria-hidden="true"></i>
+                    <i class="bi" [class.bi-star-fill]="isConditionDefault(code)" [class.bi-star]="!isConditionDefault(code)" aria-hidden="true"></i>
                   </button>
                   {{ 'corralWorkSession.condition.' + code | t }}
-                  <span *ngIf="activePresets.defaultCondition === code" class="corral-workspace__preset-default-badge">
+                  <span *ngIf="isConditionDefault(code)" class="corral-workspace__preset-default-badge">
                     {{ 'corralWorkSession.presetDefaultBadge' | t }}
                   </span>
                   <button type="button" class="corral-workspace__preset-remove" (click)="removeConditionPreset(i)" [disabled]="isClosed">×</button>
@@ -582,6 +622,8 @@
           [highlightAnimalUuid]="highlightAnimalUuid"
           [workMode]="activeWorkMode"
           [queueScannedUuids]="activeQueueScannedUuids"
+          [lastScannedUuid]="lastScannedAnimalUuid"
+          [listSortMode]="animalListSort"
           [columnPresets]="activeGridColumnPresets"
           [findingPresets]="activePresets"
           [rowFindings]="activeRowFindings"
@@ -591,29 +633,41 @@
           (saveRequested)="onSaveGrid($event)"
           (gridChange)="onGridChange($event)"
           (workspaceDraftChange)="onWorkspaceDraftChange()"
+          (rowRemoveRequested)="onRemoveScannedRow($event)"
         ></app-corral-step-grid>
         <p *ngIf="saving" class="corral-workspace__hint small mt-2 mb-0">{{ 'common.saving' | t }}</p>
       </div>
 
     </div>
 
-    <aside class="corral-workspace__sidebar" [class.corral-workspace__sidebar--collapsed]="!findingsPanelExpanded">
+    <aside class="corral-workspace__sidebar" [class.corral-workspace__sidebar--collapsed]="sideColumnCollapsed">
+      <div class="corral-workspace__sidebar-tools">
       <div class="corral-workspace__sidebar-rail">
         <button
           type="button"
           class="corral-workspace__sidebar-toggle"
           (click)="toggleFindingsPanel()"
-          [attr.aria-label]="findingsPanelExpanded ? ('corralWorkSession.sidebarCollapse' | t) : ('corralWorkSession.sidebarExpand' | t)"
-          [title]="findingsPanelExpanded ? ('corralWorkSession.sidebarCollapse' | t) : ('corralWorkSession.sidebarExpand' | t)"
+          [attr.aria-expanded]="findingsPanelExpanded"
+          [attr.aria-label]="sidePanelToggleKey | t"
+          [title]="sidePanelToggleKey | t"
         >
           <i class="bi" [class.bi-chevron-left]="findingsPanelExpanded" [class.bi-chevron-right]="!findingsPanelExpanded"></i>
         </button>
-        <span class="corral-workspace__sidebar-rail-label" *ngIf="!findingsPanelExpanded">
-          {{ 'corralWorkSession.animalHistoryTitle' | t }}
-        </span>
+        <ng-container *ngIf="!findingsPanelExpanded">
+          <span class="corral-workspace__sidebar-rail-label" *ngIf="countersInSidebar && showStepCounters">
+            {{ 'corralWorkSession.countersTitle' | t }}
+          </span>
+          <span class="corral-workspace__sidebar-rail-label">
+            {{ 'corralWorkSession.animalHistoryTitle' | t }}
+          </span>
+        </ng-container>
       </div>
 
-      <div class="corral-workspace__sidebar-content app-card corral-workspace__card corral-workspace__findings-card" *ngIf="findingsPanelExpanded">
+      <div class="corral-workspace__sidebar-panels" *ngIf="findingsPanelExpanded">
+      <div class="corral-workspace__counter-slot" *ngIf="countersInSidebar && showStepCounters">
+        <ng-container [ngTemplateOutlet]="counterPanel"></ng-container>
+      </div>
+      <div class="corral-workspace__sidebar-content app-card corral-workspace__card corral-workspace__findings-card">
         <div class="corral-workspace__sidebar-header">
           <h3 class="h6 corral-workspace__panel-title mb-0">{{ 'corralWorkSession.animalHistoryTitle' | t }}</h3>
         </div>
@@ -637,10 +691,6 @@
               <dd>{{ historySexLabel(historyProfile.sex) }}</dd>
             </div>
             <div>
-              <dt>{{ 'animal.fieldBreed' | t }}</dt>
-              <dd>{{ historyBreedLabel(historyProfile.breed_code) }}</dd>
-            </div>
-            <div>
               <dt>{{ 'animal.fieldBirthDate' | t }}</dt>
               <dd>{{ historyProfile.birth_date || ('common.notAvailable' | t) }}</dd>
             </div>
@@ -651,10 +701,6 @@
             <div>
               <dt>{{ 'animal.fieldPaddock' | t }}</dt>
               <dd>{{ historyProfile.paddock_name || ('common.notAvailable' | t) }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'animal.fieldOriginType' | t }}</dt>
-              <dd>{{ historyOriginLabel(historyProfile.origin_type) }}</dd>
             </div>
           </dl>
           <ng-template #historyIdentityOnly>
@@ -674,7 +720,7 @@
 
           <article class="corral-workspace__history-session" *ngFor="let session of historySessions">
             <header class="corral-workspace__history-session-header">
-              <span>{{ session.work_date | date: 'yyyy-MM-dd' }}</span>
+              <span>{{ session.work_date | date: 'd MMM y':'UTC':'en' }}</span>
               <span>{{ ('corralWorkSession.status.' + session.status) | t }}</span>
             </header>
             <p class="corral-workspace__history-meta mb-1" *ngIf="session.responsible_person">
@@ -705,8 +751,124 @@
           </article>
         </div>
       </div>
+      </div>
+      </div>
     </aside>
   </div>
 </div>
+
+<ng-template #counterPanel>
+  <section
+    class="corral-workspace__counters"
+    *ngIf="activeGridData && (!isClosed || activeCounters.length > 0)"
+    [class.corral-workspace__counters--side]="countersInSidebar"
+    [class.corral-workspace__counters--collapsed]="countersCollapsed"
+  >
+    <div class="corral-workspace__counters-top">
+      <button
+        type="button"
+        class="corral-workspace__counters-toggle"
+        (click)="toggleCountersCollapsed()"
+        [attr.aria-expanded]="!countersCollapsed"
+        [attr.aria-label]="(countersCollapsed ? 'corralWorkSession.counterShow' : 'corralWorkSession.counterHide') | t"
+      >
+        <i class="bi" [class.bi-chevron-down]="!countersCollapsed" [class.bi-chevron-right]="countersCollapsed" aria-hidden="true"></i>
+      </button>
+      <span class="corral-workspace__counters-title">{{ 'corralWorkSession.countersTitle' | t }}</span>
+      <span class="corral-workspace__counters-badge">{{ activeCounters.length }}</span>
+      <button
+        type="button"
+        class="corral-workspace__counters-add-link corral-workspace__counters-add-link--end"
+        (click)="openCounterAdd()"
+        [disabled]="isClosed"
+      >
+        + {{ 'corralWorkSession.addCounter' | t }}
+      </button>
+    </div>
+
+    <div class="corral-workspace__counters-main">
+      <div class="corral-workspace__counter" *ngFor="let counter of activeCounters; trackBy: trackCounter">
+        <input
+          *ngIf="editingCounterId === counter.uuid_corral_step_counter; else counterName"
+          class="corral-workspace__counter-rename"
+          [(ngModel)]="counter.title"
+          (blur)="commitCounterTitle(counter)"
+          (keydown.enter)="commitCounterTitle(counter)"
+          (keydown.escape)="cancelCounterRename(counter)"
+          maxlength="80"
+          [attr.aria-label]="'corralWorkSession.counterCategoryPlaceholder' | t"
+        />
+        <ng-template #counterName>
+          <span class="corral-workspace__counter-name">{{ counter.title }}</span>
+        </ng-template>
+        <div class="corral-workspace__counter-controls">
+          <button
+            type="button"
+            class="corral-workspace__counter-btn"
+            (click)="adjustCounter(counter, -1)"
+            [disabled]="isClosed || counter.count <= 0"
+            [attr.aria-label]="'corralWorkSession.counterDecrement' | t"
+          >−</button>
+          <span class="corral-workspace__counter-value" aria-live="polite">{{ counter.count }}</span>
+          <button
+            type="button"
+            class="corral-workspace__counter-btn corral-workspace__counter-btn--plus"
+            (click)="adjustCounter(counter, 1)"
+            [disabled]="isClosed"
+            [attr.aria-label]="'corralWorkSession.counterIncrement' | t"
+          >+</button>
+          <div class="corral-workspace__counter-menu">
+            <button
+              type="button"
+              class="corral-workspace__counter-menu-btn"
+              (click)="toggleCounterMenu(counter.uuid_corral_step_counter, $event)"
+              [disabled]="isClosed"
+              [attr.aria-label]="'corralWorkSession.counterMenu' | t"
+            >
+              <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+            </button>
+            <div
+              class="corral-workspace__counter-menu-pop"
+              *ngIf="openCounterMenuId === counter.uuid_corral_step_counter"
+              (click)="$event.stopPropagation()"
+            >
+              <button type="button" (click)="startCounterRename(counter)">{{ 'corralWorkSession.counterRename' | t }}</button>
+              <button type="button" (click)="resetCounter(counter)" [disabled]="counter.count === 0">
+                {{ 'corralWorkSession.counterReset' | t }}
+              </button>
+              <button type="button" class="corral-workspace__counter-menu-danger" (click)="removeCounter(counter)">
+                {{ 'corralWorkSession.counterRemove' | t }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form class="corral-workspace__counter-add" *ngIf="counterAddOpen && !isClosed" (ngSubmit)="addCounter()">
+        <input
+          class="form-control form-control-sm"
+          name="newCounterTitle"
+          [(ngModel)]="newCounterTitle"
+          [placeholder]="'corralWorkSession.counterCategoryPlaceholder' | t"
+          maxlength="80"
+          autocomplete="off"
+        />
+        <button type="submit" class="corral-workspace__counters-add-link" [disabled]="addingCounter || !newCounterTitle.trim()">
+          {{ 'corralWorkSession.addCounter' | t }}
+        </button>
+      </form>
+
+      <button
+        type="button"
+        class="corral-workspace__counters-add-link corral-workspace__counters-add-link--block"
+        (click)="openCounterAdd()"
+        [disabled]="isClosed"
+        *ngIf="!isClosed"
+      >
+        + {{ 'corralWorkSession.counterAddCategory' | t }}
+      </button>
+    </div>
+  </section>
+</ng-template>
 
 <div *ngIf="loading" class="text-muted small py-4">{{ 'common.loading' | t }}</div>

@@ -48,7 +48,7 @@
       <div class="row g-3">
         <div class="col-md-3 col-sm-6">
           <div class="corral-session-detail__field-label">{{ 'corralWorkSession.fieldWorkDate' | t }}</div>
-          <div class="corral-session-detail__field-value">{{ session.work_date | date: 'yyyy-MM-dd' }}</div>
+          <div class="corral-session-detail__field-value">{{ session.work_date | date: 'd MMM y':'UTC':'en' }}</div>
         </div>
         <div class="col-md-3 col-sm-6">
           <div class="corral-session-detail__field-label">{{ 'animal.fieldRanch' | t }}</div>
@@ -178,6 +178,18 @@
             </button>
           </li>
         </ul>
+
+        <ng-container *ngIf="activeGrid?.counters as counters">
+          <div class="mb-3" *ngIf="counters.length">
+            <h4 class="h6 mb-2">{{ 'corralWorkSession.countersTitle' | t }}</h4>
+            <div class="d-flex flex-wrap gap-2">
+              <div class="border rounded px-2 py-1 bg-light" *ngFor="let counter of counters">
+                <span class="text-muted small">{{ counter.title }}</span>
+                <strong class="ms-2">{{ counter.count }}</strong>
+              </div>
+            </div>
+          </div>
+        </ng-container>
 
         <app-corral-step-grid
           *ngIf="activeGrid"

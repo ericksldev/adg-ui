@@ -31,7 +31,7 @@
     <div class="table-responsive corral-step-grid__scroll">
       <table class="table table-sm table-bordered corral-step-grid__table mb-0">
         <thead>
-          <ng-container *ngTemplateOutlet="headTemplate; context: { rows: editableRows }"></ng-container>
+          <ng-container *ngTemplateOutlet="headTemplate; context: { rows: displayedRows }"></ng-container>
         </thead>
         <tbody>
           <ng-container *ngIf="showSequentialSkeleton">
@@ -46,7 +46,7 @@
               </td>
             </tr>
           </ng-container>
-          <ng-container *ngTemplateOutlet="rowsTemplate; context: { rows: editableRows }"></ng-container>
+          <ng-container *ngTemplateOutlet="rowsTemplate; context: { rows: displayedRows }"></ng-container>
         </tbody>
       </table>
     </div>
@@ -132,7 +132,7 @@
     </div>
   </div>
 
-  <div class="d-flex justify-content-end mt-1" *ngIf="!readonly && savableRows.length > 0">
+  <div class="corral-step-grid__save-bar" *ngIf="!readonly && savableRows.length > 0">
     <button type="button" class="btn btn-primary btn-sm py-0 px-2" (click)="requestSave()">
       {{ 'corralWorkSession.saveStepGrid' | t }}
     </button>
@@ -140,7 +140,7 @@
 </div>
 
 <ng-template #rowsTemplate let-rows="rows">
-  <tr #gridRow *ngFor="let row of rows" [attr.data-animal]="row.animal_uuid" [ngClass]="rowClass(row.animal_uuid)">
+  <tr #gridRow *ngFor="let row of rows; trackBy: trackByAnimalUuid" [attr.data-animal]="row.animal_uuid" [ngClass]="rowClass(row.animal_uuid)">
     <td *ngIf="hasPaddockDestination && !readonly" class="corral-step-grid__check">
       <input
         *ngIf="!isLocalRow(row.animal_uuid)"
@@ -151,13 +151,30 @@
       />
     </td>
     <th scope="row" class="corral-step-grid__sticky-col corral-step-grid__reg">
-      <span class="corral-step-grid__reg-number">{{ row.registration_number }}</span>
+      <div class="corral-step-grid__reg-main">
+        <span class="corral-step-grid__reg-number">{{ row.registration_number }}</span>
+        <button
+          *ngIf="canRemoveRows"
+          type="button"
+          class="corral-step-grid__row-remove"
+          (click)="requestRemoveRow(row.animal_uuid, $event)"
+          [attr.aria-label]="'corralWorkSession.removeScannedRow' | t"
+          [title]="'corralWorkSession.removeScannedRow' | t"
+        >
+          ×
+        </button>
+      </div>
       <span *ngIf="row.chip_number" class="corral-step-grid__reg-chip">{{ row.chip_number }}</span>
       <span *ngIf="isLocalRow(row.animal_uuid)" class="badge rounded-pill corral-step-grid__local-badge">
         {{ 'corralWorkSession.localRowBadge' | t }}
       </span>
     </th>
-    <td *ngFor="let col of grid.columns" class="corral-step-grid__data-cell" [class.corral-step-grid__data-cell--chip]="isChipPresetColumn(col.value_type)">
+    <td
+      *ngFor="let col of grid.columns"
+      class="corral-step-grid__data-cell"
+      [class.corral-step-grid__data-cell--chip]="isChipPresetColumn(col.value_type)"
+      [class.corral-step-grid__data-cell--boolean]="isBooleanColumn(col.value_type)"
+    >
       <ng-container *ngTemplateOutlet="cellTemplate; context: { row: row, col: col }"></ng-container>
     </td>
     <ng-container *ngIf="showFindingColumns">
@@ -297,7 +314,11 @@
       />
     </th>
     <th class="corral-step-grid__sticky-col">{{ 'animal.fieldRegistrationNumber' | t }}</th>
-    <th *ngFor="let col of grid.columns" class="corral-step-grid__col-label">{{ columnLabel(col) }}</th>
+    <th
+      *ngFor="let col of grid.columns"
+      class="corral-step-grid__col-label"
+      [class.corral-step-grid__col-label--boolean]="isBooleanColumn(col.value_type)"
+    >{{ columnLabel(col) }}</th>
     <ng-container *ngIf="showFindingColumns">
       <th class="corral-step-grid__col-label corral-step-grid__col-label--finding">{{ 'corralWorkSession.fieldObservation' | t }}</th>
       <th class="corral-step-grid__col-label corral-step-grid__col-label--finding">{{ 'corralWorkSession.visualCondition' | t }}</th>

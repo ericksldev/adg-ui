@@ -142,6 +142,14 @@ export interface ApplyPaddockDistributionResultDto {
   grid: CorralStepGridDto;
 }
 
+export interface CorralStepCounterDto {
+  uuid_corral_step_counter: string;
+  uuid_corral_session_step: string;
+  title: string;
+  count: number;
+  sort_order: number;
+}
+
 export interface CorralStepGridDto {
   uuid_corral_session_step: string;
   step_order: number;
@@ -151,6 +159,7 @@ export interface CorralStepGridDto {
   rows: CorralStepGridRowDto[];
   animal_count?: number;
   scanned_animal_uuids?: string[];
+  counters?: CorralStepCounterDto[];
 }
 
 export interface CorralSessionWorkspaceDto {

@@ -28,6 +28,7 @@ export class SearchableSelectComponent implements OnChanges {
   @Input() inputId = '';
   @Input() disabled = false;
   @Input() allowCustomValue = false;
+  @Input() searchable = true;
   @Input() size: 'sm' | 'md' = 'md';
 
   @Output() readonly valueChange = new EventEmitter<string>();
@@ -49,6 +50,9 @@ export class SearchableSelectComponent implements OnChanges {
   }
 
   get filteredOptions(): SearchableSelectOption[] {
+    if (!this.searchable) {
+      return this.options;
+    }
     const query = this.searchQuery.trim().toLowerCase();
     if (!query) {
       return this.options;
@@ -70,10 +74,15 @@ export class SearchableSelectComponent implements OnChanges {
     }
     this.isOpen = true;
     this.highlightedIndex = -1;
-    this.searchQuery = this.displayTextForValue(this.value);
+    if (this.searchable) {
+      this.searchQuery = this.displayTextForValue(this.value);
+    }
   }
 
   onInput(event: Event): void {
+    if (!this.searchable) {
+      return;
+    }
     this.searchQuery = (event.target as HTMLInputElement).value;
     this.isOpen = true;
     this.highlightedIndex = -1;
@@ -94,7 +103,7 @@ export class SearchableSelectComponent implements OnChanges {
     this.close();
   }
 
-  onOptionSelect(event: MouseEvent, nextValue: string): void {
+  onOptionSelect(event: Event, nextValue: string): void {
     event.preventDefault();
     this.suppressBlur = true;
     this.selectValue(nextValue);
@@ -172,8 +181,8 @@ export class SearchableSelectComponent implements OnChanges {
     return this.highlightedIndex === index;
   }
 
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent): void {
+  @HostListener('document:pointerdown', ['$event'])
+  onDocumentPointerDown(event: Event): void {
     if (!this.elementRef.nativeElement.contains(event.target as Node)) {
       this.close();
     }
@@ -199,7 +208,7 @@ export class SearchableSelectComponent implements OnChanges {
 
   private displayTextForValue(optionValue: string): string {
     if (!optionValue) {
-      return '';
+      return this.searchable ? '' : this.emptyLabel;
     }
     const match = this.options.find((option) => option.value === optionValue);
     if (match) {

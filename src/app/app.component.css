@@ -43,7 +43,7 @@
   flex: 1;
   min-height: 0;
   background: var(--background);
-  padding: var(--breadcrumb-page-gap) 1rem 1.25rem;
+  padding: var(--breadcrumb-page-gap) 0.80rem 1.25rem;
 }
 
 .app-main-guest {

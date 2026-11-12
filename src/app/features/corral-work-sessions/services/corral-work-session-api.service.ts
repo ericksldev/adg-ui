@@ -10,6 +10,7 @@ import {
   CorralSessionAnimalsPreviewDto,
   CorralSessionWorkspaceDto,
   CorralStepGridDto,
+  CorralStepCounterDto,
   CorralWorkSessionDto,
   CreateCorralWorkSessionPayload,
   SaveCorralStepGridPayload,
@@ -105,6 +106,14 @@ export class CorralWorkSessionApiService {
           create_new: options?.createNew === true,
           row_uuid: options?.rowUuid
         }
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  removeStepAnimal(sessionUuid: string, stepUuid: string, animalUuid: string): Observable<CorralStepGridDto> {
+    return this.http
+      .delete<ApiItemResponse<CorralStepGridDto>>(
+        `${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/animals/${encodeURIComponent(animalUuid)}`
       )
       .pipe(map((r) => r.data));
   }
@@ -226,5 +235,34 @@ export class CorralWorkSessionApiService {
         body
       )
       .pipe(map((r) => r.data));
+  }
+
+  createStepCounter(sessionUuid: string, stepUuid: string, title: string): Observable<CorralStepCounterDto> {
+    return this.http
+      .post<ApiItemResponse<CorralStepCounterDto>>(
+        `${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/counters`,
+        { title }
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  updateStepCounter(
+    sessionUuid: string,
+    stepUuid: string,
+    counterUuid: string,
+    body: { title?: string; delta?: number; count?: number }
+  ): Observable<CorralStepCounterDto> {
+    return this.http
+      .patch<ApiItemResponse<CorralStepCounterDto>>(
+        `${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/counters/${counterUuid}`,
+        body
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  deleteStepCounter(sessionUuid: string, stepUuid: string, counterUuid: string): Observable<void> {
+    return this.http
+      .delete<ApiItemResponse<null>>(`${this.baseUrl}/${sessionUuid}/steps/${stepUuid}/counters/${counterUuid}`)
+      .pipe(map(() => undefined));
   }
 }

@@ -4,17 +4,20 @@
     type="text"
     class="form-control"
     [class.form-control-sm]="size === 'sm'"
+    [class.searchable-select__trigger]="!searchable"
     role="combobox"
     aria-autocomplete="list"
     [attr.aria-expanded]="isOpen"
     [placeholder]="placeholder"
     [disabled]="disabled"
+    [readonly]="!searchable"
     [value]="searchQuery"
     (input)="onInput($event)"
     (focus)="onFocus()"
     (blur)="onBlur()"
     (keydown)="onKeydown($event)"
     autocomplete="off"
+    [attr.inputmode]="searchable ? null : 'none'"
   />
   <ul class="searchable-select__list" *ngIf="showDropdown" role="listbox">
     <li
@@ -22,7 +25,7 @@
       role="option"
       class="searchable-select__option"
       [class.searchable-select__option--active]="isHighlighted(0)"
-      (mousedown)="onOptionSelect($event, '')"
+      (pointerdown)="onOptionSelect($event, '')"
     >
       {{ emptyLabel }}
     </li>
@@ -31,7 +34,7 @@
       role="option"
       class="searchable-select__option"
       [class.searchable-select__option--active]="isHighlighted(allowEmpty ? i + 1 : i)"
-      (mousedown)="onOptionSelect($event, option.value)"
+      (pointerdown)="onOptionSelect($event, option.value)"
     >
       {{ option.label }}
     </li>

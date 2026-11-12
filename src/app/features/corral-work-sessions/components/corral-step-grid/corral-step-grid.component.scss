@@ -14,6 +14,19 @@
   --grid-col-max: calc(6.2rem + var(--grid-scale) * 3.6rem);
   --grid-col-wide-min: calc(5.2rem + var(--grid-scale) * 2.8rem);
   --grid-col-wide-max: calc(7.2rem + var(--grid-scale) * 4rem);
+  --grid-col-bool-min: calc(4rem + var(--grid-scale) * 1.8rem);
+  --grid-col-bool-max: calc(5.2rem + var(--grid-scale) * 2.4rem);
+
+  &__save-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.35rem;
+    padding: 0.35rem 0 0.15rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fff 28%);
+  }
 
   &__bulk {
     display: flex;
@@ -226,10 +239,13 @@
     left: 0;
     z-index: 2;
     background: #fff;
-    min-width: 4.5rem;
-    max-width: 5.75rem;
+    min-width: calc(3.5rem + var(--grid-scale) * 0.55rem);
+    max-width: calc(4.35rem + var(--grid-scale) * 0.75rem);
+    width: calc(3.7rem + var(--grid-scale) * 0.6rem);
     text-align: left !important;
     white-space: normal !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   thead &__sticky-col {
@@ -238,21 +254,52 @@
   }
 
   &__reg {
+    position: relative;
     font-weight: 600;
     font-size: var(--grid-font);
     line-height: 1.2;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    padding-right: 0.85rem;
+  }
+
+  &__reg-main {
+    display: block;
+    min-width: 0;
+  }
+
+  &__reg-number {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  &__row-remove {
+    position: absolute;
+    top: 0.05rem;
+    right: 0.05rem;
+    border: 0;
+    background: transparent;
+    color: var(--grid-muted);
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      color: #b42318;
+    }
   }
 
   &__reg-chip {
     display: block;
+    min-width: 0;
     color: var(--grid-muted);
     font-size: var(--grid-font-sm);
     font-weight: 400;
     line-height: 1.15;
     margin-top: 0.05rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   &__col-label--finding {
@@ -270,6 +317,13 @@
   &__finding-cell--medication {
     min-width: var(--grid-col-wide-min);
     max-width: var(--grid-col-wide-max);
+  }
+
+  &__data-cell--boolean,
+  &__col-label--boolean {
+    min-width: var(--grid-col-bool-min);
+    max-width: var(--grid-col-bool-max);
+    width: var(--grid-col-bool-min);
   }
 
   &__finding-cell {

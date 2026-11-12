@@ -9,6 +9,7 @@ import { I18nService } from 'src/app/core/services/i18n.service';
 import { SessionService } from 'src/app/core/services/session.service';
 import { RanchOption } from 'src/app/features/users/models/user-management.model';
 import { UserManagementService } from 'src/app/features/users/services/user-management.service';
+import { SearchableSelectOption } from 'src/app/shared/components/searchable-select/searchable-select.component';
 import { hasPermission, Permission } from 'src/app/shared/constants/permissions';
 import { ApiPagination } from 'src/app/shared/models/paginated-list.model';
 import { paginationWindow, PaginationWindowItem } from 'src/app/shared/utils/list-query.util';
@@ -180,6 +181,53 @@ export class AnimalComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.searchSub?.unsubscribe();
+  }
+
+  get pageSizeValue(): string {
+    return String(this.pageSize);
+  }
+
+  get sexSelectOptions(): SearchableSelectOption[] {
+    return [
+      { value: 'ALL', label: this.i18n.translate('common.all') },
+      { value: 'MALE', label: this.i18n.translate('animal.male') },
+      { value: 'FEMALE', label: this.i18n.translate('animal.female') }
+    ];
+  }
+
+  get pageSizeSelectOptions(): SearchableSelectOption[] {
+    return this.pageSizeOptions.map((size) => ({ value: String(size), label: String(size) }));
+  }
+
+  get ranchSelectOptions(): SearchableSelectOption[] {
+    return this.ranchOptions.map((ranch) => ({ value: ranch.uuid_ranch, label: ranch.name }));
+  }
+
+  get paddockSelectOptions(): SearchableSelectOption[] {
+    return this.paddockOptions.map((paddock) => ({ value: paddock.paddock_uuid, label: paddock.name }));
+  }
+
+  get breedSelectOptions(): SearchableSelectOption[] {
+    return this.breedCodes.map((code) => ({ value: code, label: this.breedLabel(code) }));
+  }
+
+  get ownerSelectOptions(): SearchableSelectOption[] {
+    return this.ownerOptions.map((owner) => ({ value: owner.owner_uuid, label: owner.full_name }));
+  }
+
+  get originSelectOptions(): SearchableSelectOption[] {
+    return this.originOptions.map((origin) => ({ value: origin, label: this.originLabel(origin) }));
+  }
+
+  get categorySelectOptions(): SearchableSelectOption[] {
+    return this.categoryOptions.map((category) => ({ value: category.category_uuid, label: category.name }));
+  }
+
+  get exitTypeSelectOptions(): SearchableSelectOption[] {
+    return this.exitTypeOptions.map((exitType) => ({
+      value: exitType.value,
+      label: this.i18n.translate(exitType.labelKey)
+    }));
   }
 
   get totalPages(): number {

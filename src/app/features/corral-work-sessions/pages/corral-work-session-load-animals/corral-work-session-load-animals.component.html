@@ -16,7 +16,7 @@
     <div class="row g-2 small">
       <div class="col-md-3">
         <span class="text-muted">{{ 'corralWorkSession.fieldWorkDate' | t }}:</span>
-        {{ session.work_date | date: 'yyyy-MM-dd' }}
+        {{ session.work_date | date: 'd MMM y':'UTC':'en' }}
       </div>
       <div class="col-md-3">
         <span class="text-muted">{{ 'animal.fieldRanch' | t }}:</span>

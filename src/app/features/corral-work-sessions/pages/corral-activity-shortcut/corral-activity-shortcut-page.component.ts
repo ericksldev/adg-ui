@@ -16,6 +16,11 @@ import { getCorralActivityShortcutConfig } from '../../constants/corral-activity
 import { CorralWorkSessionDto } from '../../models/corral-work-session.model';
 import { CorralActivityQuickStartService } from '../../services/corral-activity-quick-start.service';
 import { CorralWorkSessionApiService } from '../../services/corral-work-session-api.service';
+import { CorralAnimalListSortService } from '../../services/corral-animal-list-sort.service';
+import {
+  CORRAL_ANIMAL_LIST_SORT_MODES,
+  CorralAnimalListSortMode
+} from '../../models/corral-animal-list-sort.model';
 
 @Component({
   selector: 'app-corral-activity-shortcut-page',
@@ -42,6 +47,8 @@ export class CorralActivityShortcutPageComponent implements OnInit, OnDestroy {
 
   filterRanchUuid = '';
   filterWorkDate = '';
+  readonly animalListSortModes = CORRAL_ANIMAL_LIST_SORT_MODES;
+  animalListSort: CorralAnimalListSortMode = 'SCAN_ORDER';
 
   private routeSub?: Subscription;
 
@@ -52,6 +59,7 @@ export class CorralActivityShortcutPageComponent implements OnInit, OnDestroy {
     private readonly userManagementService: UserManagementService,
     private readonly sessionService: SessionService,
     private readonly router: Router,
+    private readonly animalListSortService: CorralAnimalListSortService,
     readonly i18n: I18nService
   ) {}
 
@@ -74,6 +82,7 @@ export class CorralActivityShortcutPageComponent implements OnInit, OnDestroy {
       }
       this.activityCode = activityCode;
       this.activityIcon = CORRAL_ACTIVITY_ICONS[activityCode];
+      this.animalListSort = this.animalListSortService.getSort(activityCode);
       this.loadSessions();
     });
   }
@@ -84,6 +93,15 @@ export class CorralActivityShortcutPageComponent implements OnInit, OnDestroy {
 
   activityLabel(): string {
     return this.i18n.translate(`corralWorkSession.activity.${this.activityCode}`);
+  }
+
+  animalListSortLabel(mode: CorralAnimalListSortMode): string {
+    return this.i18n.translate(`corralActivityShortcut.listSort.${mode}`);
+  }
+
+  onAnimalListSortChange(mode: CorralAnimalListSortMode): void {
+    this.animalListSort = mode;
+    this.animalListSortService.setSort(mode, this.activityCode);
   }
 
   onCompanyChange(uuid: string): void {
@@ -168,6 +186,7 @@ export class CorralActivityShortcutPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.animalListSortService.setSort(this.animalListSort, this.activityCode);
     const shortcut = getCorralActivityShortcutConfig(this.activityCode);
     this.starting = true;
     this.quickStart
